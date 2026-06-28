@@ -1,0 +1,128 @@
+import { mutation, query } from "./_generated/server";
+import { v } from "convex/values";
+import { getScope, assertOrg } from "./lib/auth";
+
+/** All shots in a shoot, each with its generations. Client groups by location. */
+export const listByShoot = query({
+  args: { shootId: v.id("shoots") },
+  handler: async (ctx, { shootId }) => {
+    const scope = await getScope(ctx);
+    assertOrg(await ctx.db.get(shootId), scope);
+    const shots = await ctx.db
+      .query("shots")
+      .withIndex("by_shoot", (q) => q.eq("shootId", shootId))
+      .collect();
+    shots.sort((a, b) => a.order - b.order);
+
+    return Promise.all(
+      shots.map(async (shot) => {
+        const generations = await ctx.db
+          .query("generations")
+          .withIndex("by_shot", (q) => q.eq("shotId", shot._id))
+          .order("desc")
+          .collect();
+        const resolvedGens = await Promise.all(
+          generations.map(async (g) => {
+            let imageUrl = g.imageUrl;
+            if (!imageUrl && g.storageId) {
+              imageUrl = (await ctx.storage.getUrl(g.storageId)) ?? undefined;
+            }
+            return { ...g, imageUrl };
+          }),
+        );
+        return { ...shot, generations: resolvedGens };
+      }),
+    );
+  },
+});
+
+export const create = mutation({
+  args: {
+    shootLocationId: v.id("shootLocations"),
+    name: v.optional(v.string()),
+    modelId: v.optional(v.id("models")),
+  },
+  handler: async (ctx, args) => {
+    const scope = await getScope(ctx);
+    const sl = assertOrg(await ctx.db.get(args.shootLocationId), scope);
+    const existing = await ctx.db
+      .query("shots")
+      .withIndex("by_shoot_location", (q) =>
+        q.eq("shootLocationId", args.shootLocationId),
+      )
+      .collect();
+    return await ctx.db.insert("shots", {
+      orgId: scope.orgId,
+      shootId: sl.shootId,
+      shootLocationId: args.shootLocationId,
+      order: existing.length,
+      name: args.name,
+      modelId: args.modelId ?? sl.modelIds?.[0],
+      selectedVariationIds: [],
+    });
+  },
+});
+
+export const update = mutation({
+  args: {
+    id: v.id("shots"),
+    name: v.optional(v.string()),
+    // Reference fields accept null to clear them (Convex drops `undefined`).
+    modelId: v.optional(v.union(v.id("models"), v.null())),
+    outfitId: v.optional(v.union(v.id("outfits"), v.null())),
+    selectedVariationIds: v.optional(v.array(v.string())),
+    posePrompt: v.optional(v.string()),
+    extraPrompt: v.optional(v.string()),
+    styleId: v.optional(v.union(v.id("presets"), v.null())),
+    cameraId: v.optional(v.union(v.id("presets"), v.null())),
+    lightingId: v.optional(v.union(v.id("presets"), v.null())),
+    cameraFraming: v.optional(v.any()),
+  },
+  handler: async (ctx, { id, ...args }) => {
+    const scope = await getScope(ctx);
+    assertOrg(await ctx.db.get(id), scope);
+    // Convert nulls to `undefined` so ctx.db.patch removes those fields.
+    const patch: Record<string, unknown> = {};
+    for (const [k, val] of Object.entries(args)) {
+      patch[k] = val === null ? undefined : val;
+    }
+    await ctx.db.patch(id, patch);
+  },
+});
+
+/** Copy a shot (settings only, not its generations) into the same location. */
+export const duplicate = mutation({
+  args: { id: v.id("shots") },
+  handler: async (ctx, { id }) => {
+    const scope = await getScope(ctx);
+    const shot = assertOrg(await ctx.db.get(id), scope);
+    const siblings = await ctx.db
+      .query("shots")
+      .withIndex("by_shoot_location", (q) =>
+        q.eq("shootLocationId", shot.shootLocationId),
+      )
+      .collect();
+    const order = Math.max(-1, ...siblings.map((s) => s.order)) + 1;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { _id, _creationTime, name, ...rest } = shot;
+    return await ctx.db.insert("shots", {
+      ...rest,
+      order,
+      name: name ? `${name} (copy)` : undefined,
+    });
+  },
+});
+
+export const remove = mutation({
+  args: { id: v.id("shots") },
+  handler: async (ctx, { id }) => {
+    const scope = await getScope(ctx);
+    assertOrg(await ctx.db.get(id), scope);
+    const gens = await ctx.db
+      .query("generations")
+      .withIndex("by_shot", (q) => q.eq("shotId", id))
+      .collect();
+    for (const g of gens) await ctx.db.delete(g._id);
+    await ctx.db.delete(id);
+  },
+});

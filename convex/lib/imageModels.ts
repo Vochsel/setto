@@ -1,0 +1,206 @@
+/**
+ * Registry of image-generation models across providers. The `id` is stored on
+ * each generation (modelKey) and shown in the switcher. The generate action
+ * dispatches on `provider`.
+ */
+
+export type ImageProvider = "fal" | "openai" | "google";
+
+export interface ImageModel {
+  id: string;
+  provider: ImageProvider;
+  label: string;
+  description: string;
+  /** Whether reference images (model identity / Street View) can condition it. */
+  supportsImagePrompt: boolean;
+
+  // fal
+  falEndpoint?: string;
+  falImageParam?: "image_urls" | "image_url";
+  falDefaultParams?: Record<string, unknown>;
+
+  // openai
+  openaiModel?: string;
+  openaiSize?: string;
+  openaiQuality?: "low" | "medium" | "high" | "auto";
+
+  // google (Gemini / "nano banana")
+  googleModel?: string;
+}
+
+export const IMAGE_MODELS: ImageModel[] = [
+  // ── Google (direct) ──────────────────────────────────────────────
+  {
+    id: "google/gemini-3-pro-image-preview",
+    provider: "google",
+    label: "Nano Banana Pro — Gemini 3 Pro Image",
+    description:
+      "Google's top image model. Best reasoning, composition and reference fidelity — uses real locations as inspiration without copying them.",
+    supportsImagePrompt: true,
+    googleModel: "gemini-3-pro-image-preview",
+  },
+  {
+    id: "google/gemini-2.5-flash-image",
+    provider: "google",
+    label: "Nano Banana — Gemini 2.5 Flash Image",
+    description:
+      "Google direct. Fast and great at honoring reference photos — ideal for grounding a shot in real location imagery.",
+    supportsImagePrompt: true,
+    googleModel: "gemini-2.5-flash-image",
+  },
+  // ── OpenAI (direct) ──────────────────────────────────────────────
+  {
+    id: "openai/gpt-image-2",
+    provider: "openai",
+    label: "GPT Image 2",
+    description:
+      "OpenAI's newest — highest fidelity, excellent prompt adherence and reference-image support.",
+    supportsImagePrompt: true,
+    openaiModel: "gpt-image-2",
+    openaiSize: "1024x1536",
+    openaiQuality: "high",
+  },
+  {
+    id: "openai/gpt-image-1.5",
+    provider: "openai",
+    label: "GPT Image 1.5",
+    description: "Strong quality with reference-image support.",
+    supportsImagePrompt: true,
+    openaiModel: "gpt-image-1.5",
+    openaiSize: "1024x1536",
+    openaiQuality: "high",
+  },
+  {
+    id: "openai/gpt-image-1",
+    provider: "openai",
+    label: "GPT Image 1",
+    description:
+      "Strong prompt adherence and text; uses reference images via the edits endpoint.",
+    supportsImagePrompt: true,
+    openaiModel: "gpt-image-1",
+    openaiSize: "1024x1536",
+    openaiQuality: "high",
+  },
+  {
+    id: "openai/gpt-image-1-mini",
+    provider: "openai",
+    label: "GPT Image 1 mini",
+    description: "Faster and cheaper; good for quick iterations.",
+    supportsImagePrompt: true,
+    openaiModel: "gpt-image-1-mini",
+    openaiSize: "1024x1536",
+    openaiQuality: "medium",
+  },
+  // ── fal ──────────────────────────────────────────────────────────
+  {
+    id: "fal-ai/nano-banana/edit",
+    provider: "fal",
+    label: "Nano Banana — via fal",
+    description: "Gemini Flash Image through fal.",
+    supportsImagePrompt: true,
+    falEndpoint: "fal-ai/nano-banana/edit",
+    falImageParam: "image_urls",
+    falDefaultParams: { num_images: 1 },
+  },
+  {
+    id: "fal-ai/flux-pro/v1.1-ultra",
+    provider: "fal",
+    label: "FLUX1.1 [pro] ultra — via fal",
+    description: "Top-tier FLUX photorealism (text-to-image).",
+    supportsImagePrompt: false,
+    falEndpoint: "fal-ai/flux-pro/v1.1-ultra",
+    falDefaultParams: { aspect_ratio: "3:4", num_images: 1, safety_tolerance: "5" },
+  },
+  {
+    id: "fal-ai/flux/dev/image-to-image",
+    provider: "fal",
+    label: "FLUX [dev] image-to-image — via fal",
+    description: "FLUX dev conditioned on a reference image.",
+    supportsImagePrompt: true,
+    falEndpoint: "fal-ai/flux/dev/image-to-image",
+    falImageParam: "image_url",
+    falDefaultParams: { strength: 0.85, num_images: 1 },
+  },
+  {
+    id: "fal-ai/imagen4/preview",
+    provider: "fal",
+    label: "Imagen 4 — via fal",
+    description: "Google Imagen 4 (text-to-image).",
+    supportsImagePrompt: false,
+    falEndpoint: "fal-ai/imagen4/preview",
+    falDefaultParams: { aspect_ratio: "3:4", num_images: 1 },
+  },
+  {
+    id: "fal-ai/ideogram/v3",
+    provider: "fal",
+    label: "Ideogram v3 — via fal",
+    description: "Great composition and typography.",
+    supportsImagePrompt: false,
+    falEndpoint: "fal-ai/ideogram/v3",
+    falDefaultParams: { rendering_speed: "BALANCED", num_images: 1 },
+  },
+  {
+    id: "fal-ai/recraft-v3",
+    provider: "fal",
+    label: "Recraft v3 — via fal",
+    description: "Versatile photo and design styles.",
+    supportsImagePrompt: false,
+    falEndpoint: "fal-ai/recraft-v3",
+    falDefaultParams: { image_size: "portrait_4_3" },
+  },
+];
+
+export const PROVIDER_LABEL: Record<ImageProvider, string> = {
+  google: "Google",
+  openai: "OpenAI",
+  fal: "fal",
+};
+
+export const DEFAULT_MODEL_ID = "google/gemini-2.5-flash-image";
+
+export function getImageModel(id: string): ImageModel | undefined {
+  return IMAGE_MODELS.find((m) => m.id === id);
+}
+
+/**
+ * How the model should treat the reference images. Gemini ("nano banana")
+ * tends to literally edit/return the photo you give it, so we steer it to use
+ * the location only as inspiration and compose a fresh image; other providers
+ * get a stricter "reproduce" instruction.
+ */
+export function referenceGuidance(model: ImageModel): string {
+  if (model.provider === "google") {
+    return (
+      "Use the reference images as guidance only: match the subject's likeness " +
+      "and reproduce the outfit, and treat the location photo purely as " +
+      "inspiration for the setting and architecture. Do NOT copy, crop, paste, " +
+      "or directly edit any reference image — compose a brand-new photograph."
+    );
+  }
+  return (
+    "Reference images: reproduce the outfit shown, place the subject in the " +
+    "real location shown, and keep the subject's likeness consistent."
+  );
+}
+
+/** Build the request body a fal endpoint expects. */
+export function buildFalInput(
+  model: ImageModel,
+  args: {
+    prompt: string;
+    referenceImageUrls?: string[];
+    seed?: number;
+  },
+): Record<string, unknown> {
+  const input: Record<string, unknown> = {
+    prompt: args.prompt,
+    ...(model.falDefaultParams ?? {}),
+  };
+  if (typeof args.seed === "number") input.seed = args.seed;
+  const refs = args.referenceImageUrls?.filter(Boolean) ?? [];
+  if (model.supportsImagePrompt && refs.length && model.falImageParam) {
+    if (model.falImageParam === "image_urls") input.image_urls = refs;
+    else input.image_url = refs[0];
+  }
+  return input;
+}
