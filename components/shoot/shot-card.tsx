@@ -45,7 +45,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { ConfirmDelete } from "@/components/confirm-delete";
 import { ImageLightbox } from "@/components/image-lightbox";
 import { cn } from "@/lib/utils";
-import { buildPrompt } from "@/convex/lib/prompt";
+import { buildPrompt, BASE_VARIATION_ID } from "@/convex/lib/prompt";
 import {
   IMAGE_MODELS,
   DEFAULT_MODEL_ID,
@@ -300,6 +300,27 @@ export function ShotCard({
             </span>
           </span>
           <div className="flex flex-wrap gap-1.5">
+            {/* Default = the base outfit with no variation applied. Offered once
+                there's more than one variation so a batch can include the
+                original look alongside the variations. */}
+            {variations.length > 1 && (
+              <button
+                type="button"
+                onClick={() => toggleVariation(BASE_VARIATION_ID)}
+                title="The original outfit, no variation applied"
+                className={cn(
+                  "flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs transition-colors",
+                  selectedVars.includes(BASE_VARIATION_ID)
+                    ? "border-primary bg-primary/10 text-foreground"
+                    : "border-border hover:bg-muted",
+                )}
+              >
+                <span className="max-w-28 truncate">Default</span>
+                {selectedVars.includes(BASE_VARIATION_ID) ? (
+                  <Check className="text-primary h-3 w-3 shrink-0" />
+                ) : null}
+              </button>
+            )}
             {variations.map((v) => {
               const active = selectedVars.includes(v.id);
               const thumb = v.imageUrls?.[0]?.url;

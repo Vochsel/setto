@@ -1,0 +1,40 @@
+name: Deploy Convex (prod)
+
+# Deploys the Convex backend (schema + functions) to the production deployment
+# on every push to main that touches Convex code or dependencies. The Next.js
+# frontend deploys separately via Vercel's own Git integration, so this workflow
+# only owns the backend. Can also be run on demand from the Actions tab or with
+# `gh workflow run deploy.yml`.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "convex/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch: {}
+
+concurrency:
+  group: convex-deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Deploy to Convex production
+        # CONVEX_DEPLOY_KEY scopes `convex deploy` to the prod deployment and
+        # makes it non-interactive (no confirmation prompt).
+        run: npx convex deploy
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}

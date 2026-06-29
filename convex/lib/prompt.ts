@@ -7,6 +7,15 @@
  * plus the reference image URLs to use for image-conditioned models.
  */
 
+/**
+ * Sentinel id used in a shot's `selectedVariationIds` to mean "also generate the
+ * base outfit (no variation applied)". Lets a batch include the default look
+ * alongside specific variations. Shaped like the UI's other `__…__` sentinels;
+ * the leading/trailing underscores keep it clear of the nanoid(8) ids that real
+ * variations get, so a collision is effectively impossible.
+ */
+export const BASE_VARIATION_ID = "__base__";
+
 export interface PromptEntity {
   name?: string;
   promptDescriptor?: string;
