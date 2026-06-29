@@ -4,7 +4,7 @@ import { internal, api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import { fal } from "@fal-ai/client";
-import { buildPrompt } from "./lib/prompt";
+import { buildPrompt, BASE_VARIATION_ID } from "./lib/prompt";
 import {
   getImageModel,
   buildFalInput,
@@ -260,8 +260,11 @@ export const generateShot = action({
     if (!model) throw new Error(`Unknown model: ${modelKey}`);
 
     const variationIds = args.variationIds ?? c.shot.selectedVariationIds;
+    // The base-outfit sentinel maps to a null target (no variation) so its
+    // generation is recorded as base (variationId undefined), same as an
+    // unselected shot. Real variation ids pass through unchanged.
     const targets: (string | null)[] = variationIds.length
-      ? variationIds
+      ? variationIds.map((id) => (id === BASE_VARIATION_ID ? null : id))
       : [null];
 
     // Create one row per variation and hand the slow provider call to a
