@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Images, Play, type LucideIcon } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
@@ -79,6 +79,101 @@ function isDisplayable(p: MasonryPhoto): boolean {
 }
 
 /**
+ * Reports when `ref`'s element has scrolled near the viewport, then stops
+ * observing (once loaded, stays loaded). `rootMargin` loads media slightly
+ * ahead of view so it's ready by the time the tile is on screen.
+ */
+function useInViewport<T extends Element>(rootMargin = "300px") {
+  const ref = useRef<T | null>(null);
+  const [inView, setInView] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || inView) return;
+    // No IntersectionObserver (e.g. SSR/old browsers): load eagerly.
+    if (typeof IntersectionObserver === "undefined") {
+      setInView(true);
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setInView(true);
+          io.disconnect();
+        }
+      },
+      { rootMargin },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [inView, rootMargin]);
+
+  return [ref, inView] as const;
+}
+
+/**
+ * A single masonry tile. Images lazy-load natively; videos are gated behind an
+ * IntersectionObserver — until the tile nears the viewport we render only the
+ * poster, so offscreen videos don't all autoplay and download at once.
+ */
+function MasonryTile({
+  photo,
+  onOpen,
+}: {
+  photo: MasonryPhoto;
+  onOpen: () => void;
+}) {
+  const [ref, inView] = useInViewport<HTMLButtonElement>();
+  const thumb = thumbOf(photo);
+
+  return (
+    <button
+      ref={ref}
+      type="button"
+      onClick={onOpen}
+      className="hover:ring-primary/40 group relative block w-full cursor-zoom-in overflow-hidden rounded-lg border break-inside-avoid transition-shadow hover:ring-2"
+    >
+      {photo.kind === "video" ? (
+        inView ? (
+          // Ambient preview: autoplay muted + loop. Click opens the
+          // fullscreen player (with sound). Poster covers initial load.
+          <video
+            src={photo.videoUrl}
+            poster={photo.posterUrl}
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            className="pointer-events-none w-full"
+          />
+        ) : photo.posterUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={photo.posterUrl}
+            alt={photo.caption ?? ""}
+            loading="lazy"
+            className="w-full"
+          />
+        ) : (
+          <div className="bg-muted aspect-[3/4] w-full" />
+        )
+      ) : thumb ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={thumb} alt={photo.caption ?? ""} loading="lazy" className="w-full" />
+      ) : (
+        <div className="bg-muted aspect-[3/4] w-full" />
+      )}
+      {photo.kind === "video" ? (
+        <span className="pointer-events-none absolute bottom-1.5 right-1.5 flex size-6 items-center justify-center rounded-full bg-black/55 text-white ring-1 ring-white/20 backdrop-blur transition group-hover:bg-black/70">
+          <Play className="h-3 w-3 translate-x-px" fill="currentColor" />
+        </span>
+      ) : null}
+    </button>
+  );
+}
+
+/**
  * Masonry photo grid with a built-in lightbox. Pass `undefined` while loading
  * to render skeletons. Used by the gallery and the per-model / per-location
  * photo pages.
@@ -140,47 +235,9 @@ export function PhotoMasonry({
   return (
     <>
       <div className="columns-2 gap-3 sm:columns-3 lg:columns-4 [&>*]:mb-3">
-        {valid.map((p, i) => {
-          const thumb = thumbOf(p);
-          return (
-            <button
-              key={p._id}
-              type="button"
-              onClick={() => setIndex(i)}
-              className="hover:ring-primary/40 group relative block w-full cursor-zoom-in overflow-hidden rounded-lg border break-inside-avoid transition-shadow hover:ring-2"
-            >
-              {p.kind === "video" ? (
-                // Ambient preview: autoplay muted + loop. Click opens the
-                // fullscreen player (with sound). Poster covers initial load.
-                <video
-                  src={p.videoUrl}
-                  poster={p.posterUrl}
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  preload="metadata"
-                  className="pointer-events-none w-full"
-                />
-              ) : thumb ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={thumb}
-                  alt={p.caption ?? ""}
-                  loading="lazy"
-                  className="w-full"
-                />
-              ) : (
-                <div className="bg-muted aspect-[3/4] w-full" />
-              )}
-              {p.kind === "video" ? (
-                <span className="pointer-events-none absolute bottom-1.5 right-1.5 flex size-6 items-center justify-center rounded-full bg-black/55 text-white ring-1 ring-white/20 backdrop-blur transition group-hover:bg-black/70">
-                  <Play className="h-3 w-3 translate-x-px" fill="currentColor" />
-                </span>
-              ) : null}
-            </button>
-          );
-        })}
+        {valid.map((p, i) => (
+          <MasonryTile key={p._id} photo={p} onOpen={() => setIndex(i)} />
+        ))}
       </div>
       <ImageLightbox
         images={images}
