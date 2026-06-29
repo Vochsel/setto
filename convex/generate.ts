@@ -536,6 +536,7 @@ export const generateCreative = action({
       aspectRatio: c.aspectRatio,
       shotCount: c.shotUrls.length,
       inspirationCount: c.inspirationUrls.length,
+      bakeCopy: c.bakeCopyIntoImage,
     });
 
     // Hero shots first (the subject), then inspiration (the look). Capped so we

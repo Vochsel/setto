@@ -8,7 +8,14 @@ import {
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { getScope, assertOrg } from "./lib/auth";
-import { imageRef, adCopy, copyVariant, campaignShotRef } from "./schema";
+import {
+  imageRef,
+  adCopy,
+  copyVariant,
+  campaignShotRef,
+  campaignResearch,
+  persona,
+} from "./schema";
 import { resolveImages } from "./files";
 
 const statusValidator = v.union(
@@ -132,6 +139,7 @@ export const update = mutation({
     inspirationRefs: v.optional(v.array(imageRef)),
     selectedShots: v.optional(v.array(campaignShotRef)),
     coverImage: v.optional(imageRef),
+    bakeCopyIntoImage: v.optional(v.boolean()),
   },
   handler: async (ctx, { id, ...patch }) => {
     const scope = await getScope(ctx);
@@ -199,6 +207,37 @@ export const saveCopyVariants = internalMutation({
   },
 });
 
+/** Persist the research brief + derived personas (called by research/copy). */
+export const saveResearch = internalMutation({
+  args: {
+    id: v.id("campaigns"),
+    research: campaignResearch,
+    personas: v.array(persona),
+  },
+  handler: async (ctx, { id, research, personas }) => {
+    const c = await ctx.db.get(id);
+    if (!c) return;
+    await ctx.db.patch(id, { research, personas });
+  },
+});
+
+/** Context for the HTML ad-layout worker: copy, format, and picked shots. */
+export const adContext = internalQuery({
+  args: { id: v.id("campaigns") },
+  handler: async (ctx, { id }) => {
+    const c = await ctx.db.get(id);
+    if (!c) throw new Error("Campaign not found");
+    return {
+      orgId: c.orgId,
+      name: c.name,
+      brief: c.brief ?? null,
+      copy: c.copy ?? null,
+      aspectRatio: c.aspectRatio ?? null,
+      shots: await resolveSelectedShots(ctx, c.selectedShots), // {generationId, shootId?, url}
+    };
+  },
+});
+
 /** Everything the creative-generation action needs to build its prompt. */
 export const creativeContext = internalQuery({
   args: { id: v.id("campaigns") },
@@ -211,6 +250,7 @@ export const creativeContext = internalQuery({
       brief: c.brief ?? null,
       copy: c.copy ?? null,
       aspectRatio: c.aspectRatio ?? null,
+      bakeCopyIntoImage: c.bakeCopyIntoImage ?? false,
       inspirationUrls: (await resolveImages(ctx, c.inspirationRefs)).map(
         (i) => i.url,
       ),

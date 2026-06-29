@@ -14,6 +14,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -54,10 +55,12 @@ export function CreativePanel({
   campaignId,
   aspectRatio,
   hasShots,
+  bakeCopyIntoImage,
 }: {
   campaignId: Id<"campaigns">;
   aspectRatio?: string;
   hasShots: boolean;
+  bakeCopyIntoImage?: boolean;
 }) {
   const creatives = useQuery(api.campaignCreatives.listByCampaign, {
     campaignId,
@@ -177,6 +180,21 @@ export function CreativePanel({
           </SelectContent>
         </Select>
       </div>
+
+      <label className="flex items-start justify-between gap-3 rounded-md border px-2.5 py-2">
+        <span className="grid gap-0.5">
+          <span className="text-xs font-medium">Bake copy into image</span>
+          <span className="text-muted-foreground text-[11px] leading-tight">
+            Off = clean media; add copy &amp; CTA as real text in the ad composer.
+          </span>
+        </span>
+        <Switch
+          checked={bakeCopyIntoImage ?? false}
+          onCheckedChange={(v) =>
+            update({ id: campaignId, bakeCopyIntoImage: v })
+          }
+        />
+      </label>
 
       {!hasShots && (
         <p className="text-muted-foreground rounded-md border border-dashed px-2.5 py-1.5 text-[11px]">

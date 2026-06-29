@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as ads from "../ads.js";
 import type * as campaignCreatives from "../campaignCreatives.js";
 import type * as campaigns from "../campaigns.js";
 import type * as copy from "../copy.js";
@@ -15,9 +16,12 @@ import type * as files from "../files.js";
 import type * as generate from "../generate.js";
 import type * as generateVideo from "../generateVideo.js";
 import type * as generations from "../generations.js";
+import type * as lib_adLayout from "../lib/adLayout.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_imageModels from "../lib/imageModels.js";
+import type * as lib_openai from "../lib/openai.js";
 import type * as lib_prompt from "../lib/prompt.js";
+import type * as lib_strategy from "../lib/strategy.js";
 import type * as lib_textModels from "../lib/textModels.js";
 import type * as lib_videoModels from "../lib/videoModels.js";
 import type * as locations from "../locations.js";
@@ -25,6 +29,7 @@ import type * as models from "../models.js";
 import type * as outfitCategories from "../outfitCategories.js";
 import type * as outfits from "../outfits.js";
 import type * as presets from "../presets.js";
+import type * as research from "../research.js";
 import type * as settings from "../settings.js";
 import type * as shootLocations from "../shootLocations.js";
 import type * as shoots from "../shoots.js";
@@ -41,6 +46,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  ads: typeof ads;
   campaignCreatives: typeof campaignCreatives;
   campaigns: typeof campaigns;
   copy: typeof copy;
@@ -48,9 +54,12 @@ declare const fullApi: ApiFromModules<{
   generate: typeof generate;
   generateVideo: typeof generateVideo;
   generations: typeof generations;
+  "lib/adLayout": typeof lib_adLayout;
   "lib/auth": typeof lib_auth;
   "lib/imageModels": typeof lib_imageModels;
+  "lib/openai": typeof lib_openai;
   "lib/prompt": typeof lib_prompt;
+  "lib/strategy": typeof lib_strategy;
   "lib/textModels": typeof lib_textModels;
   "lib/videoModels": typeof lib_videoModels;
   locations: typeof locations;
@@ -58,6 +67,7 @@ declare const fullApi: ApiFromModules<{
   outfitCategories: typeof outfitCategories;
   outfits: typeof outfits;
   presets: typeof presets;
+  research: typeof research;
   settings: typeof settings;
   shootLocations: typeof shootLocations;
   shoots: typeof shoots;

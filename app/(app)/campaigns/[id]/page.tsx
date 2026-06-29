@@ -31,6 +31,7 @@ import { CopyPanel } from "@/components/campaign/copy-panel";
 import { InspirationPanel } from "@/components/campaign/inspiration-panel";
 import { ShotsPanel } from "@/components/campaign/shots-panel";
 import { CreativePanel } from "@/components/campaign/creative-panel";
+import { AdComposerPanel } from "@/components/campaign/ad-composer-panel";
 import { campaignStatusMeta, type CampaignStatus } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -111,6 +112,8 @@ export default function CampaignEditorPage() {
             brief={campaign.brief}
             copy={campaign.copy}
             copyVariants={campaign.copyVariants}
+            personas={campaign.personas}
+            research={campaign.research}
           />
           <InspirationPanel
             campaignId={campaignId}
@@ -119,13 +122,22 @@ export default function CampaignEditorPage() {
           />
         </div>
 
-        {/* Right: shots + creatives */}
+        {/* Right: shots + creatives + composed ads */}
         <div className="space-y-4">
           <ShotsPanel campaignId={campaignId} selected={selectedShots} />
           <CreativePanel
             campaignId={campaignId}
             aspectRatio={campaign.aspectRatio}
             hasShots={selectedShots.length > 0}
+            bakeCopyIntoImage={campaign.bakeCopyIntoImage}
+          />
+          <AdComposerPanel
+            campaignId={campaignId}
+            aspectRatio={campaign.aspectRatio}
+            hasCopy={Boolean(
+              campaign.copy &&
+                Object.values(campaign.copy).some((v) => Boolean(v)),
+            )}
           />
         </div>
       </div>

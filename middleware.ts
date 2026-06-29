@@ -4,7 +4,10 @@ import { authkitMiddleware } from "@workos-inc/authkit-nextjs";
 export default authkitMiddleware({
   middlewareAuth: {
     enabled: true,
-    unauthenticatedPaths: ["/", "/login", "/signup"],
+    // `/api/media-proxy` is hit by the ad-composer's sandboxed (opaque-origin)
+    // iframe, which carries no auth cookies — it must be public. Its own host
+    // allowlist is the safeguard.
+    unauthenticatedPaths: ["/", "/login", "/signup", "/api/media-proxy"],
   },
 });
 

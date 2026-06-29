@@ -256,6 +256,12 @@ export interface CreativePromptInputs {
   shotCount?: number;
   /** How many inspiration designs are attached (for guidance wording). */
   inspirationCount?: number;
+  /**
+   * When true, render the copy text into the image (legacy behavior). When
+   * false/unset, produce CLEAN media with no text — copy is added later as real
+   * HTML in the ad composer.
+   */
+  bakeCopy?: boolean;
 }
 
 const ASPECT_GUIDE: Record<string, string> = {
@@ -290,7 +296,9 @@ export function buildCreativePrompt(inputs: CreativePromptInputs): {
   );
 
   // The words that must appear on the creative, rendered as crisp typography.
-  if (inputs.copy) {
+  // Only when the campaign opts into baking text into the pixels — otherwise we
+  // generate clean media and overlay real text in the ad composer.
+  if (inputs.bakeCopy && inputs.copy) {
     const c = inputs.copy;
     const lines: string[] = [];
     if (c.headline) lines.push(`Headline (large, primary): "${c.headline}"`);
@@ -326,12 +334,23 @@ export function buildCreativePrompt(inputs: CreativePromptInputs): {
     );
   }
 
-  push(
-    "Quality",
-    "high-end art direction, balanced composition, intentional negative space " +
-      "for the text, sharp focus, professional commercial photography and " +
-      "graphic design, no spelling mistakes, no gibberish text, no watermark.",
-  );
+  if (inputs.bakeCopy) {
+    push(
+      "Quality",
+      "high-end art direction, balanced composition, intentional negative space " +
+        "for the text, sharp focus, professional commercial photography and " +
+        "graphic design, no spelling mistakes, no gibberish text, no watermark.",
+    );
+  } else {
+    push(
+      "Quality",
+      "high-end art direction, balanced composition, sharp focus, professional " +
+        "commercial photography and graphic design. IMPORTANT: this is a clean " +
+        "background plate — do NOT render any text, words, letters, numbers, " +
+        "logos or watermarks anywhere in the image. Leave generous, uncluttered " +
+        "negative space so copy can be added on top afterwards.",
+    );
+  }
 
   const prompt = sections.map((s) => `${s.label}: ${s.text}`).join("\n\n");
   return { prompt, sections };
