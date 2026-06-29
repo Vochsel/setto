@@ -159,6 +159,7 @@ export function LocationPanel({
                 promptDescriptor: loc?.promptDescriptor,
                 streetViewUrls: loc?.streetViewUrls,
               }}
+              castModelIds={shootLocation.modelIds}
               scheduledAt={scheduledAt}
               highlight={shot._id === highlightShotId}
             />
