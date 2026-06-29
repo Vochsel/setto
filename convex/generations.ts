@@ -6,6 +6,7 @@ import {
   type QueryCtx,
 } from "./_generated/server";
 import { v } from "convex/values";
+import { paginationOptsValidator } from "convex/server";
 import type { Doc } from "./_generated/dataModel";
 import { getScope, assertOrg } from "./lib/auth";
 
@@ -158,6 +159,26 @@ export const create = internalMutation({
   },
 });
 
+export const setProgress = internalMutation({
+  args: {
+    id: v.id("generations"),
+    status: v.optional(
+      v.union(
+        v.literal("queued"),
+        v.literal("generating"),
+        v.literal("succeeded"),
+        v.literal("failed"),
+      ),
+    ),
+    progress: v.optional(v.number()),
+    progressLabel: v.optional(v.string()),
+    falRequestId: v.optional(v.string()),
+  },
+  handler: async (ctx, { id, ...patch }) => {
+    await ctx.db.patch(id, patch);
+  },
+});
+
 export const attachResult = internalMutation({
   args: {
     id: v.id("generations"),
@@ -169,7 +190,8 @@ export const attachResult = internalMutation({
     error: v.optional(v.string()),
   },
   handler: async (ctx, { id, ...patch }) => {
-    await ctx.db.patch(id, patch);
+    // Clear any in-flight progress when the final result lands.
+    await ctx.db.patch(id, { progressLabel: undefined, ...patch });
   },
 });
 
@@ -183,6 +205,49 @@ export const listByShoot = query({
       .withIndex("by_shoot", (q) => q.eq("shootId", shootId))
       .order("desc")
       .collect();
+  },
+});
+
+/**
+ * Paginated feed of ALL image generations (every status), newest first, for the
+ * queue page. Merged client-side with the video feed. Items carry `shotId` so
+ * each links back to its source shot.
+ */
+export const queueFeed = query({
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, { paginationOpts }) => {
+    const scope = await getScope(ctx);
+    const result = await ctx.db
+      .query("generations")
+      .withIndex("by_org", (q) => q.eq("orgId", scope.orgId))
+      .order("desc")
+      .paginate(paginationOpts);
+
+    const page = await Promise.all(
+      result.page.map(async (g) => {
+        let thumbUrl = g.imageUrl;
+        if (!thumbUrl && g.storageId) {
+          thumbUrl = (await ctx.storage.getUrl(g.storageId)) ?? undefined;
+        }
+        return {
+          kind: "image" as const,
+          _id: g._id as string,
+          _creationTime: g._creationTime,
+          status: g.status,
+          thumbUrl,
+          videoUrl: undefined as string | undefined,
+          modelKey: g.modelKey,
+          modelLabel: g.modelLabel,
+          prompt: g.prompt,
+          progress: g.progress,
+          progressLabel: g.progressLabel,
+          error: g.error,
+          shootId: g.shootId as string,
+          shotId: g.shotId as string,
+        };
+      }),
+    );
+    return { ...result, page };
   },
 });
 

@@ -24,13 +24,15 @@ export type UsageKind =
   | "shot"
   | "model_portrait"
   | "model_sheet"
-  | "model_variation";
+  | "model_variation"
+  | "video";
 
 export const usageKindMeta: Record<UsageKind, string> = {
   shot: "Shot",
   model_portrait: "Model portrait",
   model_sheet: "Model sheet",
   model_variation: "Model variation",
+  video: "Video",
 };
 
 export type ShootStatus = "draft" | "active" | "completed" | "archived";

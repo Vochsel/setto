@@ -3,12 +3,14 @@ import { v } from "convex/values";
 import type { MutationCtx } from "./_generated/server";
 import { getScope } from "./lib/auth";
 import { estimateCost } from "./lib/imageModels";
+import { estimateVideoCost } from "./lib/videoModels";
 
 const kindV = v.union(
   v.literal("shot"),
   v.literal("model_portrait"),
   v.literal("model_sheet"),
   v.literal("model_variation"),
+  v.literal("video"),
 );
 const statusV = v.union(v.literal("succeeded"), v.literal("failed"));
 
@@ -74,6 +76,46 @@ export const recordForGeneration = internalMutation({
       status,
       cost: status === "succeeded" ? estimateCost(g.modelKey) : 0,
       generationId,
+      shotId: g.shotId,
+      shootId: g.shootId,
+      modelId: g.modelId, // snapshotted person-model, for per-model audit
+      error,
+    });
+  },
+});
+
+/**
+ * Log a video render from its `videos` row. Cost is per-second × duration on
+ * success, else 0. Copies provider/model and the source-image / shot context
+ * links so the audit trail is fully navigable.
+ */
+export const recordForVideo = internalMutation({
+  args: {
+    videoId: v.id("videos"),
+    status: statusV,
+    error: v.optional(v.string()),
+  },
+  handler: async (ctx, { videoId, status, error }) => {
+    const g = await ctx.db.get(videoId);
+    if (!g) return;
+    const { userName, userEmail } = await resolveUser(ctx, g.createdBy);
+    await ctx.db.insert("usageEvents", {
+      orgId: g.orgId,
+      userId: g.createdBy,
+      userName,
+      userEmail,
+      kind: "video",
+      provider: g.provider,
+      modelKey: g.modelKey,
+      modelLabel: g.modelLabel,
+      status,
+      cost:
+        status === "succeeded"
+          ? estimateVideoCost(g.modelKey, g.durationSeconds)
+          : 0,
+      durationSeconds: g.durationSeconds,
+      videoId,
+      generationId: g.generationId,
       shotId: g.shotId,
       shootId: g.shootId,
       modelId: g.modelId, // snapshotted person-model, for per-model audit
@@ -182,6 +224,7 @@ export const recent = query({
       userName: e.userName,
       userEmail: e.userEmail,
       shootId: e.shootId,
+      shotId: e.shotId,
       error: e.error,
     }));
   },

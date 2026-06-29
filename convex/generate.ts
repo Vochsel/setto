@@ -414,8 +414,32 @@ export const runOne = internalAction({
           prompt: args.prompt,
           referenceImageUrls: args.referenceImageUrls,
         });
+        // Stream coarse progress to the row as the fal queue advances (sync
+        // callback, so fire-and-forget the patch, only on status transitions).
+        let last = "";
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const result: any = await fal.subscribe(model.falEndpoint!, { input });
+        const result: any = await fal.subscribe(model.falEndpoint!, {
+          input,
+          onQueueUpdate: (update) => {
+            if (update.status === last) return;
+            last = update.status;
+            if (update.status === "IN_QUEUE") {
+              const pos =
+                "queue_position" in update ? update.queue_position : undefined;
+              void ctx.runMutation(internal.generations.setProgress, {
+                id: args.genId,
+                progress: 0.1,
+                progressLabel: pos != null ? `In queue (${pos})` : "In queue…",
+              });
+            } else if (update.status === "IN_PROGRESS") {
+              void ctx.runMutation(internal.generations.setProgress, {
+                id: args.genId,
+                progress: 0.5,
+                progressLabel: "Generating…",
+              });
+            }
+          },
+        });
         const data = result?.data ?? result;
         const imageUrl = data?.images?.[0]?.url ?? data?.image?.url ?? data?.url;
         if (!imageUrl) throw new Error("fal returned no image URL");

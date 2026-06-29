@@ -10,14 +10,16 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ModelEditor } from "@/components/model-editor";
 import { StandardizeModelsButton } from "@/components/standardize-models-button";
-import { PhotoMasonry } from "@/components/photo-masonry";
+import { PhotoMasonry, mergeMedia } from "@/components/photo-masonry";
 import type { Id } from "@/convex/_generated/dataModel";
 
 export default function ModelDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params.id as Id<"models">;
   const model = useQuery(api.models.get, { id });
-  const photos = useQuery(api.generations.listByModel, { modelId: id });
+  const images = useQuery(api.generations.listByModel, { modelId: id });
+  const videos = useQuery(api.videos.listByModel, { modelId: id });
+  const photos = mergeMedia(images, videos);
 
   if (model === undefined) {
     return (
@@ -107,17 +109,13 @@ export default function ModelDetailPage() {
 
         <section className="space-y-3">
           <h2 className="text-sm font-medium">
-            Photos featuring {model.name}{" "}
+            Photos &amp; videos featuring {model.name}{" "}
             <span className="text-muted-foreground">
               ({photos?.length ?? 0})
             </span>
           </h2>
           <PhotoMasonry
-            photos={photos?.map((p) => ({
-              _id: p._id,
-              imageUrl: p.imageUrl,
-              caption: p.modelLabel,
-            }))}
+            photos={photos}
             emptyIcon={Users}
             emptyTitle={`No photos of ${model.name} yet`}
             emptyDescription="Cast this model into shots and generate — every image they appear in collects here."

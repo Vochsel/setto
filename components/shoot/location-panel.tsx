@@ -25,12 +25,15 @@ export function LocationPanel({
   library,
   scheduledAt,
   onRemoved,
+  highlightShotId,
 }: {
   shootLocation: ShootLocationDoc;
   shots: ShotDoc[];
   library: LibraryData;
   scheduledAt?: number;
   onRemoved: () => void;
+  /** Deep-link target shot to scroll to / highlight. */
+  highlightShotId?: string;
 }) {
   const setModels = useMutation(api.shootLocations.setModels);
   const removeLoc = useMutation(api.shootLocations.remove);
@@ -157,6 +160,7 @@ export function LocationPanel({
                 streetViewUrls: loc?.streetViewUrls,
               }}
               scheduledAt={scheduledAt}
+              highlight={shot._id === highlightShotId}
             />
           ))}
         </div>

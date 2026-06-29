@@ -10,10 +10,12 @@
 
 import type * as files from "../files.js";
 import type * as generate from "../generate.js";
+import type * as generateVideo from "../generateVideo.js";
 import type * as generations from "../generations.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_imageModels from "../lib/imageModels.js";
 import type * as lib_prompt from "../lib/prompt.js";
+import type * as lib_videoModels from "../lib/videoModels.js";
 import type * as locations from "../locations.js";
 import type * as models from "../models.js";
 import type * as outfitCategories from "../outfitCategories.js";
@@ -26,6 +28,7 @@ import type * as shots from "../shots.js";
 import type * as streetview from "../streetview.js";
 import type * as usage from "../usage.js";
 import type * as users from "../users.js";
+import type * as videos from "../videos.js";
 
 import type {
   ApiFromModules,
@@ -36,10 +39,12 @@ import type {
 declare const fullApi: ApiFromModules<{
   files: typeof files;
   generate: typeof generate;
+  generateVideo: typeof generateVideo;
   generations: typeof generations;
   "lib/auth": typeof lib_auth;
   "lib/imageModels": typeof lib_imageModels;
   "lib/prompt": typeof lib_prompt;
+  "lib/videoModels": typeof lib_videoModels;
   locations: typeof locations;
   models: typeof models;
   outfitCategories: typeof outfitCategories;
@@ -52,6 +57,7 @@ declare const fullApi: ApiFromModules<{
   streetview: typeof streetview;
   usage: typeof usage;
   users: typeof users;
+  videos: typeof videos;
 }>;
 
 /**

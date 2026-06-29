@@ -206,6 +206,10 @@ export default defineSchema({
       v.literal("succeeded"),
       v.literal("failed"),
     ),
+    // Live progress while generating (driven by fal queue updates). `progress`
+    // is 0..1; `progressLabel` is a short human stage like "In queue (3)".
+    progress: v.optional(v.number()),
+    progressLabel: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
     storageId: v.optional(v.id("_storage")),
     seed: v.optional(v.number()),
@@ -213,6 +217,47 @@ export default defineSchema({
     falRequestId: v.optional(v.string()),
     error: v.optional(v.string()),
   })
+    .index("by_shot", ["shotId"])
+    .index("by_shoot", ["shootId"])
+    .index("by_org", ["orgId"])
+    .index("by_status", ["status"]),
+
+  // --- Videos -------------------------------------------------------------
+  // Image-to-video renders. Each row animates one source `generation` image via
+  // a fal i2v model; a single image can have many videos (one per prompt/model
+  // /duration). The fal-hosted URL is kept directly (like shot images).
+  videos: defineTable({
+    orgId: v.string(),
+    createdBy: v.string(),
+    generationId: v.id("generations"), // the source image
+    shotId: v.id("shots"),
+    shootId: v.id("shoots"),
+    // Frozen recipe snapshot copied from the source generation, so per-model /
+    // per-location galleries attribute videos correctly (mirrors generations).
+    modelId: v.optional(v.id("models")),
+    locationId: v.optional(v.id("locations")),
+    provider: v.string(), // "fal"
+    modelKey: v.string(), // video model id, e.g. "fal-ai/kling-video/..."
+    modelLabel: v.optional(v.string()),
+    prompt: v.string(),
+    durationSeconds: v.number(), // chosen duration — drives cost
+    status: v.union(
+      v.literal("queued"),
+      v.literal("generating"),
+      v.literal("succeeded"),
+      v.literal("failed"),
+    ),
+    progress: v.optional(v.number()), // 0..1
+    progressLabel: v.optional(v.string()), // "In queue (3)", "Rendering…"
+    videoUrl: v.optional(v.string()), // fal-hosted url (kept directly)
+    posterUrl: v.optional(v.string()), // source image url, for thumbnail/poster
+    storageId: v.optional(v.id("_storage")), // parity; unused by default
+    seed: v.optional(v.number()),
+    params: v.optional(v.any()),
+    falRequestId: v.optional(v.string()),
+    error: v.optional(v.string()),
+  })
+    .index("by_generation", ["generationId"])
     .index("by_shot", ["shotId"])
     .index("by_shoot", ["shootId"])
     .index("by_org", ["orgId"])
@@ -231,14 +276,17 @@ export default defineSchema({
       v.literal("model_portrait"), // new model portrait (model editor)
       v.literal("model_sheet"), // standardized neutral model reference sheet
       v.literal("model_variation"), // legacy: random resemblance variation
+      v.literal("video"), // image-to-video render
     ),
     provider: v.string(),
     modelKey: v.string(),
     modelLabel: v.optional(v.string()),
     status: v.union(v.literal("succeeded"), v.literal("failed")),
     cost: v.number(), // estimated USD (0 on failure)
+    durationSeconds: v.optional(v.number()), // for video events (cost basis)
     // Context links (best-effort; depend on the source).
     generationId: v.optional(v.id("generations")),
+    videoId: v.optional(v.id("videos")),
     shotId: v.optional(v.id("shots")),
     shootId: v.optional(v.id("shoots")),
     modelId: v.optional(v.id("models")),

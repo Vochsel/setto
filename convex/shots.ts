@@ -27,7 +27,14 @@ export const listByShoot = query({
             if (!imageUrl && g.storageId) {
               imageUrl = (await ctx.storage.getUrl(g.storageId)) ?? undefined;
             }
-            return { ...g, imageUrl };
+            // Attach this image's videos (newest first) so the card can show
+            // them inline and live-update their render progress.
+            const videos = await ctx.db
+              .query("videos")
+              .withIndex("by_generation", (q) => q.eq("generationId", g._id))
+              .order("desc")
+              .collect();
+            return { ...g, imageUrl, videos };
           }),
         );
         return { ...shot, generations: resolvedGens };
