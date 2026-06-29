@@ -2353,6 +2353,130 @@
     "returns": null
   },
   {
+    "path": "review:favorites",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "limit": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "review:setReview",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "favorite": {
+          "fieldType": {
+            "type": "boolean"
+          },
+          "optional": true
+        },
+        "id": {
+          "fieldType": {
+            "type": "union",
+            "value": [
+              {
+                "tableName": "generations",
+                "type": "id"
+              },
+              {
+                "tableName": "videos",
+                "type": "id"
+              },
+              {
+                "tableName": "campaignCreatives",
+                "type": "id"
+              }
+            ]
+          },
+          "optional": false
+        },
+        "rating": {
+          "fieldType": {
+            "type": "union",
+            "value": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "optional": true
+        },
+        "reviewStatus": {
+          "fieldType": {
+            "type": "union",
+            "value": [
+              {
+                "type": "union",
+                "value": [
+                  {
+                    "type": "literal",
+                    "value": "approved"
+                  },
+                  {
+                    "type": "literal",
+                    "value": "rejected"
+                  },
+                  {
+                    "type": "literal",
+                    "value": "needs_changes"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "review:toggleFavorite",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "type": "union",
+            "value": [
+              {
+                "tableName": "generations",
+                "type": "id"
+              },
+              {
+                "tableName": "videos",
+                "type": "id"
+              },
+              {
+                "tableName": "campaignCreatives",
+                "type": "id"
+              }
+            ]
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
     "path": "settings:get",
     "type": "Query",
     "args": {

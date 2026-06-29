@@ -18,6 +18,10 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { AnimatePopover } from "@/components/animate-popover";
+import {
+  ReviewControls,
+  type ReviewStatus,
+} from "@/components/review-controls";
 import { cn } from "@/lib/utils";
 import type { Id } from "@/convex/_generated/dataModel";
 
@@ -35,6 +39,11 @@ export interface LightboxImage {
   posterUrl?: string;
   /** Source generation id — when set on an image, enables "Animate". */
   generationId?: string;
+  /** Media id (generations / videos / campaignCreatives) — enables review. */
+  mediaId?: string;
+  rating?: number;
+  reviewStatus?: ReviewStatus;
+  favorite?: boolean;
 }
 
 async function fetchBlob(url: string): Promise<Blob> {
@@ -293,8 +302,20 @@ export function ImageLightbox({
           />
         </div>
 
+        {current?.mediaId ? (
+          <ReviewControls
+            key={current.mediaId}
+            mediaId={current.mediaId}
+            rating={current.rating}
+            reviewStatus={current.reviewStatus}
+            favorite={current.favorite}
+            theme="dark"
+            className="mt-1"
+          />
+        ) : null}
+
         {current?.caption ? (
-          <p className="mt-2 text-center text-xs text-white/80">
+          <p className="mt-1 text-center text-xs text-white/80">
             {current.caption}
           </p>
         ) : null}

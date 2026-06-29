@@ -31,6 +31,11 @@ import {
 } from "@/components/ui/tooltip";
 import { ImageLightbox } from "@/components/image-lightbox";
 import {
+  FavoriteButton,
+  ReviewBadges,
+  type ReviewStatus,
+} from "@/components/review-controls";
+import {
   IMAGE_MODELS,
   DEFAULT_MODEL_ID,
   PROVIDER_LABEL,
@@ -39,6 +44,7 @@ import {
   type ImageProvider,
 } from "@/convex/lib/imageModels";
 import { ASPECT_RATIOS } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import type { Id } from "@/convex/_generated/dataModel";
 
 interface CreativeDoc {
@@ -47,6 +53,9 @@ interface CreativeDoc {
   imageUrl?: string;
   error?: string;
   modelLabel?: string;
+  rating?: number;
+  reviewStatus?: ReviewStatus;
+  favorite?: boolean;
 }
 
 const COUNTS = [1, 2, 3, 4];
@@ -97,6 +106,10 @@ export function CreativePanel({
   const lightboxImages = succeeded.map((g) => ({
     url: g.imageUrl,
     caption: g.modelLabel,
+    mediaId: g._id,
+    rating: g.rating,
+    reviewStatus: g.reviewStatus,
+    favorite: g.favorite,
   }));
 
   const estCost = (getImageModel(modelKey)?.pricePerImage ?? 0) * count;
@@ -292,6 +305,24 @@ function CreativeTile({
         <div className="text-muted-foreground flex h-full w-full items-center justify-center">
           <Loader2 className="h-4 w-4 animate-spin" />
         </div>
+      )}
+      {creative.status === "succeeded" && creative.imageUrl && (
+        <>
+          <FavoriteButton
+            mediaId={creative._id}
+            favorite={creative.favorite}
+            theme="dark"
+            className={cn(
+              "absolute bottom-1 left-1 z-10 size-6 opacity-0 transition-opacity group-hover:opacity-100",
+              creative.favorite && "opacity-100",
+            )}
+          />
+          <ReviewBadges
+            rating={creative.rating}
+            reviewStatus={creative.reviewStatus}
+            className="absolute left-1 top-1 z-10"
+          />
+        </>
       )}
       <button
         onClick={onDelete}

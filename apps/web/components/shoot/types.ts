@@ -1,5 +1,13 @@
 import type { Id } from "@/convex/_generated/dataModel";
 import type { OutfitVariation } from "@/lib/types";
+import type { ReviewStatus } from "@/components/review-controls";
+
+/** Rating / approval status / favorite, present on every rateable media doc. */
+export interface ReviewFields {
+  rating?: number;
+  reviewStatus?: ReviewStatus;
+  favorite?: boolean;
+}
 
 export interface ModelOption {
   _id: Id<"models">;
@@ -22,7 +30,7 @@ export interface PresetOption {
   promptDescriptor?: string;
 }
 
-export interface VideoDoc {
+export interface VideoDoc extends ReviewFields {
   _id: Id<"videos">;
   generationId: Id<"generations">;
   status: "queued" | "generating" | "succeeded" | "failed";
@@ -37,7 +45,7 @@ export interface VideoDoc {
   error?: string;
 }
 
-export interface GenerationDoc {
+export interface GenerationDoc extends ReviewFields {
   _id: Id<"generations">;
   status: "queued" | "generating" | "succeeded" | "failed";
   imageUrl?: string;

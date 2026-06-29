@@ -22,6 +22,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
 import { ImageLightbox, type LightboxImage } from "@/components/image-lightbox";
 import {
+  FavoriteButton,
+  ReviewBadges,
+  type ReviewStatus,
+} from "@/components/review-controls";
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -48,6 +53,9 @@ interface QueueItem {
   error?: string;
   shootId: string;
   shotId: string;
+  rating?: number;
+  reviewStatus?: ReviewStatus;
+  favorite?: boolean;
 }
 
 const statusMeta: Record<GenStatus, { label: string; className: string }> = {
@@ -126,6 +134,11 @@ export default function QueuePage() {
         url: it.kind === "video" ? it.videoUrl : it.thumbUrl,
         posterUrl: it.kind === "video" ? it.thumbUrl : undefined,
         caption: it.modelLabel,
+        generationId: it.kind === "image" ? it._id : undefined,
+        mediaId: it._id,
+        rating: it.rating,
+        reviewStatus: it.reviewStatus,
+        favorite: it.favorite,
       })),
     [media],
   );
@@ -252,7 +265,7 @@ function QueueRow({
       className="hover:bg-muted/40 flex cursor-pointer flex-row items-center gap-3 p-3 transition-colors"
     >
       {/* Thumbnail / status icon */}
-      <div className="bg-muted relative aspect-[3/4] h-20 shrink-0 overflow-hidden rounded-md border">
+      <div className="group/thumb bg-muted relative aspect-[3/4] h-20 shrink-0 overflow-hidden rounded-md border">
         {showThumb ? (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -269,6 +282,20 @@ function QueueRow({
                 </span>
               </span>
             ) : null}
+            <FavoriteButton
+              mediaId={item._id}
+              favorite={item.favorite}
+              theme="dark"
+              className={cn(
+                "absolute bottom-1 left-1 z-10 size-6 opacity-0 transition-opacity group-hover/thumb:opacity-100",
+                item.favorite && "opacity-100",
+              )}
+            />
+            <ReviewBadges
+              rating={item.rating}
+              reviewStatus={item.reviewStatus}
+              className="absolute right-1 top-1 z-10"
+            />
           </>
         ) : item.status === "failed" ? (
           <div className="text-destructive flex h-full w-full items-center justify-center">

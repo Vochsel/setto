@@ -6,6 +6,8 @@ struct RootView: View {
     var body: some View {
         if auth.isAuthenticated {
             TabView {
+                FavoritesView()
+                    .tabItem { Label("Favorites", systemImage: "heart") }
                 CampaignsView()
                     .tabItem { Label("Campaigns", systemImage: "megaphone") }
                 ModelsView()

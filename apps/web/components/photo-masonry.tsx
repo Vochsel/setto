@@ -5,6 +5,12 @@ import { Images, Play, type LucideIcon } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
 import { ImageLightbox } from "@/components/image-lightbox";
+import {
+  FavoriteButton,
+  ReviewBadges,
+  type ReviewStatus,
+} from "@/components/review-controls";
+import { cn } from "@/lib/utils";
 
 export interface MasonryPhoto {
   _id: string;
@@ -16,15 +22,24 @@ export interface MasonryPhoto {
   caption?: string;
   /** Source generation id for an image — enables "Animate" in the lightbox. */
   generationId?: string;
+  /** Review state (rating / status / favorite). */
+  rating?: number;
+  reviewStatus?: ReviewStatus;
+  favorite?: boolean;
 }
 
-type ImageRow = {
+type ReviewRow = {
+  rating?: number;
+  reviewStatus?: ReviewStatus;
+  favorite?: boolean;
+};
+type ImageRow = ReviewRow & {
   _id: string;
   _creationTime: number;
   imageUrl?: string;
   modelLabel?: string;
 };
-type VideoRow = {
+type VideoRow = ReviewRow & {
   _id: string;
   _creationTime: number;
   videoUrl?: string;
@@ -51,6 +66,9 @@ export function mergeMedia(
         imageUrl: p.imageUrl,
         caption: p.modelLabel,
         generationId: p._id, // image rows come from `generations`
+        rating: p.rating,
+        reviewStatus: p.reviewStatus,
+        favorite: p.favorite,
       } satisfies MasonryPhoto,
     })),
     ...videos.map((v) => ({
@@ -61,6 +79,9 @@ export function mergeMedia(
         videoUrl: v.videoUrl,
         posterUrl: v.posterUrl,
         caption: v.modelLabel,
+        rating: v.rating,
+        reviewStatus: v.reviewStatus,
+        favorite: v.favorite,
       } satisfies MasonryPhoto,
     })),
   ]
@@ -129,11 +150,19 @@ export function PhotoMasonry({
           url: p.videoUrl,
           posterUrl: p.posterUrl,
           caption: p.caption,
+          mediaId: p._id,
+          rating: p.rating,
+          reviewStatus: p.reviewStatus,
+          favorite: p.favorite,
         }
       : {
           url: p.imageUrl,
           caption: p.caption,
           generationId: p.generationId,
+          mediaId: p._id,
+          rating: p.rating,
+          reviewStatus: p.reviewStatus,
+          favorite: p.favorite,
         },
   );
 
@@ -143,42 +172,65 @@ export function PhotoMasonry({
         {valid.map((p, i) => {
           const thumb = thumbOf(p);
           return (
-            <button
+            <div
               key={p._id}
-              type="button"
-              onClick={() => setIndex(i)}
-              className="hover:ring-primary/40 group relative block w-full cursor-zoom-in overflow-hidden rounded-lg border break-inside-avoid transition-shadow hover:ring-2"
+              className="group relative block break-inside-avoid overflow-hidden rounded-lg border"
             >
-              {p.kind === "video" ? (
-                // Ambient preview: autoplay muted + loop. Click opens the
-                // fullscreen player (with sound). Poster covers initial load.
-                <video
-                  src={p.videoUrl}
-                  poster={p.posterUrl}
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  preload="metadata"
-                  className="pointer-events-none w-full"
-                />
-              ) : thumb ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={thumb}
-                  alt={p.caption ?? ""}
-                  loading="lazy"
-                  className="w-full"
-                />
-              ) : (
-                <div className="bg-muted aspect-[3/4] w-full" />
-              )}
+              <button
+                type="button"
+                onClick={() => setIndex(i)}
+                className="hover:ring-primary/40 block w-full cursor-zoom-in transition-shadow hover:ring-2"
+              >
+                {p.kind === "video" ? (
+                  // Ambient preview: autoplay muted + loop. Click opens the
+                  // fullscreen player (with sound). Poster covers initial load.
+                  <video
+                    src={p.videoUrl}
+                    poster={p.posterUrl}
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    preload="metadata"
+                    className="pointer-events-none w-full"
+                  />
+                ) : thumb ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={thumb}
+                    alt={p.caption ?? ""}
+                    loading="lazy"
+                    className="w-full"
+                  />
+                ) : (
+                  <div className="bg-muted aspect-[3/4] w-full" />
+                )}
+              </button>
+
+              {/* Favorite heart — shown on hover, or always once favorited. */}
+              <FavoriteButton
+                mediaId={p._id}
+                favorite={p.favorite}
+                theme="dark"
+                className={cn(
+                  "absolute left-1.5 top-1.5 opacity-0 transition group-hover:opacity-100",
+                  p.favorite && "opacity-100",
+                )}
+              />
+
+              {/* Rating + status indicators (read-only). */}
+              <ReviewBadges
+                rating={p.rating}
+                reviewStatus={p.reviewStatus}
+                className="absolute right-1.5 top-1.5"
+              />
+
               {p.kind === "video" ? (
                 <span className="pointer-events-none absolute bottom-1.5 right-1.5 flex size-6 items-center justify-center rounded-full bg-black/55 text-white ring-1 ring-white/20 backdrop-blur transition group-hover:bg-black/70">
                   <Play className="h-3 w-3 translate-x-px" fill="currentColor" />
                 </span>
               ) : null}
-            </button>
+            </div>
           );
         })}
       </div>

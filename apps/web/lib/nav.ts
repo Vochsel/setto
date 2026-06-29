@@ -3,6 +3,7 @@ import {
   Clapperboard,
   Megaphone,
   ListChecks,
+  Heart,
   Users,
   Shirt,
   MapPin,
@@ -23,6 +24,7 @@ export const mainNav: NavItem[] = [
   { title: "Shoots", href: "/shoots", icon: Clapperboard },
   { title: "Campaigns", href: "/campaigns", icon: Megaphone },
   { title: "Queue", href: "/queue", icon: ListChecks },
+  { title: "Favorites", href: "/favorites", icon: Heart },
 ];
 
 export const settingsNav: NavItem[] = [

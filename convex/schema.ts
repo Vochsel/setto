@@ -99,6 +99,27 @@ export const adSlot = v.object({
   sourceId: v.optional(v.string()),
 });
 
+/**
+ * Review state shared by rateable media (images, videos, campaign creatives).
+ * Distinct from each table's generation `status` (queued/…/succeeded).
+ */
+export const reviewStatusV = v.union(
+  v.literal("approved"),
+  v.literal("rejected"),
+  v.literal("needs_changes"),
+);
+
+/**
+ * The three review fields added to every rateable media table. `rating` is 1–5;
+ * all optional (unset = unrated / unreviewed / not favorited). Spread into a
+ * `defineTable({ ... })`.
+ */
+export const mediaReviewFields = {
+  rating: v.optional(v.number()),
+  reviewStatus: v.optional(reviewStatusV),
+  favorite: v.optional(v.boolean()),
+};
+
 export default defineSchema({
   // --- Identity (synced from WorkOS) -------------------------------------
   users: defineTable({
@@ -313,6 +334,8 @@ export default defineSchema({
     seed: v.optional(v.number()),
     falRequestId: v.optional(v.string()),
     error: v.optional(v.string()),
+    // Review: 1–5 rating, approve/reject/needs-changes, favorite.
+    ...mediaReviewFields,
   })
     .index("by_campaign", ["campaignId"])
     .index("by_org", ["orgId"]),
@@ -418,6 +441,8 @@ export default defineSchema({
     params: v.optional(v.any()),
     falRequestId: v.optional(v.string()),
     error: v.optional(v.string()),
+    // Review: 1–5 rating, approve/reject/needs-changes, favorite.
+    ...mediaReviewFields,
   })
     .index("by_shot", ["shotId"])
     .index("by_shoot", ["shootId"])
@@ -458,6 +483,8 @@ export default defineSchema({
     params: v.optional(v.any()),
     falRequestId: v.optional(v.string()),
     error: v.optional(v.string()),
+    // Review: 1–5 rating, approve/reject/needs-changes, favorite.
+    ...mediaReviewFields,
   })
     .index("by_generation", ["generationId"])
     .index("by_shot", ["shotId"])

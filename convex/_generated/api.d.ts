@@ -29,6 +29,7 @@ import type * as models from "../models.js";
 import type * as outfitCategories from "../outfitCategories.js";
 import type * as outfits from "../outfits.js";
 import type * as presets from "../presets.js";
+import type * as review from "../review.js";
 import type * as settings from "../settings.js";
 import type * as shootLocations from "../shootLocations.js";
 import type * as shoots from "../shoots.js";
@@ -66,6 +67,7 @@ declare const fullApi: ApiFromModules<{
   outfitCategories: typeof outfitCategories;
   outfits: typeof outfits;
   presets: typeof presets;
+  review: typeof review;
   settings: typeof settings;
   shootLocations: typeof shootLocations;
   shoots: typeof shoots;

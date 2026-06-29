@@ -29,6 +29,9 @@ async function shapeSucceeded(ctx: QueryCtx, gens: Doc<"generations">[]) {
         shotId: g.shotId,
         modelLabel: g.modelLabel,
         prompt: g.prompt,
+        rating: g.rating,
+        reviewStatus: g.reviewStatus,
+        favorite: g.favorite,
       };
     }),
   );
@@ -244,6 +247,9 @@ export const queueFeed = query({
           error: g.error,
           shootId: g.shootId as string,
           shotId: g.shotId as string,
+          rating: g.rating,
+          reviewStatus: g.reviewStatus,
+          favorite: g.favorite,
         };
       }),
     );
@@ -277,6 +283,9 @@ export const listByOrg = query({
           shotId: g.shotId,
           prompt: g.prompt,
           modelLabel: g.modelLabel,
+          rating: g.rating,
+          reviewStatus: g.reviewStatus,
+          favorite: g.favorite,
         };
       }),
     );

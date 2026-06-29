@@ -56,6 +56,7 @@ import {
   type ImageProvider,
 } from "@/convex/lib/imageModels";
 import { AnimatePopover } from "@/components/animate-popover";
+import { FavoriteButton, ReviewBadges } from "@/components/review-controls";
 import type { Id } from "@/convex/_generated/dataModel";
 import type {
   ShotDoc,
@@ -215,6 +216,10 @@ export function ShotCard({
     url: g.imageUrl,
     caption: g.modelLabel,
     generationId: g._id,
+    mediaId: g._id,
+    rating: g.rating,
+    reviewStatus: g.reviewStatus,
+    favorite: g.favorite,
   }));
 
   // Videos across all of this shot's images, newest first (the per-generation
@@ -228,6 +233,10 @@ export function ShotCard({
     url: vd.videoUrl,
     posterUrl: vd.posterUrl,
     caption: vd.modelLabel,
+    mediaId: vd._id,
+    rating: vd.rating,
+    reviewStatus: vd.reviewStatus,
+    favorite: vd.favorite,
   }));
 
   return (
@@ -607,6 +616,25 @@ function GenerationTile({
         />
       )}
 
+      {succeeded && (
+        <>
+          <FavoriteButton
+            mediaId={gen._id}
+            favorite={gen.favorite}
+            theme="dark"
+            className={cn(
+              "absolute bottom-1 right-1 z-10 size-6 opacity-0 transition-opacity group-hover:opacity-100",
+              gen.favorite && "opacity-100",
+            )}
+          />
+          <ReviewBadges
+            rating={gen.rating}
+            reviewStatus={gen.reviewStatus}
+            className="absolute left-1 top-1 z-10"
+          />
+        </>
+      )}
+
       <button
         onClick={onDelete}
         className="absolute right-1 top-1 z-10 rounded bg-black/60 p-0.5 text-white opacity-0 transition-opacity group-hover:opacity-100"
@@ -706,6 +734,24 @@ function VideoTile({
               progress={video.progress}
             />
           </div>
+        </>
+      )}
+      {succeeded && (
+        <>
+          <FavoriteButton
+            mediaId={video._id}
+            favorite={video.favorite}
+            theme="dark"
+            className={cn(
+              "absolute bottom-1 right-1 z-10 size-6 opacity-0 transition-opacity group-hover:opacity-100",
+              video.favorite && "opacity-100",
+            )}
+          />
+          <ReviewBadges
+            rating={video.rating}
+            reviewStatus={video.reviewStatus}
+            className="absolute left-1 top-1 z-10"
+          />
         </>
       )}
       <button

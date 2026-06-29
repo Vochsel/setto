@@ -28,6 +28,9 @@ async function shapeSucceeded(ctx: QueryCtx, vids: Doc<"videos">[]) {
     modelLabel: g.modelLabel,
     shootId: g.shootId,
     shotId: g.shotId,
+    rating: g.rating,
+    reviewStatus: g.reviewStatus,
+    favorite: g.favorite,
   }));
 }
 
@@ -188,6 +191,9 @@ export const queueFeed = query({
       error: vd.error,
       shootId: vd.shootId as string,
       shotId: vd.shotId as string,
+      rating: vd.rating,
+      reviewStatus: vd.reviewStatus,
+      favorite: vd.favorite,
     }));
     return { ...result, page };
   },
