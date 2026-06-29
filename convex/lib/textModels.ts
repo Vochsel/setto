@@ -19,37 +19,38 @@ export interface TextModel {
 
 export const TEXT_MODELS: TextModel[] = [
   {
-    id: "openai/gpt-4o",
+    id: "openai/gpt-5.5",
     provider: "openai",
-    label: "GPT-4o",
-    description: "Balanced, high-quality copywriting with strong instruction following.",
-    openaiModel: "gpt-4o",
-    pricePerCall: 0.01,
+    label: "GPT-5.5",
+    description: "Flagship — balanced, high-quality copywriting with strong instruction following.",
+    openaiModel: "gpt-5.5",
+    pricePerCall: 0.02,
   },
   {
-    id: "openai/gpt-4o-mini",
+    id: "openai/gpt-5.4-mini",
     provider: "openai",
-    label: "GPT-4o mini",
+    label: "GPT-5.4 mini",
     description: "Fast and cheap — great for quick copy iterations.",
-    openaiModel: "gpt-4o-mini",
-    pricePerCall: 0.002,
+    openaiModel: "gpt-5.4-mini",
+    pricePerCall: 0.003,
   },
   {
-    id: "openai/gpt-4.1",
+    id: "openai/gpt-5.4",
     provider: "openai",
-    label: "GPT-4.1",
-    description: "Sharper long-form reasoning for nuanced brand voice.",
-    openaiModel: "gpt-4.1",
+    label: "GPT-5.4",
+    description: "More affordable — strong reasoning for nuanced brand voice.",
+    openaiModel: "gpt-5.4",
     pricePerCall: 0.012,
   },
 ];
 
 /**
  * The default text model. Overridable per-deployment with the OPENAI_TEXT_MODEL
- * env var (set the provider model name, e.g. "gpt-5", and we'll match or fall
- * back to a synthetic registry entry).
+ * env var (set the provider model name, e.g. "gpt-5.6", and we'll match or fall
+ * back to a synthetic registry entry). Note GPT-5.6 is currently preview-only to
+ * select partners, so it's not in the picker above — opt in via the env var.
  */
-export const DEFAULT_TEXT_MODEL_ID = "openai/gpt-4o";
+export const DEFAULT_TEXT_MODEL_ID = "openai/gpt-5.5";
 
 export function getTextModel(id: string): TextModel | undefined {
   return TEXT_MODELS.find((m) => m.id === id);
