@@ -76,6 +76,7 @@ export const recordForGeneration = internalMutation({
       generationId,
       shotId: g.shotId,
       shootId: g.shootId,
+      modelId: g.modelId, // snapshotted person-model, for per-model audit
       error,
     });
   },

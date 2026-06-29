@@ -185,6 +185,16 @@ export default defineSchema({
     shotId: v.id("shots"),
     shootId: v.id("shoots"),
     variationId: v.optional(v.string()), // which outfit variation (null => base)
+    // Snapshot of the shot's recipe at generation time. A shot can later be
+    // re-cast (different model/outfit/location/presets), so these frozen ids —
+    // not the shot's *current* ones — are the source of truth for "what was in
+    // this image" and power accurate per-model / per-location galleries.
+    modelId: v.optional(v.id("models")),
+    outfitId: v.optional(v.id("outfits")),
+    locationId: v.optional(v.id("locations")),
+    styleId: v.optional(v.id("presets")), // photography_style
+    cameraId: v.optional(v.id("presets")), // camera_setup
+    lightingId: v.optional(v.id("presets")), // lighting
     provider: v.string(), // "fal"
     modelKey: v.string(), // e.g. "fal-ai/flux-pro/v1.1", "fal-ai/gpt-image-1"
     modelLabel: v.optional(v.string()),
