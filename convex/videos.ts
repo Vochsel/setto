@@ -25,6 +25,7 @@ async function shapeSucceeded(ctx: QueryCtx, vids: Doc<"videos">[]) {
     videoUrl: g.videoUrl,
     posterUrl: g.posterUrl,
     prompt: g.prompt,
+    modelId: g.modelId,
     modelLabel: g.modelLabel,
     shootId: g.shootId,
     shotId: g.shotId,

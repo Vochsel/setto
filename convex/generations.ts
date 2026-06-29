@@ -283,6 +283,7 @@ export const listByOrg = query({
           shootId: g.shootId,
           shotId: g.shotId,
           prompt: g.prompt,
+          modelId: g.modelId,
           modelLabel: g.modelLabel,
           rating: g.rating,
           reviewStatus: g.reviewStatus,

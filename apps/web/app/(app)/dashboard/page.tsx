@@ -9,13 +9,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
 import { NewShootDialog } from "@/components/new-shoot-dialog";
 import { ShootCard } from "@/components/shoot-card";
-import { GalleryGrid } from "@/components/gallery-grid";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
 import {
   Plus,
   Clapperboard,
@@ -140,13 +133,10 @@ export default function DashboardPage() {
           />
         </div>
 
-        {/* Recent shoots / Gallery */}
-        <Tabs defaultValue="shoots" className="mt-12">
+        {/* Recent shoots */}
+        <div className="mt-12">
           <div className="flex items-center justify-between">
-            <TabsList className="bg-black/[0.06] dark:bg-white/[0.06]">
-              <TabsTrigger value="shoots">Recent shoots</TabsTrigger>
-              <TabsTrigger value="gallery">Gallery</TabsTrigger>
-            </TabsList>
+            <h2 className="text-lg font-medium tracking-tight">Recent shoots</h2>
             <Button
               asChild
               variant="ghost"
@@ -159,7 +149,7 @@ export default function DashboardPage() {
             </Button>
           </div>
 
-          <TabsContent value="shoots" className="mt-5">
+          <div className="mt-5">
             {shoots === undefined ? (
               <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
                 {Array.from({ length: 3 }).map((_, i) => (
@@ -188,12 +178,8 @@ export default function DashboardPage() {
                 ))}
               </div>
             )}
-          </TabsContent>
-
-          <TabsContent value="gallery" className="mt-5">
-            <GalleryGrid />
-          </TabsContent>
-        </Tabs>
+          </div>
+        </div>
       </div>
     </div>
   );

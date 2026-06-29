@@ -3,6 +3,7 @@ import {
   Clapperboard,
   Megaphone,
   ListChecks,
+  Images,
   Heart,
   Users,
   Shirt,
@@ -23,6 +24,7 @@ export const mainNav: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { title: "Shoots", href: "/shoots", icon: Clapperboard },
   { title: "Campaigns", href: "/campaigns", icon: Megaphone },
+  { title: "Gallery", href: "/gallery", icon: Images },
   { title: "Queue", href: "/queue", icon: ListChecks },
   { title: "Favorites", href: "/favorites", icon: Heart },
 ];
