@@ -84,6 +84,8 @@ export const update = mutation({
     styleId: v.optional(v.union(v.id("presets"), v.null())),
     cameraId: v.optional(v.union(v.id("presets"), v.null())),
     lightingId: v.optional(v.union(v.id("presets"), v.null())),
+    // null clears the aspect ratio back to the provider default ("Auto").
+    aspectRatio: v.optional(v.union(v.string(), v.null())),
     cameraFraming: v.optional(v.any()),
   },
   handler: async (ctx, { id, ...args }) => {

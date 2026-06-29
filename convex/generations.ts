@@ -88,6 +88,7 @@ export const context = internalQuery({
         extraPrompt: shot.extraPrompt,
         cameraFraming: shot.cameraFraming ?? null,
         selectedVariationIds: shot.selectedVariationIds ?? [],
+        aspectRatio: shot.aspectRatio ?? null,
       },
       model: model
         ? {

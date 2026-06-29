@@ -267,6 +267,8 @@ export default defineSchema({
     styleId: v.optional(v.id("presets")), // photography_style
     cameraId: v.optional(v.id("presets")), // camera_setup
     lightingId: v.optional(v.id("presets")), // lighting
+    // Output aspect ratio (e.g. "4:5", "16:9"). Unset => provider default.
+    aspectRatio: v.optional(v.string()),
     // Camera framing exported from the 3D staging step.
     cameraFraming: v.optional(v.any()),
   })

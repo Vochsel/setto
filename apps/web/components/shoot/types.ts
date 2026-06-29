@@ -73,6 +73,7 @@ export interface ShotDoc {
   styleId?: Id<"presets">;
   cameraId?: Id<"presets">;
   lightingId?: Id<"presets">;
+  aspectRatio?: string;
   cameraFraming?: unknown;
   generations: GenerationDoc[];
 }

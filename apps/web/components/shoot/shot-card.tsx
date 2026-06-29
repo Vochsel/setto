@@ -57,7 +57,11 @@ import {
 } from "@/convex/lib/imageModels";
 import { AnimatePopover } from "@/components/animate-popover";
 import { FavoriteButton, ReviewBadges } from "@/components/review-controls";
+import { ASPECT_RATIOS } from "@/lib/format";
 import type { Id } from "@/convex/_generated/dataModel";
+
+/** Sentinel for "no fixed aspect ratio — let the model decide". */
+const AUTO_ASPECT = "__auto__";
 import type {
   ShotDoc,
   LibraryData,
@@ -140,6 +144,7 @@ export function ShotCard({
     styleId?: Id<"presets"> | null;
     cameraId?: Id<"presets"> | null;
     lightingId?: Id<"presets"> | null;
+    aspectRatio?: string | null;
   };
   function save(patch: ShotPatch) {
     update({ id: shot._id, ...patch }).catch(() => toast.error("Save failed"));
@@ -469,6 +474,29 @@ export function ShotCard({
         </Select>
 
         <div className="flex items-center gap-2">
+          <Select
+            value={shot.aspectRatio ?? AUTO_ASPECT}
+            onValueChange={(v) =>
+              save({ aspectRatio: v === AUTO_ASPECT ? null : v })
+            }
+          >
+            <SelectTrigger
+              size="sm"
+              className="w-24 shrink-0"
+              title="Output aspect ratio"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={AUTO_ASPECT}>Auto</SelectItem>
+              {ASPECT_RATIOS.map((r) => (
+                <SelectItem key={r.value} value={r.value}>
+                  {r.value}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" size="icon" className="size-8 shrink-0">
