@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -95,11 +95,15 @@ export function ImageLightbox({
   index,
   onIndexChange,
   onClose,
+  sidebar,
 }: {
   images: LightboxImage[];
   index: number | null;
   onIndexChange: (i: number) => void;
   onClose: () => void;
+  /** Optional panel rendered beside the image (e.g. review controls). The
+   * parent recomputes it from the current `index`. */
+  sidebar?: ReactNode;
 }) {
   const open = index !== null;
   const current = open ? images[index] : undefined;
@@ -180,26 +184,34 @@ export function ImageLightbox({
           </div>
         </div>
 
-        <div className="relative flex min-h-0 flex-1 items-center justify-center">
-          {current?.url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={current.url}
-              alt={current.caption ?? ""}
-              className="max-h-full max-w-full rounded-lg object-contain"
-            />
-          ) : null}
+        <div className="flex min-h-0 flex-1 flex-col gap-2 lg:flex-row">
+          <div className="relative flex min-h-0 flex-1 items-center justify-center">
+            {current?.url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={current.url}
+                alt={current.caption ?? ""}
+                className="max-h-full max-w-full rounded-lg object-contain"
+              />
+            ) : null}
 
-          <NavButton
-            side="left"
-            disabled={!hasPrev}
-            onClick={() => hasPrev && onIndexChange(index - 1)}
-          />
-          <NavButton
-            side="right"
-            disabled={!hasNext}
-            onClick={() => hasNext && onIndexChange(index + 1)}
-          />
+            <NavButton
+              side="left"
+              disabled={!hasPrev}
+              onClick={() => hasPrev && onIndexChange(index - 1)}
+            />
+            <NavButton
+              side="right"
+              disabled={!hasNext}
+              onClick={() => hasNext && onIndexChange(index + 1)}
+            />
+          </div>
+
+          {sidebar ? (
+            <div className="bg-background text-foreground max-h-[35vh] shrink-0 overflow-y-auto rounded-xl p-4 lg:max-h-none lg:w-80">
+              {sidebar}
+            </div>
+          ) : null}
         </div>
 
         {current?.caption ? (

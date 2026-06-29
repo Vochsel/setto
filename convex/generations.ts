@@ -271,3 +271,107 @@ export const remove = mutation({
     await ctx.db.delete(id);
   },
 });
+
+// --- Review / curation -----------------------------------------------------
+
+/** Succeeded photos for a shoot with curation metadata, newest first. Powers
+ * the shoot's Gallery / review board (rate, favorite, approve, comment). */
+export const reviewByShoot = query({
+  args: { shootId: v.id("shoots") },
+  handler: async (ctx, { shootId }) => {
+    const scope = await getScope(ctx);
+    assertOrg(await ctx.db.get(shootId), scope);
+    const gens = await ctx.db
+      .query("generations")
+      .withIndex("by_shoot", (q) => q.eq("shootId", shootId))
+      .order("desc")
+      .collect();
+    const succeeded = gens.filter((g) => g.status === "succeeded");
+    const out = await Promise.all(
+      succeeded.map(async (g) => {
+        let imageUrl = g.imageUrl;
+        if (!imageUrl && g.storageId) {
+          imageUrl = (await ctx.storage.getUrl(g.storageId)) ?? undefined;
+        }
+        return {
+          _id: g._id,
+          _creationTime: g._creationTime,
+          imageUrl,
+          shotId: g.shotId,
+          modelLabel: g.modelLabel,
+          prompt: g.prompt,
+          favorite: g.favorite ?? false,
+          rating: g.rating ?? 0,
+          approval: g.approval ?? null,
+          comments: g.comments ?? [],
+        };
+      }),
+    );
+    return out.filter((g) => g.imageUrl);
+  },
+});
+
+export const setRating = mutation({
+  args: { id: v.id("generations"), rating: v.number() },
+  handler: async (ctx, { id, rating }) => {
+    const scope = await getScope(ctx);
+    assertOrg(await ctx.db.get(id), scope);
+    const clamped = Math.max(0, Math.min(5, Math.round(rating)));
+    // 0 clears the rating back to "unrated".
+    await ctx.db.patch(id, { rating: clamped > 0 ? clamped : undefined });
+  },
+});
+
+export const setFavorite = mutation({
+  args: { id: v.id("generations"), favorite: v.boolean() },
+  handler: async (ctx, { id, favorite }) => {
+    const scope = await getScope(ctx);
+    assertOrg(await ctx.db.get(id), scope);
+    await ctx.db.patch(id, { favorite: favorite || undefined });
+  },
+});
+
+export const setApproval = mutation({
+  args: {
+    id: v.id("generations"),
+    approval: v.union(
+      v.literal("approved"),
+      v.literal("rejected"),
+      v.null(),
+    ),
+  },
+  handler: async (ctx, { id, approval }) => {
+    const scope = await getScope(ctx);
+    assertOrg(await ctx.db.get(id), scope);
+    await ctx.db.patch(id, { approval: approval ?? undefined });
+  },
+});
+
+export const addComment = mutation({
+  args: { id: v.id("generations"), text: v.string() },
+  handler: async (ctx, { id, text }) => {
+    const scope = await getScope(ctx);
+    const gen = assertOrg(await ctx.db.get(id), scope);
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    const comment = {
+      id: crypto.randomUUID(),
+      authorId: scope.userId,
+      authorName: scope.name ?? scope.email,
+      text: trimmed,
+      createdAt: Date.now(),
+    };
+    await ctx.db.patch(id, { comments: [...(gen.comments ?? []), comment] });
+  },
+});
+
+export const removeComment = mutation({
+  args: { id: v.id("generations"), commentId: v.string() },
+  handler: async (ctx, { id, commentId }) => {
+    const scope = await getScope(ctx);
+    const gen = assertOrg(await ctx.db.get(id), scope);
+    await ctx.db.patch(id, {
+      comments: (gen.comments ?? []).filter((c) => c.id !== commentId),
+    });
+  },
+});

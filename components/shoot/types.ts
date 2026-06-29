@@ -22,6 +22,16 @@ export interface PresetOption {
   promptDescriptor?: string;
 }
 
+export interface ReviewComment {
+  id: string;
+  authorId: string;
+  authorName?: string;
+  text: string;
+  createdAt: number;
+}
+
+export type Approval = "approved" | "rejected" | null;
+
 export interface GenerationDoc {
   _id: Id<"generations">;
   status: "queued" | "generating" | "succeeded" | "failed";
@@ -31,6 +41,11 @@ export interface GenerationDoc {
   modelKey: string;
   prompt: string;
   error?: string;
+  // Review / curation
+  favorite?: boolean;
+  rating?: number;
+  approval?: "approved" | "rejected";
+  comments?: ReviewComment[];
 }
 
 export interface ShotDoc {

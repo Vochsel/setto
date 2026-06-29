@@ -202,6 +202,25 @@ export default defineSchema({
     params: v.optional(v.any()),
     falRequestId: v.optional(v.string()),
     error: v.optional(v.string()),
+    // --- Review / curation (per generated image) ------------------------
+    // Set by the team while culling a shoot. All optional so existing rows
+    // and freshly-generated images read as "unreviewed".
+    favorite: v.optional(v.boolean()),
+    rating: v.optional(v.number()), // 0–5 stars (absent => unrated)
+    approval: v.optional(
+      v.union(v.literal("approved"), v.literal("rejected")),
+    ), // absent => pending review
+    comments: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          authorId: v.string(),
+          authorName: v.optional(v.string()),
+          text: v.string(),
+          createdAt: v.number(),
+        }),
+      ),
+    ),
   })
     .index("by_shot", ["shotId"])
     .index("by_shoot", ["shootId"])
