@@ -19,10 +19,40 @@ const inter = Inter({
   subsets: ["latin"],
 });
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+
+const title = "Setto — AI photo shoots in real places";
+const description =
+  "Plan AI fashion shoots at real locations: save models, outfits and presets, stage scenes, and generate grounded imagery.";
+
 export const metadata: Metadata = {
-  title: "Setto — AI photo shoots in real places",
-  description:
-    "Plan AI fashion shoots at real locations: save models, outfits and presets, stage scenes, and generate grounded imagery.",
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: title,
+    template: "%s · Setto",
+  },
+  description,
+  applicationName: "Setto",
+  keywords: [
+    "AI photo shoots",
+    "fashion photography",
+    "AI image generation",
+    "Street View",
+    "virtual photo studio",
+  ],
+  openGraph: {
+    type: "website",
+    siteName: "Setto",
+    title,
+    description,
+    url: siteUrl,
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title,
+    description,
+  },
 };
 
 export default function RootLayout({
