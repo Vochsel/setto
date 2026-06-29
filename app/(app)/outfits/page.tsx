@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -121,28 +122,24 @@ export default function OutfitsPage() {
                     toast.success("Item deleted");
                   }}
                 />
-                <OutfitEditor
-                  outfit={o}
-                  trigger={
-                    <button className="block w-full text-left">
-                      <LibraryTile
-                        icon={Shirt}
-                        imageUrl={o.imageUrls?.[0]?.url}
-                        title={o.name}
-                        subtitle={o.categoryName}
-                        footer={
-                          o.variationCount > 0 ? (
-                            <Badge variant="secondary" className="gap-1">
-                              <Layers className="h-3 w-3" />
-                              {o.variationCount} variation
-                              {o.variationCount === 1 ? "" : "s"}
-                            </Badge>
-                          ) : null
-                        }
-                      />
-                    </button>
-                  }
-                />
+                {/* Click → the item's page (product images + every shot it's in) */}
+                <Link href={`/outfits/${o._id}`} className="block">
+                  <LibraryTile
+                    icon={Shirt}
+                    imageUrl={o.imageUrls?.[0]?.url}
+                    title={o.name}
+                    subtitle={o.categoryName}
+                    footer={
+                      o.variationCount > 0 ? (
+                        <Badge variant="secondary" className="gap-1">
+                          <Layers className="h-3 w-3" />
+                          {o.variationCount} variation
+                          {o.variationCount === 1 ? "" : "s"}
+                        </Badge>
+                      ) : null
+                    }
+                  />
+                </Link>
               </div>
             ))}
           </div>

@@ -242,6 +242,48 @@ export const listByLocation = query({
   },
 });
 
+/**
+ * Succeeded videos featuring a given outfit. Videos carry no `outfitId`
+ * snapshot, so we resolve it through the source generation (frozen `outfitId`,
+ * with a legacy fallback to the shot's current outfit).
+ */
+export const listByOutfit = query({
+  args: { outfitId: v.id("outfits") },
+  handler: async (ctx, { outfitId }) => {
+    const scope = await getScope(ctx);
+    assertOrg(await ctx.db.get(outfitId), scope);
+
+    const gens = await ctx.db
+      .query("generations")
+      .withIndex("by_org", (q) => q.eq("orgId", scope.orgId))
+      .collect();
+    const legacyShotIds = new Set(
+      gens.filter((g) => g.outfitId === undefined).map((g) => g.shotId),
+    );
+    const shotOutfit = new Map<string, string | undefined>();
+    await Promise.all(
+      [...legacyShotIds].map(async (sid) => {
+        const shot = await ctx.db.get(sid);
+        shotOutfit.set(sid, shot?.outfitId);
+      }),
+    );
+    const genIds = new Set(
+      gens
+        .filter((g) => (g.outfitId ?? shotOutfit.get(g.shotId)) === outfitId)
+        .map((g) => g._id),
+    );
+
+    const vids = await ctx.db
+      .query("videos")
+      .withIndex("by_org", (q) => q.eq("orgId", scope.orgId))
+      .collect();
+    return shapeSucceeded(
+      ctx,
+      vids.filter((g) => genIds.has(g.generationId)),
+    );
+  },
+});
+
 export const remove = mutation({
   args: { id: v.id("videos") },
   handler: async (ctx, { id }) => {

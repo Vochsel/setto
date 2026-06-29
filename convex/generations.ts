@@ -362,6 +362,43 @@ export const listByLocation = query({
   },
 });
 
+/**
+ * All succeeded photos featuring a given outfit (product).
+ *
+ * Mirrors `listByModel`: prefers each generation's frozen `outfitId` snapshot
+ * and only falls back to resolving the shot's current outfit for legacy rows
+ * that predate snapshots.
+ */
+export const listByOutfit = query({
+  args: { outfitId: v.id("outfits") },
+  handler: async (ctx, { outfitId }) => {
+    const scope = await getScope(ctx);
+    assertOrg(await ctx.db.get(outfitId), scope);
+    const gens = await ctx.db
+      .query("generations")
+      .withIndex("by_org", (q) => q.eq("orgId", scope.orgId))
+      .collect();
+
+    const legacyShotIds = new Set(
+      gens.filter((g) => g.outfitId === undefined).map((g) => g.shotId),
+    );
+    const shotOutfit = new Map<string, string | undefined>();
+    await Promise.all(
+      [...legacyShotIds].map(async (sid) => {
+        const shot = await ctx.db.get(sid);
+        shotOutfit.set(sid, shot?.outfitId);
+      }),
+    );
+
+    const effectiveOutfitId = (g: Doc<"generations">) =>
+      g.outfitId ?? shotOutfit.get(g.shotId);
+    return shapeSucceeded(
+      ctx,
+      gens.filter((g) => effectiveOutfitId(g) === outfitId),
+    );
+  },
+});
+
 export const remove = mutation({
   args: { id: v.id("generations") },
   handler: async (ctx, { id }) => {
