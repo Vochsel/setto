@@ -51,15 +51,11 @@ const STRATEGIST_SYSTEM =
   "art-direction direction. Respond with strict JSON only — no prose, no markdown.";
 
 function strategistInput(campaign: StrategyCampaign, useWeb: boolean): string {
-  const hasCopy =
-    campaign.copy && Object.values(campaign.copy).some((v) => Boolean(v));
-  const copyLine = hasCopy
-    ? `Existing copy (for context): ${JSON.stringify(campaign.copy)}\n`
-    : "";
+  // Intentionally ignore any existing copy: generate fresh ideas from the brief
+  // rather than rewriting what's already there.
   return (
     `Campaign: ${campaign.name}\n` +
     (campaign.brief ? `Brief: ${campaign.brief}\n` : "") +
-    copyLine +
     (useWeb
       ? "\nUse web search to ground your thinking in the real market: who buys " +
         "this kind of product, current trends, and how comparable brands " +

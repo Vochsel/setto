@@ -103,17 +103,19 @@ export function CopyPanel({
     }).catch(() => toast.error("Could not save copy"));
   }
 
-  // Full pipeline: research the audience, then write a variant per persona.
+  // Full pipeline: research the audience from scratch, then write a fresh
+  // variant per persona and drop the top one straight into the copy fields.
   async function runResearchAndWrite() {
     setBusy("research");
     try {
       await researchCampaign({ campaignId, useWeb, modelKey });
       setBusy("copy");
-      await generateCopy({
+      const res = await generateCopy({
         campaignId,
         instructions: instructions.trim() || undefined,
         modelKey,
       });
+      if (res?.variants?.[0]) fillWorkingCopy(res.variants[0]);
       toast.success("Researched the audience and wrote fresh copy");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Copy generation failed");
@@ -122,15 +124,16 @@ export function CopyPanel({
     }
   }
 
-  // Cheaper path: keep the existing personas, just rewrite their copy.
+  // Cheaper path: keep the existing personas, just re-roll their copy.
   async function runRewrite() {
     setBusy("copy");
     try {
-      await generateCopy({
+      const res = await generateCopy({
         campaignId,
         instructions: instructions.trim() || undefined,
         modelKey,
       });
+      if (res?.variants?.[0]) fillWorkingCopy(res.variants[0]);
       toast.success("Copy ideas ready");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Copy generation failed");
@@ -139,12 +142,16 @@ export function CopyPanel({
     }
   }
 
-  function applyVariant(v: CopyVariant) {
+  function fillWorkingCopy(v: CopyVariant) {
     setHeadline(v.headline ?? "");
     setTagline(v.tagline ?? "");
     setBody(v.body ?? "");
     setCta(v.cta ?? "");
     saveCopy(v);
+  }
+
+  function applyVariant(v: CopyVariant) {
+    fillWorkingCopy(v);
     toast.success("Applied to copy");
   }
 
