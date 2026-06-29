@@ -24,22 +24,17 @@ async function fetchAsBase64(
 }
 
 /**
- * Map an app aspect ratio to the nearest gpt-image-1 size. OpenAI only offers
- * square / portrait / landscape, so tall and portrait ratios both map to the
- * portrait canvas. Returns undefined for an unknown/unset ratio (keep default).
+ * Map an app aspect ratio ("w:h") to the nearest gpt-image-1 size. OpenAI only
+ * offers square / portrait / landscape, so every portrait ratio maps to the
+ * portrait canvas and every landscape ratio to the landscape one. Returns
+ * undefined for an unknown/unset ratio (keep the model default).
  */
 function openaiSizeForAspect(aspectRatio?: string): string | undefined {
-  switch (aspectRatio) {
-    case "1:1":
-      return "1024x1024";
-    case "4:5":
-    case "9:16":
-      return "1024x1536";
-    case "16:9":
-      return "1536x1024";
-    default:
-      return undefined;
-  }
+  if (!aspectRatio) return undefined;
+  const [w, h] = aspectRatio.split(":").map(Number);
+  if (!w || !h) return undefined;
+  if (w === h) return "1024x1024";
+  return w > h ? "1536x1024" : "1024x1536";
 }
 
 /** OpenAI gpt-image-1. Uses /edits when references are supplied, else /generations. Returns base64 PNG. */

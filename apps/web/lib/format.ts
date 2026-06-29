@@ -61,10 +61,17 @@ export const campaignStatusMeta: Record<
 
 /** Aspect-ratio options offered for campaign creatives. */
 export const ASPECT_RATIOS: { value: string; label: string }[] = [
-  { value: "4:5", label: "4:5 — Portrait" },
   { value: "1:1", label: "1:1 — Square" },
-  { value: "9:16", label: "9:16 — Story" },
-  { value: "16:9", label: "16:9 — Landscape" },
+  // Portrait (taller than wide)
+  { value: "4:5", label: "4:5 — Portrait" },
+  { value: "3:4", label: "3:4 — Portrait" },
+  { value: "2:3", label: "2:3 — Portrait" },
+  { value: "9:16", label: "9:16 — Portrait (tall / story)" },
+  // Landscape (wider than tall)
+  { value: "5:4", label: "5:4 — Landscape" },
+  { value: "4:3", label: "4:3 — Landscape" },
+  { value: "3:2", label: "3:2 — Landscape" },
+  { value: "16:9", label: "16:9 — Landscape (wide)" },
 ];
 
 export type ShootStatus = "draft" | "active" | "completed" | "archived";

@@ -266,8 +266,15 @@ export interface CreativePromptInputs {
 
 const ASPECT_GUIDE: Record<string, string> = {
   "1:1": "square 1:1 format (feed / general)",
+  // Portrait
   "4:5": "vertical 4:5 portrait format (Instagram feed)",
+  "3:4": "vertical 3:4 portrait format",
+  "2:3": "vertical 2:3 portrait format",
   "9:16": "tall 9:16 vertical format (story / reel)",
+  // Landscape
+  "5:4": "5:4 landscape format",
+  "4:3": "4:3 landscape format",
+  "3:2": "3:2 landscape format",
   "16:9": "wide 16:9 landscape format (banner / web)",
 };
 

@@ -23,6 +23,13 @@ export interface ImageModel {
   falEndpoint?: string;
   falImageParam?: "image_urls" | "image_url";
   falDefaultParams?: Record<string, unknown>;
+  /**
+   * Aspect ratios this fal endpoint actually accepts. When set, a requested
+   * ratio outside the list is snapped to the closest supported one (so e.g. a
+   * 4:5 request doesn't error on FLUX/Imagen). Omit when the endpoint accepts
+   * any ratio (e.g. Gemini) or ignores aspect_ratio.
+   */
+  falAspectRatios?: string[];
 
   // openai
   openaiModel?: string;
@@ -123,6 +130,7 @@ export const IMAGE_MODELS: ImageModel[] = [
     pricePerImage: 0.06,
     falEndpoint: "fal-ai/flux-pro/v1.1-ultra",
     falDefaultParams: { aspect_ratio: "3:4", num_images: 1, safety_tolerance: "5" },
+    falAspectRatios: ["21:9", "16:9", "4:3", "3:2", "1:1", "2:3", "3:4", "9:16", "9:21"],
   },
   {
     id: "fal-ai/flux/dev/image-to-image",
@@ -144,6 +152,7 @@ export const IMAGE_MODELS: ImageModel[] = [
     pricePerImage: 0.04,
     falEndpoint: "fal-ai/imagen4/preview",
     falDefaultParams: { aspect_ratio: "3:4", num_images: 1 },
+    falAspectRatios: ["1:1", "16:9", "9:16", "3:4", "4:3"],
   },
   {
     id: "fal-ai/ideogram/v3",
@@ -212,6 +221,33 @@ export function referenceGuidance(model: ImageModel): string {
   );
 }
 
+/** Numeric value of an "w:h" ratio, or NaN if unparseable. */
+function aspectValue(ratio: string): number {
+  const [w, h] = ratio.split(":").map(Number);
+  return w && h ? w / h : NaN;
+}
+
+/**
+ * Snap a requested aspect ratio to the closest one in `supported` (by numeric
+ * ratio). Returns the request unchanged when it's already supported or can't be
+ * parsed. Keeps a model from erroring on a ratio it doesn't offer.
+ */
+export function snapAspect(requested: string, supported: string[]): string {
+  if (supported.includes(requested)) return requested;
+  const target = aspectValue(requested);
+  if (Number.isNaN(target)) return requested;
+  let best = requested;
+  let bestDelta = Infinity;
+  for (const s of supported) {
+    const delta = Math.abs(aspectValue(s) - target);
+    if (delta < bestDelta) {
+      bestDelta = delta;
+      best = s;
+    }
+  }
+  return best;
+}
+
 /** Build the request body a fal endpoint expects. */
 export function buildFalInput(
   model: ImageModel,
@@ -228,8 +264,11 @@ export function buildFalInput(
   };
   if (typeof args.seed === "number") input.seed = args.seed;
   // Pin the output shape when requested (e.g. the fixed-size model sheet).
+  // Snap to a ratio the endpoint accepts so e.g. 4:5 doesn't error on FLUX.
   if (args.aspectRatio && !("image_size" in input)) {
-    input.aspect_ratio = args.aspectRatio;
+    input.aspect_ratio = model.falAspectRatios
+      ? snapAspect(args.aspectRatio, model.falAspectRatios)
+      : args.aspectRatio;
   }
   const refs = args.referenceImageUrls?.filter(Boolean) ?? [];
   if (model.supportsImagePrompt && refs.length && model.falImageParam) {
