@@ -33,6 +33,7 @@ import { ConfirmDelete } from "@/components/confirm-delete";
 import { EmptyState } from "@/components/empty-state";
 import { ShootMap } from "@/components/shoot/shoot-map";
 import { AddLocation } from "@/components/shoot/add-location";
+import { AddNearbyLocation } from "@/components/shoot/add-nearby-location";
 import { LocationPanel } from "@/components/shoot/location-panel";
 import { formatDateTime, shootStatusMeta, type ShootStatus } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -136,6 +137,17 @@ export default function ShootEditorPage() {
 
   const locs = (shootLocations ?? []) as unknown as ShootLocationDoc[];
   const selected = locs.find((l) => l._id === selectedLocId);
+  // Seed the "add nearby" map near the shoot's existing stops, and flag places
+  // already on the shoot so we don't suggest adding them twice.
+  const firstLocated = locs.find(
+    (l) => l.location?.lat != null && l.location?.lng != null,
+  );
+  const mapCenter = firstLocated
+    ? { lat: firstLocated.location!.lat!, lng: firstLocated.location!.lng! }
+    : undefined;
+  const shootPlaceIds = locs
+    .map((l) => (l.location as { googlePlaceId?: string } | null)?.googlePlaceId)
+    .filter((id): id is string => Boolean(id));
   const shotCounts: Record<string, number> = Object.fromEntries(
     locs.map((l) => [l._id, shotsByLocation[l._id]?.length ?? 0]),
   );
@@ -189,10 +201,17 @@ export default function ShootEditorPage() {
               Locations{" "}
               <span className="text-muted-foreground">({locs.length})</span>
             </h2>
-            <AddLocation
-              shootId={shootId}
-              existingLocationIds={locs.map((l) => l.locationId)}
-            />
+            <div className="flex items-center gap-2">
+              <AddNearbyLocation
+                shootId={shootId}
+                center={mapCenter}
+                shootPlaceIds={shootPlaceIds}
+              />
+              <AddLocation
+                shootId={shootId}
+                existingLocationIds={locs.map((l) => l.locationId)}
+              />
+            </div>
           </div>
 
           <div className="space-y-2">
