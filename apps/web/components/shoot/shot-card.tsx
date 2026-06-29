@@ -120,13 +120,27 @@ export function ShotCard({
     null,
   );
 
-  // Deep-link: when this is the targeted shot, scroll it into view.
+  // Deep-link: when this is the targeted shot, scroll it into view. The panel
+  // has usually just mounted, so scroll *after* layout settles — a synchronous
+  // scrollIntoView here fires before the browser positions the card and lands
+  // nowhere. Defer past paint (double rAF), then re-align once more after
+  // images settle so the target stays centered.
   useEffect(() => {
-    if (highlight) {
+    if (!highlight) return;
+    const scroll = () =>
       document
         .getElementById(`shot-${shot._id}`)
         ?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
+    let inner = 0;
+    const outer = requestAnimationFrame(() => {
+      inner = requestAnimationFrame(scroll);
+    });
+    const settle = window.setTimeout(scroll, 500);
+    return () => {
+      cancelAnimationFrame(outer);
+      cancelAnimationFrame(inner);
+      clearTimeout(settle);
+    };
   }, [highlight, shot._id]);
 
   const outfit = library.outfits.find((o) => o._id === shot.outfitId);
