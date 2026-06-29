@@ -54,6 +54,46 @@ export function parseJsonObject(text: string): any {
   throw new Error("Model did not return valid JSON");
 }
 
+/**
+ * POST a chat completion and return the message content. Newer reasoning-class
+ * models only accept the default temperature; if the API rejects our value we
+ * transparently retry once without it.
+ */
+async function postChat(body: Record<string, unknown>): Promise<string> {
+  const send = (b: Record<string, unknown>) =>
+    fetch(`${OPENAI_BASE}/chat/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey()}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(b),
+    });
+
+  let res = await send(body);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let json: any = await res.json();
+  if (
+    !res.ok &&
+    res.status === 400 &&
+    "temperature" in body &&
+    /temperature/i.test(json?.error?.message ?? "")
+  ) {
+    const retry = { ...body };
+    delete retry.temperature;
+    res = await send(retry);
+    json = await res.json();
+  }
+  if (!res.ok) {
+    throw new Error(json?.error?.message ?? `OpenAI error ${res.status}`);
+  }
+  const content = json?.choices?.[0]?.message?.content;
+  if (typeof content !== "string" || !content.trim()) {
+    throw new Error("OpenAI returned an empty response");
+  }
+  return content;
+}
+
 /** Chat Completions with a JSON-object response. */
 export async function chatJSON(opts: {
   model: string;
@@ -63,9 +103,8 @@ export async function chatJSON(opts: {
   temperature?: number;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 }): Promise<any> {
-  const model = process.env.OPENAI_TEXT_MODEL ?? opts.model;
   const body: Record<string, unknown> = {
-    model,
+    model: process.env.OPENAI_TEXT_MODEL ?? opts.model,
     messages: [
       { role: "system", content: opts.system },
       { role: "user", content: opts.user },
@@ -73,23 +112,7 @@ export async function chatJSON(opts: {
     response_format: { type: "json_object" },
   };
   if (opts.temperature !== undefined) body.temperature = opts.temperature;
-
-  const res = await fetch(`${OPENAI_BASE}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey()}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const json: any = await res.json();
-  if (!res.ok) {
-    throw new Error(json?.error?.message ?? `OpenAI error ${res.status}`);
-  }
-  const content = json?.choices?.[0]?.message?.content;
-  if (!content) throw new Error("OpenAI returned an empty response");
-  return parseJsonObject(content);
+  return parseJsonObject(await postChat(body));
 }
 
 /** Chat Completions returning raw text (used for HTML layout generation). */
@@ -99,34 +122,15 @@ export async function chatText(opts: {
   user: string;
   temperature?: number;
 }): Promise<string> {
-  const model = process.env.OPENAI_TEXT_MODEL ?? opts.model;
   const body: Record<string, unknown> = {
-    model,
+    model: process.env.OPENAI_TEXT_MODEL ?? opts.model,
     messages: [
       { role: "system", content: opts.system },
       { role: "user", content: opts.user },
     ],
   };
   if (opts.temperature !== undefined) body.temperature = opts.temperature;
-
-  const res = await fetch(`${OPENAI_BASE}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey()}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const json: any = await res.json();
-  if (!res.ok) {
-    throw new Error(json?.error?.message ?? `OpenAI error ${res.status}`);
-  }
-  const content = json?.choices?.[0]?.message?.content;
-  if (typeof content !== "string" || !content.trim()) {
-    throw new Error("OpenAI returned an empty response");
-  }
-  return content;
+  return postChat(body);
 }
 
 /**

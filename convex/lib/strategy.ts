@@ -186,7 +186,6 @@ export async function writeForPersona(opts: {
     model: opts.model,
     system,
     user,
-    temperature: 0.85,
   });
   return {
     headline: str(raw?.headline),

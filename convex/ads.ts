@@ -271,7 +271,6 @@ export const runAdLayout = internalAction({
           shotCount: c.shots.length,
           instructions: args.instructions,
         }),
-        temperature: 0.7,
       });
 
       const html = sanitizeHtml(raw);
