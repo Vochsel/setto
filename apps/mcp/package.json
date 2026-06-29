@@ -1,0 +1,27 @@
+{
+  "name": "@setto/mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "setto-mcp": "./dist/index.js"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsup",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@setto/core": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "convex": "^1.42.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "tsup": "^8.5.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5"
+  }
+}

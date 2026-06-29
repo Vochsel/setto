@@ -1,0 +1,3279 @@
+[
+  {
+    "path": "ads:generateAdLayout",
+    "type": "Action",
+    "args": {
+      "type": "object",
+      "value": {
+        "campaignId": {
+          "fieldType": {
+            "tableName": "campaigns",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "instructions": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "modelKey": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "ads:listByCampaign",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "campaignId": {
+          "fieldType": {
+            "tableName": "campaigns",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "ads:regenerateAd",
+    "type": "Action",
+    "args": {
+      "type": "object",
+      "value": {
+        "adId": {
+          "fieldType": {
+            "tableName": "campaignAds",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "instructions": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "ads:removeAd",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "adId": {
+          "fieldType": {
+            "tableName": "campaignAds",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "ads:setAdSlot",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "adId": {
+          "fieldType": {
+            "tableName": "campaignAds",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "kind": {
+          "fieldType": {
+            "type": "union",
+            "value": [
+              {
+                "type": "literal",
+                "value": "image"
+              },
+              {
+                "type": "literal",
+                "value": "video"
+              }
+            ]
+          },
+          "optional": false
+        },
+        "mediaUrl": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "posterUrl": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "slotId": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        },
+        "source": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        },
+        "sourceId": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "campaignCreatives:listByCampaign",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "campaignId": {
+          "fieldType": {
+            "tableName": "campaigns",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "campaignCreatives:remove",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "campaignCreatives",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "campaigns:create",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "aspectRatio": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "brief": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "name": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "campaigns:get",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "campaigns",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "campaigns:list",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "status": {
+          "fieldType": {
+            "type": "union",
+            "value": [
+              {
+                "type": "literal",
+                "value": "draft"
+              },
+              {
+                "type": "literal",
+                "value": "active"
+              },
+              {
+                "type": "literal",
+                "value": "archived"
+              }
+            ]
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "campaigns:remove",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "campaigns",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "campaigns:setCopy",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "copy": {
+          "fieldType": {
+            "type": "object",
+            "value": {
+              "body": {
+                "fieldType": {
+                  "type": "string"
+                },
+                "optional": true
+              },
+              "cta": {
+                "fieldType": {
+                  "type": "string"
+                },
+                "optional": true
+              },
+              "headline": {
+                "fieldType": {
+                  "type": "string"
+                },
+                "optional": true
+              },
+              "tagline": {
+                "fieldType": {
+                  "type": "string"
+                },
+                "optional": true
+              }
+            }
+          },
+          "optional": false
+        },
+        "id": {
+          "fieldType": {
+            "tableName": "campaigns",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "campaigns:setResearch",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "campaigns",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "personas": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "object",
+              "value": {
+                "angle": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "descriptor": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "id": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": false
+                },
+                "motivation": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "name": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": false
+                },
+                "pains": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                }
+              }
+            }
+          },
+          "optional": false
+        },
+        "research": {
+          "fieldType": {
+            "type": "object",
+            "value": {
+              "generatedAt": {
+                "fieldType": {
+                  "type": "number"
+                },
+                "optional": true
+              },
+              "insights": {
+                "fieldType": {
+                  "type": "array",
+                  "value": {
+                    "type": "string"
+                  }
+                },
+                "optional": true
+              },
+              "positioning": {
+                "fieldType": {
+                  "type": "string"
+                },
+                "optional": true
+              },
+              "sources": {
+                "fieldType": {
+                  "type": "array",
+                  "value": {
+                    "type": "string"
+                  }
+                },
+                "optional": true
+              },
+              "usedWeb": {
+                "fieldType": {
+                  "type": "boolean"
+                },
+                "optional": true
+              },
+              "visualDirection": {
+                "fieldType": {
+                  "type": "object",
+                  "value": {
+                    "layoutCues": {
+                      "fieldType": {
+                        "type": "string"
+                      },
+                      "optional": true
+                    },
+                    "mood": {
+                      "fieldType": {
+                        "type": "string"
+                      },
+                      "optional": true
+                    },
+                    "palette": {
+                      "fieldType": {
+                        "type": "string"
+                      },
+                      "optional": true
+                    }
+                  }
+                },
+                "optional": true
+              }
+            }
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "campaigns:toggleShot",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "generationId": {
+          "fieldType": {
+            "tableName": "generations",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "id": {
+          "fieldType": {
+            "tableName": "campaigns",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "shootId": {
+          "fieldType": {
+            "tableName": "shoots",
+            "type": "id"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "campaigns:update",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "aspectRatio": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "bakeCopyIntoImage": {
+          "fieldType": {
+            "type": "boolean"
+          },
+          "optional": true
+        },
+        "brief": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "copy": {
+          "fieldType": {
+            "type": "object",
+            "value": {
+              "body": {
+                "fieldType": {
+                  "type": "string"
+                },
+                "optional": true
+              },
+              "cta": {
+                "fieldType": {
+                  "type": "string"
+                },
+                "optional": true
+              },
+              "headline": {
+                "fieldType": {
+                  "type": "string"
+                },
+                "optional": true
+              },
+              "tagline": {
+                "fieldType": {
+                  "type": "string"
+                },
+                "optional": true
+              }
+            }
+          },
+          "optional": true
+        },
+        "coverImage": {
+          "fieldType": {
+            "type": "object",
+            "value": {
+              "caption": {
+                "fieldType": {
+                  "type": "string"
+                },
+                "optional": true
+              },
+              "source": {
+                "fieldType": {
+                  "type": "string"
+                },
+                "optional": true
+              },
+              "storageId": {
+                "fieldType": {
+                  "tableName": "_storage",
+                  "type": "id"
+                },
+                "optional": true
+              },
+              "url": {
+                "fieldType": {
+                  "type": "string"
+                },
+                "optional": true
+              }
+            }
+          },
+          "optional": true
+        },
+        "id": {
+          "fieldType": {
+            "tableName": "campaigns",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "inspirationRefs": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "object",
+              "value": {
+                "caption": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "source": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "storageId": {
+                  "fieldType": {
+                    "tableName": "_storage",
+                    "type": "id"
+                  },
+                  "optional": true
+                },
+                "url": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                }
+              }
+            }
+          },
+          "optional": true
+        },
+        "name": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "selectedShots": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "object",
+              "value": {
+                "generationId": {
+                  "fieldType": {
+                    "tableName": "generations",
+                    "type": "id"
+                  },
+                  "optional": false
+                },
+                "shootId": {
+                  "fieldType": {
+                    "tableName": "shoots",
+                    "type": "id"
+                  },
+                  "optional": true
+                }
+              }
+            }
+          },
+          "optional": true
+        },
+        "status": {
+          "fieldType": {
+            "type": "union",
+            "value": [
+              {
+                "type": "literal",
+                "value": "draft"
+              },
+              {
+                "type": "literal",
+                "value": "active"
+              },
+              {
+                "type": "literal",
+                "value": "archived"
+              }
+            ]
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "copyChat:clear",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "campaignId": {
+          "fieldType": {
+            "tableName": "campaigns",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "copyChat:get",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "campaignId": {
+          "fieldType": {
+            "tableName": "campaigns",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "copyChat:save",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "campaignId": {
+          "fieldType": {
+            "tableName": "campaigns",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "messages": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "any"
+            }
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "copyVariants:add",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "campaignId": {
+          "fieldType": {
+            "tableName": "campaigns",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "variants": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "object",
+              "value": {
+                "angle": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "body": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "cta": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "headline": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "personaName": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "sources": {
+                  "fieldType": {
+                    "type": "array",
+                    "value": {
+                      "type": "string"
+                    }
+                  },
+                  "optional": true
+                },
+                "tagline": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                }
+              }
+            }
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "copyVariants:list",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "campaignId": {
+          "fieldType": {
+            "tableName": "campaigns",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "copyVariants:remove",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "campaignCopyVariants",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "copyVariants:togglePin",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "campaignCopyVariants",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "files:generateUploadUrl",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {}
+    },
+    "returns": null
+  },
+  {
+    "path": "generate:generateCreative",
+    "type": "Action",
+    "args": {
+      "type": "object",
+      "value": {
+        "campaignId": {
+          "fieldType": {
+            "tableName": "campaigns",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "count": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
+        "modelKey": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "generate:generateModelImage",
+    "type": "Action",
+    "args": {
+      "type": "object",
+      "value": {
+        "kind": {
+          "fieldType": {
+            "type": "union",
+            "value": [
+              {
+                "type": "literal",
+                "value": "headshot"
+              },
+              {
+                "type": "literal",
+                "value": "sheet"
+              }
+            ]
+          },
+          "optional": true
+        },
+        "modelKey": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "prompt": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "referenceImageUrls": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "string"
+            }
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "generate:generateShot",
+    "type": "Action",
+    "args": {
+      "type": "object",
+      "value": {
+        "modelKey": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "shotId": {
+          "fieldType": {
+            "tableName": "shots",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "variationIds": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "string"
+            }
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "generate:migrateModelsToSheets",
+    "type": "Action",
+    "args": {
+      "type": "object",
+      "value": {
+        "modelIds": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "tableName": "models",
+              "type": "id"
+            }
+          },
+          "optional": true
+        },
+        "modelKey": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "generations:listByLocation",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "locationId": {
+          "fieldType": {
+            "tableName": "locations",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "generations:listByModel",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "modelId": {
+          "fieldType": {
+            "tableName": "models",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "generations:listByOrg",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "limit": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "generations:listByOutfit",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "outfitId": {
+          "fieldType": {
+            "tableName": "outfits",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "generations:listByShoot",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "shootId": {
+          "fieldType": {
+            "tableName": "shoots",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "generations:queueFeed",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "paginationOpts": {
+          "fieldType": {
+            "type": "object",
+            "value": {
+              "cursor": {
+                "fieldType": {
+                  "type": "union",
+                  "value": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "optional": false
+              },
+              "endCursor": {
+                "fieldType": {
+                  "type": "union",
+                  "value": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "optional": true
+              },
+              "id": {
+                "fieldType": {
+                  "type": "number"
+                },
+                "optional": true
+              },
+              "maximumBytesRead": {
+                "fieldType": {
+                  "type": "number"
+                },
+                "optional": true
+              },
+              "maximumRowsRead": {
+                "fieldType": {
+                  "type": "number"
+                },
+                "optional": true
+              },
+              "numItems": {
+                "fieldType": {
+                  "type": "number"
+                },
+                "optional": false
+              }
+            }
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "generations:remove",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "generations",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "locations:create",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "address": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "description": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "googlePlaceId": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "images": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "object",
+              "value": {
+                "caption": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "source": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "storageId": {
+                  "fieldType": {
+                    "tableName": "_storage",
+                    "type": "id"
+                  },
+                  "optional": true
+                },
+                "url": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                }
+              }
+            }
+          },
+          "optional": true
+        },
+        "lat": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
+        "lng": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
+        "name": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        },
+        "promptDescriptor": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "streetViewRefs": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "object",
+              "value": {
+                "caption": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "source": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "storageId": {
+                  "fieldType": {
+                    "tableName": "_storage",
+                    "type": "id"
+                  },
+                  "optional": true
+                },
+                "url": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                }
+              }
+            }
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "locations:get",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "locations",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "locations:list",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {}
+    },
+    "returns": null
+  },
+  {
+    "path": "locations:remove",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "locations",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "locations:update",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "address": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "description": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "googlePlaceId": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "id": {
+          "fieldType": {
+            "tableName": "locations",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "images": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "object",
+              "value": {
+                "caption": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "source": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "storageId": {
+                  "fieldType": {
+                    "tableName": "_storage",
+                    "type": "id"
+                  },
+                  "optional": true
+                },
+                "url": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                }
+              }
+            }
+          },
+          "optional": true
+        },
+        "lat": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
+        "lng": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
+        "name": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "promptDescriptor": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "streetViewRefs": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "object",
+              "value": {
+                "caption": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "source": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "storageId": {
+                  "fieldType": {
+                    "tableName": "_storage",
+                    "type": "id"
+                  },
+                  "optional": true
+                },
+                "url": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                }
+              }
+            }
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "models:create",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "attributes": {
+          "fieldType": {
+            "type": "any"
+          },
+          "optional": true
+        },
+        "description": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "images": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "object",
+              "value": {
+                "caption": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "source": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "storageId": {
+                  "fieldType": {
+                    "tableName": "_storage",
+                    "type": "id"
+                  },
+                  "optional": true
+                },
+                "url": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                }
+              }
+            }
+          },
+          "optional": true
+        },
+        "name": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        },
+        "promptDescriptor": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "models:get",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "models",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "models:list",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {}
+    },
+    "returns": null
+  },
+  {
+    "path": "models:remove",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "models",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "models:update",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "attributes": {
+          "fieldType": {
+            "type": "any"
+          },
+          "optional": true
+        },
+        "description": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "id": {
+          "fieldType": {
+            "tableName": "models",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "images": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "object",
+              "value": {
+                "caption": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "source": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "storageId": {
+                  "fieldType": {
+                    "tableName": "_storage",
+                    "type": "id"
+                  },
+                  "optional": true
+                },
+                "url": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                }
+              }
+            }
+          },
+          "optional": true
+        },
+        "name": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "promptDescriptor": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "outfitCategories:create",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "name": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "outfitCategories:list",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {}
+    },
+    "returns": null
+  },
+  {
+    "path": "outfitCategories:remove",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "outfitCategories",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "outfitCategories:rename",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "outfitCategories",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "name": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "outfits:addVariation",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "outfits",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "variation": {
+          "fieldType": {
+            "type": "object",
+            "value": {
+              "id": {
+                "fieldType": {
+                  "type": "string"
+                },
+                "optional": false
+              },
+              "images": {
+                "fieldType": {
+                  "type": "array",
+                  "value": {
+                    "type": "object",
+                    "value": {
+                      "caption": {
+                        "fieldType": {
+                          "type": "string"
+                        },
+                        "optional": true
+                      },
+                      "source": {
+                        "fieldType": {
+                          "type": "string"
+                        },
+                        "optional": true
+                      },
+                      "storageId": {
+                        "fieldType": {
+                          "tableName": "_storage",
+                          "type": "id"
+                        },
+                        "optional": true
+                      },
+                      "url": {
+                        "fieldType": {
+                          "type": "string"
+                        },
+                        "optional": true
+                      }
+                    }
+                  }
+                },
+                "optional": true
+              },
+              "name": {
+                "fieldType": {
+                  "type": "string"
+                },
+                "optional": false
+              },
+              "promptDescriptor": {
+                "fieldType": {
+                  "type": "string"
+                },
+                "optional": true
+              }
+            }
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "outfits:create",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "categoryId": {
+          "fieldType": {
+            "tableName": "outfitCategories",
+            "type": "id"
+          },
+          "optional": true
+        },
+        "description": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "images": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "object",
+              "value": {
+                "caption": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "source": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "storageId": {
+                  "fieldType": {
+                    "tableName": "_storage",
+                    "type": "id"
+                  },
+                  "optional": true
+                },
+                "url": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                }
+              }
+            }
+          },
+          "optional": true
+        },
+        "name": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        },
+        "promptDescriptor": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "variations": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "object",
+              "value": {
+                "id": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": false
+                },
+                "images": {
+                  "fieldType": {
+                    "type": "array",
+                    "value": {
+                      "type": "object",
+                      "value": {
+                        "caption": {
+                          "fieldType": {
+                            "type": "string"
+                          },
+                          "optional": true
+                        },
+                        "source": {
+                          "fieldType": {
+                            "type": "string"
+                          },
+                          "optional": true
+                        },
+                        "storageId": {
+                          "fieldType": {
+                            "tableName": "_storage",
+                            "type": "id"
+                          },
+                          "optional": true
+                        },
+                        "url": {
+                          "fieldType": {
+                            "type": "string"
+                          },
+                          "optional": true
+                        }
+                      }
+                    }
+                  },
+                  "optional": true
+                },
+                "name": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": false
+                },
+                "promptDescriptor": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                }
+              }
+            }
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "outfits:get",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "outfits",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "outfits:list",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {}
+    },
+    "returns": null
+  },
+  {
+    "path": "outfits:remove",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "outfits",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "outfits:removeVariation",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "outfits",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "variationId": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "outfits:update",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "categoryId": {
+          "fieldType": {
+            "type": "union",
+            "value": [
+              {
+                "tableName": "outfitCategories",
+                "type": "id"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "optional": true
+        },
+        "description": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "id": {
+          "fieldType": {
+            "tableName": "outfits",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "images": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "object",
+              "value": {
+                "caption": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "source": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "storageId": {
+                  "fieldType": {
+                    "tableName": "_storage",
+                    "type": "id"
+                  },
+                  "optional": true
+                },
+                "url": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                }
+              }
+            }
+          },
+          "optional": true
+        },
+        "name": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "promptDescriptor": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "variations": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "object",
+              "value": {
+                "id": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": false
+                },
+                "images": {
+                  "fieldType": {
+                    "type": "array",
+                    "value": {
+                      "type": "object",
+                      "value": {
+                        "caption": {
+                          "fieldType": {
+                            "type": "string"
+                          },
+                          "optional": true
+                        },
+                        "source": {
+                          "fieldType": {
+                            "type": "string"
+                          },
+                          "optional": true
+                        },
+                        "storageId": {
+                          "fieldType": {
+                            "tableName": "_storage",
+                            "type": "id"
+                          },
+                          "optional": true
+                        },
+                        "url": {
+                          "fieldType": {
+                            "type": "string"
+                          },
+                          "optional": true
+                        }
+                      }
+                    }
+                  },
+                  "optional": true
+                },
+                "name": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": false
+                },
+                "promptDescriptor": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                }
+              }
+            }
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "presets:create",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "description": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "name": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        },
+        "params": {
+          "fieldType": {
+            "type": "any"
+          },
+          "optional": true
+        },
+        "promptDescriptor": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "type": {
+          "fieldType": {
+            "type": "union",
+            "value": [
+              {
+                "type": "literal",
+                "value": "photography_style"
+              },
+              {
+                "type": "literal",
+                "value": "camera_setup"
+              },
+              {
+                "type": "literal",
+                "value": "lighting"
+              }
+            ]
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "presets:list",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "type": {
+          "fieldType": {
+            "type": "union",
+            "value": [
+              {
+                "type": "literal",
+                "value": "photography_style"
+              },
+              {
+                "type": "literal",
+                "value": "camera_setup"
+              },
+              {
+                "type": "literal",
+                "value": "lighting"
+              }
+            ]
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "presets:remove",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "presets",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "presets:seedDefaults",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {}
+    },
+    "returns": null
+  },
+  {
+    "path": "presets:update",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "description": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "id": {
+          "fieldType": {
+            "tableName": "presets",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "name": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "params": {
+          "fieldType": {
+            "type": "any"
+          },
+          "optional": true
+        },
+        "promptDescriptor": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "type": {
+          "fieldType": {
+            "type": "union",
+            "value": [
+              {
+                "type": "literal",
+                "value": "photography_style"
+              },
+              {
+                "type": "literal",
+                "value": "camera_setup"
+              },
+              {
+                "type": "literal",
+                "value": "lighting"
+              }
+            ]
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "presets:usageRenders",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "limit": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
+        "presetId": {
+          "fieldType": {
+            "tableName": "presets",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "settings:get",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {}
+    },
+    "returns": null
+  },
+  {
+    "path": "settings:setDefaultImageModel",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "modelKey": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "shootLocations:add",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "locationId": {
+          "fieldType": {
+            "tableName": "locations",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "shootId": {
+          "fieldType": {
+            "tableName": "shoots",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "shootLocations:listByShoot",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "shootId": {
+          "fieldType": {
+            "tableName": "shoots",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "shootLocations:remove",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "shootLocations",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "shootLocations:reorder",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "ids": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "tableName": "shootLocations",
+              "type": "id"
+            }
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "shootLocations:saveStaging",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "shootLocations",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "staging": {
+          "fieldType": {
+            "type": "any"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "shootLocations:setModels",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "shootLocations",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "modelIds": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "tableName": "models",
+              "type": "id"
+            }
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "shootLocations:setNotes",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "shootLocations",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "notes": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "shoots:create",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "description": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "name": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        },
+        "scheduledAt": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
+        "timezone": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "shoots:get",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "shoots",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "shoots:list",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "status": {
+          "fieldType": {
+            "type": "union",
+            "value": [
+              {
+                "type": "literal",
+                "value": "draft"
+              },
+              {
+                "type": "literal",
+                "value": "active"
+              },
+              {
+                "type": "literal",
+                "value": "completed"
+              },
+              {
+                "type": "literal",
+                "value": "archived"
+              }
+            ]
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "shoots:remove",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "shoots",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "shoots:update",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "description": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "id": {
+          "fieldType": {
+            "tableName": "shoots",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "name": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "scheduledAt": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
+        "status": {
+          "fieldType": {
+            "type": "union",
+            "value": [
+              {
+                "type": "literal",
+                "value": "draft"
+              },
+              {
+                "type": "literal",
+                "value": "active"
+              },
+              {
+                "type": "literal",
+                "value": "completed"
+              },
+              {
+                "type": "literal",
+                "value": "archived"
+              }
+            ]
+          },
+          "optional": true
+        },
+        "timezone": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "shots:create",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "modelId": {
+          "fieldType": {
+            "tableName": "models",
+            "type": "id"
+          },
+          "optional": true
+        },
+        "name": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "shootLocationId": {
+          "fieldType": {
+            "tableName": "shootLocations",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "shots:duplicate",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "shots",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "shots:listByShoot",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "shootId": {
+          "fieldType": {
+            "tableName": "shoots",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "shots:remove",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "shots",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "shots:update",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "cameraFraming": {
+          "fieldType": {
+            "type": "any"
+          },
+          "optional": true
+        },
+        "cameraId": {
+          "fieldType": {
+            "type": "union",
+            "value": [
+              {
+                "tableName": "presets",
+                "type": "id"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "optional": true
+        },
+        "clothingPrompt": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "extraPrompt": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "id": {
+          "fieldType": {
+            "tableName": "shots",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "lightingId": {
+          "fieldType": {
+            "type": "union",
+            "value": [
+              {
+                "tableName": "presets",
+                "type": "id"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "optional": true
+        },
+        "modelId": {
+          "fieldType": {
+            "type": "union",
+            "value": [
+              {
+                "tableName": "models",
+                "type": "id"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "optional": true
+        },
+        "name": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "outfitId": {
+          "fieldType": {
+            "type": "union",
+            "value": [
+              {
+                "tableName": "outfits",
+                "type": "id"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "optional": true
+        },
+        "posePrompt": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "selectedVariationIds": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "string"
+            }
+          },
+          "optional": true
+        },
+        "styleId": {
+          "fieldType": {
+            "type": "union",
+            "value": [
+              {
+                "tableName": "presets",
+                "type": "id"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "streetview:capture",
+    "type": "Action",
+    "args": {
+      "type": "object",
+      "value": {
+        "fov": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
+        "headings": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "number"
+            }
+          },
+          "optional": true
+        },
+        "locationId": {
+          "fieldType": {
+            "tableName": "locations",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "pitch": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "usage:logCopy",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "campaignId": {
+          "fieldType": {
+            "tableName": "campaigns",
+            "type": "id"
+          },
+          "optional": true
+        },
+        "error": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "modelKey": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        },
+        "modelLabel": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "provider": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "status": {
+          "fieldType": {
+            "type": "union",
+            "value": [
+              {
+                "type": "literal",
+                "value": "succeeded"
+              },
+              {
+                "type": "literal",
+                "value": "failed"
+              }
+            ]
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "usage:recent",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "limit": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "usage:summary",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {}
+    },
+    "returns": null
+  },
+  {
+    "path": "users:current",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {}
+    },
+    "returns": null
+  },
+  {
+    "path": "users:store",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "avatarUrl": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "email": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "name": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "orgName": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "videos:generate",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "durationSeconds": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
+        "generationId": {
+          "fieldType": {
+            "tableName": "generations",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "modelKey": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "prompt": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "videos:listByGeneration",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "generationId": {
+          "fieldType": {
+            "tableName": "generations",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "videos:listByLocation",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "locationId": {
+          "fieldType": {
+            "tableName": "locations",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "videos:listByModel",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "modelId": {
+          "fieldType": {
+            "tableName": "models",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "videos:listByOrg",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "limit": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "videos:listByOutfit",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "outfitId": {
+          "fieldType": {
+            "tableName": "outfits",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "videos:queueFeed",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "paginationOpts": {
+          "fieldType": {
+            "type": "object",
+            "value": {
+              "cursor": {
+                "fieldType": {
+                  "type": "union",
+                  "value": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "optional": false
+              },
+              "endCursor": {
+                "fieldType": {
+                  "type": "union",
+                  "value": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "optional": true
+              },
+              "id": {
+                "fieldType": {
+                  "type": "number"
+                },
+                "optional": true
+              },
+              "maximumBytesRead": {
+                "fieldType": {
+                  "type": "number"
+                },
+                "optional": true
+              },
+              "maximumRowsRead": {
+                "fieldType": {
+                  "type": "number"
+                },
+                "optional": true
+              },
+              "numItems": {
+                "fieldType": {
+                  "type": "number"
+                },
+                "optional": false
+              }
+            }
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "videos:remove",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "videos",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  }
+]
