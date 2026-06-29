@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import type { MutationCtx } from "./_generated/server";
 import { getScope } from "./lib/auth";
 import { estimateCost } from "./lib/imageModels";
+import { estimateTextCost } from "./lib/textModels";
 import { estimateVideoCost } from "./lib/videoModels";
 
 const kindV = v.union(
@@ -10,6 +11,8 @@ const kindV = v.union(
   v.literal("model_portrait"),
   v.literal("model_sheet"),
   v.literal("model_variation"),
+  v.literal("campaign_copy"),
+  v.literal("campaign_creative"),
   v.literal("video"),
 );
 const statusV = v.union(v.literal("succeeded"), v.literal("failed"));
@@ -37,15 +40,48 @@ export const record = internalMutation({
     modelLabel: v.optional(v.string()),
     status: statusV,
     modelId: v.optional(v.id("models")),
+    campaignId: v.optional(v.id("campaigns")),
+    // For text (copy) generations, cost comes from the text-model registry.
+    isText: v.optional(v.boolean()),
     error: v.optional(v.string()),
   },
-  handler: async (ctx, a) => {
+  handler: async (ctx, { isText, ...a }) => {
     const { userName, userEmail } = await resolveUser(ctx, a.userId);
+    const estimate = isText ? estimateTextCost : estimateCost;
     await ctx.db.insert("usageEvents", {
       ...a,
       userName,
       userEmail,
-      cost: a.status === "succeeded" ? estimateCost(a.modelKey) : 0,
+      cost: a.status === "succeeded" ? estimate(a.modelKey) : 0,
+    });
+  },
+});
+
+/** Log a campaign creative generation from its `campaignCreatives` row. */
+export const recordForCreative = internalMutation({
+  args: {
+    creativeId: v.id("campaignCreatives"),
+    status: statusV,
+    error: v.optional(v.string()),
+  },
+  handler: async (ctx, { creativeId, status, error }) => {
+    const g = await ctx.db.get(creativeId);
+    if (!g) return;
+    const { userName, userEmail } = await resolveUser(ctx, g.createdBy);
+    await ctx.db.insert("usageEvents", {
+      orgId: g.orgId,
+      userId: g.createdBy,
+      userName,
+      userEmail,
+      kind: "campaign_creative",
+      provider: g.provider,
+      modelKey: g.modelKey,
+      modelLabel: g.modelLabel,
+      status,
+      cost: status === "succeeded" ? estimateCost(g.modelKey) : 0,
+      campaignId: g.campaignId,
+      campaignCreativeId: creativeId,
+      error,
     });
   },
 });

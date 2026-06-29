@@ -232,3 +232,107 @@ export function buildPrompt(inputs: PromptInputs): AssembledPrompt {
     sections,
   };
 }
+
+/* ───────────────────────── Campaign ad creatives ─────────────────────────
+ * A campaign creative composes a finished advertisement: it takes the chosen
+ * shoot photos as the hero imagery, follows the look/layout of the uploaded
+ * inspiration ad designs, and lays the campaign copy over the top. Kept here as
+ * a pure function so the client can preview the exact prompt the action sends.
+ */
+
+export interface CreativeCopy {
+  headline?: string;
+  tagline?: string;
+  body?: string;
+  cta?: string;
+}
+
+export interface CreativePromptInputs {
+  campaignName?: string;
+  brief?: string | null;
+  copy?: CreativeCopy | null;
+  aspectRatio?: string | null;
+  /** How many hero shots are attached as references (for guidance wording). */
+  shotCount?: number;
+  /** How many inspiration designs are attached (for guidance wording). */
+  inspirationCount?: number;
+}
+
+const ASPECT_GUIDE: Record<string, string> = {
+  "1:1": "square 1:1 format (feed / general)",
+  "4:5": "vertical 4:5 portrait format (Instagram feed)",
+  "9:16": "tall 9:16 vertical format (story / reel)",
+  "16:9": "wide 16:9 landscape format (banner / web)",
+};
+
+export function buildCreativePrompt(inputs: CreativePromptInputs): {
+  prompt: string;
+  sections: { label: string; text: string }[];
+} {
+  const sections: { label: string; text: string }[] = [];
+  const push = (label: string, text?: string | null) => {
+    const t = (text ?? "").trim();
+    if (t) sections.push({ label, text: t });
+  };
+
+  push(
+    "Task",
+    "Design a polished, professional advertising creative — a single finished " +
+      "marketing image ready to publish.",
+  );
+  push("Campaign", inputs.campaignName);
+  push("Brief", inputs.brief);
+
+  const ratio = inputs.aspectRatio ?? undefined;
+  push(
+    "Format",
+    ratio ? (ASPECT_GUIDE[ratio] ?? `${ratio} format`) : "social-ad format",
+  );
+
+  // The words that must appear on the creative, rendered as crisp typography.
+  if (inputs.copy) {
+    const c = inputs.copy;
+    const lines: string[] = [];
+    if (c.headline) lines.push(`Headline (large, primary): "${c.headline}"`);
+    if (c.tagline) lines.push(`Tagline (supporting): "${c.tagline}"`);
+    if (c.body) lines.push(`Body copy (small): "${c.body}"`);
+    if (c.cta) lines.push(`Call-to-action button text: "${c.cta}"`);
+    if (lines.length) {
+      push(
+        "Copy to render",
+        "Lay out this exact text as clean, legible, correctly-spelled " +
+          "typography integrated into the design:\n" +
+          lines.join("\n"),
+      );
+    }
+  }
+
+  if (inputs.shotCount && inputs.shotCount > 0) {
+    push(
+      "Hero imagery",
+      `Use the ${inputs.shotCount} attached product/model photo${
+        inputs.shotCount === 1 ? "" : "s"
+      } as the hero subject of the ad. Feature them prominently and keep them ` +
+        "photorealistic and unaltered in likeness.",
+    );
+  }
+  if (inputs.inspirationCount && inputs.inspirationCount > 0) {
+    push(
+      "Style reference",
+      `Follow the composition, layout, colour palette and typographic style of ` +
+        `the ${inputs.inspirationCount} attached inspiration ad design${
+          inputs.inspirationCount === 1 ? "" : "s"
+        } — match the vibe, but create an original layout (do not copy them).`,
+    );
+  }
+
+  push(
+    "Quality",
+    "high-end art direction, balanced composition, intentional negative space " +
+      "for the text, sharp focus, professional commercial photography and " +
+      "graphic design, no spelling mistakes, no gibberish text, no watermark.",
+  );
+
+  const prompt = sections.map((s) => `${s.label}: ${s.text}`).join("\n\n");
+  return { prompt, sections };
+}

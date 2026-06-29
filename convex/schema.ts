@@ -24,6 +24,32 @@ export const outfitVariation = v.object({
   images: v.optional(v.array(imageRef)),
 });
 
+/**
+ * Ad copy for a campaign — the words that go on the creative. Every field is
+ * optional so the user (or GPT) can fill in as much or as little as they like.
+ */
+export const adCopy = v.object({
+  headline: v.optional(v.string()),
+  tagline: v.optional(v.string()),
+  body: v.optional(v.string()),
+  cta: v.optional(v.string()), // call to action, e.g. "Shop now"
+});
+
+/** A GPT-generated copy suggestion the user can apply to the working copy. */
+export const copyVariant = v.object({
+  id: v.string(), // nanoid, stable within the campaign
+  headline: v.optional(v.string()),
+  tagline: v.optional(v.string()),
+  body: v.optional(v.string()),
+  cta: v.optional(v.string()),
+});
+
+/** A shot (generation) picked from a shoot to feature in the campaign. */
+export const campaignShotRef = v.object({
+  generationId: v.id("generations"),
+  shootId: v.optional(v.id("shoots")),
+});
+
 export default defineSchema({
   // --- Identity (synced from WorkOS) -------------------------------------
   users: defineTable({
@@ -178,6 +204,61 @@ export default defineSchema({
     .index("by_shoot", ["shootId"])
     .index("by_org", ["orgId"]),
 
+  // --- Campaigns ----------------------------------------------------------
+  // A campaign turns shoot photos into finished ad creatives. It holds the ad
+  // copy (typed or GPT-written), uploaded inspiration ad designs, the shots
+  // picked from shoots, and the generated creatives (see campaignCreatives).
+  campaigns: defineTable({
+    orgId: v.string(),
+    createdBy: v.string(),
+    name: v.string(),
+    // The concept brief: product, audience, tone, goal. Feeds copy + creative.
+    brief: v.optional(v.string()),
+    status: v.union(
+      v.literal("draft"),
+      v.literal("active"),
+      v.literal("archived"),
+    ),
+    // Working ad copy shown on the creative.
+    copy: v.optional(adCopy),
+    // GPT-generated copy suggestions kept around so they survive a reload.
+    copyVariants: v.optional(v.array(copyVariant)),
+    // Uploaded inspiration ad designs — used as style/layout references.
+    inspirationRefs: v.optional(v.array(imageRef)),
+    // Shots chosen from shoots to feature as the hero imagery.
+    selectedShots: v.optional(v.array(campaignShotRef)),
+    // Target aspect ratio for the creative ("1:1" | "4:5" | "9:16" | "16:9").
+    aspectRatio: v.optional(v.string()),
+    coverImage: v.optional(imageRef),
+  })
+    .index("by_org", ["orgId"])
+    .index("by_org_status", ["orgId", "status"]),
+
+  // A generated ad creative for a campaign. Mirrors `generations` but is scoped
+  // to a campaign rather than a shot.
+  campaignCreatives: defineTable({
+    orgId: v.string(),
+    createdBy: v.string(),
+    campaignId: v.id("campaigns"),
+    provider: v.string(),
+    modelKey: v.string(),
+    modelLabel: v.optional(v.string()),
+    prompt: v.string(),
+    status: v.union(
+      v.literal("queued"),
+      v.literal("generating"),
+      v.literal("succeeded"),
+      v.literal("failed"),
+    ),
+    imageUrl: v.optional(v.string()),
+    storageId: v.optional(v.id("_storage")),
+    seed: v.optional(v.number()),
+    falRequestId: v.optional(v.string()),
+    error: v.optional(v.string()),
+  })
+    .index("by_campaign", ["campaignId"])
+    .index("by_org", ["orgId"]),
+
   // --- Generations --------------------------------------------------------
   generations: defineTable({
     orgId: v.string(),
@@ -276,6 +357,8 @@ export default defineSchema({
       v.literal("model_portrait"), // new model portrait (model editor)
       v.literal("model_sheet"), // standardized neutral model reference sheet
       v.literal("model_variation"), // legacy: random resemblance variation
+      v.literal("campaign_copy"), // GPT ad-copy generation
+      v.literal("campaign_creative"), // ad-creative image generation
       v.literal("video"), // image-to-video render
     ),
     provider: v.string(),
@@ -290,6 +373,8 @@ export default defineSchema({
     shotId: v.optional(v.id("shots")),
     shootId: v.optional(v.id("shoots")),
     modelId: v.optional(v.id("models")),
+    campaignId: v.optional(v.id("campaigns")),
+    campaignCreativeId: v.optional(v.id("campaignCreatives")),
     error: v.optional(v.string()),
   })
     .index("by_org", ["orgId"])

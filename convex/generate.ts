@@ -4,7 +4,7 @@ import { internal, api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import { fal } from "@fal-ai/client";
-import { buildPrompt, BASE_VARIATION_ID } from "./lib/prompt";
+import { buildPrompt, buildCreativePrompt, BASE_VARIATION_ID } from "./lib/prompt";
 import {
   getImageModel,
   buildFalInput,
@@ -503,6 +503,127 @@ export const runOne = internalAction({
 });
 
 /**
+ * Generate one or more ad creatives for a campaign. Builds an advertising
+ * prompt from the brief + copy and conditions the image on the picked shoot
+ * photos (hero imagery) and uploaded inspiration designs (style reference).
+ * Returns immediately; each creative is produced by a scheduled worker.
+ */
+export const generateCreative = action({
+  args: {
+    campaignId: v.id("campaigns"),
+    modelKey: v.optional(v.string()),
+    count: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const userId = identity.subject;
+    const orgId = (identity.org_id as string | undefined) ?? `user:${userId}`;
+
+    const c = await ctx.runQuery(internal.campaigns.creativeContext, {
+      id: args.campaignId,
+    });
+    if (c.orgId !== orgId) throw new Error("Not found");
+
+    const modelKey = args.modelKey ?? DEFAULT_MODEL_ID;
+    const model = getImageModel(modelKey);
+    if (!model) throw new Error(`Unknown model: ${modelKey}`);
+
+    const { prompt } = buildCreativePrompt({
+      campaignName: c.name,
+      brief: c.brief,
+      copy: c.copy,
+      aspectRatio: c.aspectRatio,
+      shotCount: c.shotUrls.length,
+      inspirationCount: c.inspirationUrls.length,
+    });
+
+    // Hero shots first (the subject), then inspiration (the look). Capped so we
+    // stay within provider reference limits.
+    const references = Array.from(
+      new Set([...c.shotUrls.slice(0, 4), ...c.inspirationUrls.slice(0, 2)]),
+    );
+
+    const count = Math.min(Math.max(args.count ?? 1, 1), 4);
+    const creativeIds: string[] = [];
+    for (let i = 0; i < count; i++) {
+      const creativeId = await ctx.runMutation(
+        internal.campaignCreatives.create,
+        {
+          orgId,
+          createdBy: userId,
+          campaignId: args.campaignId,
+          provider: model.provider,
+          modelKey,
+          modelLabel: model.label,
+          prompt,
+        },
+      );
+      creativeIds.push(creativeId);
+      await ctx.scheduler.runAfter(0, internal.generate.runOneCreative, {
+        creativeId,
+        modelKey,
+        prompt,
+        referenceImageUrls: references,
+      });
+    }
+    return { creativeIds };
+  },
+});
+
+/** Background worker: run one queued campaign creative and store the result. */
+export const runOneCreative = internalAction({
+  args: {
+    creativeId: v.id("campaignCreatives"),
+    modelKey: v.string(),
+    prompt: v.string(),
+    referenceImageUrls: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const fail = async (error: string) => {
+      await ctx.runMutation(internal.campaignCreatives.attachResult, {
+        id: args.creativeId,
+        status: "failed",
+        error,
+      });
+      await ctx.runMutation(internal.usage.recordForCreative, {
+        creativeId: args.creativeId,
+        status: "failed",
+        error,
+      });
+    };
+
+    const model = getImageModel(args.modelKey);
+    if (!model) return fail(`Unknown model: ${args.modelKey}`);
+
+    const apiKey = providerKey(model.provider);
+    if (!apiKey) return fail(missingKeyMessage(model.provider));
+
+    try {
+      const { storageId, url } = await generateAndStore(ctx, model, apiKey, {
+        prompt: args.prompt,
+        referenceImageUrls: args.referenceImageUrls,
+      });
+      await ctx.runMutation(internal.campaignCreatives.attachResult, {
+        id: args.creativeId,
+        status: "succeeded",
+        storageId,
+        imageUrl: url || undefined,
+      });
+      await ctx.runMutation(internal.usage.recordForCreative, {
+        creativeId: args.creativeId,
+        status: "succeeded",
+      });
+    } catch (e) {
+      await fail(e instanceof Error ? e.message : String(e));
+    }
+  },
+});
+
+/**
+ * Generate a single model reference image and store it. With no references it
+ * produces a fresh portrait from the text description; with references it
+ * produces a resemblance-preserving variation in a randomized scene. The image
  * Generate a single model reference image and store it (NOT attached to any
  * model — the caller curates it in the editor). `kind` selects the prompt:
  *  - "headshot": a clean neutral studio headshot (from the description, or a

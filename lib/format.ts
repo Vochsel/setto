@@ -25,6 +25,8 @@ export type UsageKind =
   | "model_portrait"
   | "model_sheet"
   | "model_variation"
+  | "campaign_copy"
+  | "campaign_creative"
   | "video";
 
 export const usageKindMeta: Record<UsageKind, string> = {
@@ -32,8 +34,38 @@ export const usageKindMeta: Record<UsageKind, string> = {
   model_portrait: "Model portrait",
   model_sheet: "Model sheet",
   model_variation: "Model variation",
+  campaign_copy: "Campaign copy",
+  campaign_creative: "Campaign creative",
   video: "Video",
 };
+
+export type CampaignStatus = "draft" | "active" | "archived";
+
+export const campaignStatusMeta: Record<
+  CampaignStatus,
+  { label: string; className: string }
+> = {
+  draft: {
+    label: "Draft",
+    className: "bg-muted text-muted-foreground border-transparent",
+  },
+  active: {
+    label: "Active",
+    className: "bg-primary/15 text-primary border-primary/20",
+  },
+  archived: {
+    label: "Archived",
+    className: "bg-muted text-muted-foreground/70 border-transparent",
+  },
+};
+
+/** Aspect-ratio options offered for campaign creatives. */
+export const ASPECT_RATIOS: { value: string; label: string }[] = [
+  { value: "4:5", label: "4:5 — Portrait" },
+  { value: "1:1", label: "1:1 — Square" },
+  { value: "9:16", label: "9:16 — Story" },
+  { value: "16:9", label: "16:9 — Landscape" },
+];
 
 export type ShootStatus = "draft" | "active" | "completed" | "archived";
 
