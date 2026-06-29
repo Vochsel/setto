@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { Settings2, MapPin, Loader2, Trash2 } from "lucide-react";
+import { Settings2, MapPin, Loader2, Trash2, ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -172,6 +173,11 @@ export default function ShootEditorPage() {
   return (
     <>
       <PageHeader title={shoot.name} description={formatDateTime(shoot.scheduledAt)}>
+        <Button asChild variant="ghost" size="sm">
+          <Link href="/shoots">
+            <ArrowLeft className="h-4 w-4" /> Shoots
+          </Link>
+        </Button>
         <Select
           value={shoot.status}
           onValueChange={(v) =>

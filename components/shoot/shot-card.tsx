@@ -28,6 +28,7 @@ import {
   SelectGroup,
   SelectItem,
   SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -59,6 +60,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import type {
   ShotDoc,
   LibraryData,
+  ModelOption,
   GenerationDoc,
   VideoDoc,
 } from "@/components/shoot/types";
@@ -76,12 +78,15 @@ export function ShotCard({
   shot,
   library,
   location,
+  castModelIds,
   scheduledAt,
   highlight,
 }: {
   shot: ShotDoc;
   library: LibraryData;
   location: LocationInfo;
+  /** Models cast at this shoot location — pinned to the top of the Model picker. */
+  castModelIds?: Id<"models">[];
   scheduledAt?: number;
   /** Deep-link target — scroll into view and ring this shot. */
   highlight?: boolean;
@@ -272,11 +277,11 @@ export function ShotCard({
       </div>
 
       <div className="grid grid-cols-2 gap-2">
-        <NullableSelect
-          placeholder="Model"
+        <ModelSelect
           value={shot.modelId}
           onChange={(v) => save({ modelId: (v as Id<"models">) ?? null })}
-          options={library.models.map((m) => ({ value: m._id, label: m.name }))}
+          models={library.models}
+          castIds={castModelIds ?? []}
         />
         <NullableSelect
           placeholder="Wardrobe"
@@ -711,6 +716,74 @@ function VideoTile({
         <Trash2 className="h-3 w-3" />
       </button>
     </div>
+  );
+}
+
+/** Round headshot for a model, falling back to its initial when none exists. */
+function ModelAvatar({ url, name }: { url?: string; name: string }) {
+  return url ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={url} alt="" className="size-5 shrink-0 rounded-full object-cover" />
+  ) : (
+    <span className="bg-muted text-muted-foreground flex size-5 shrink-0 items-center justify-center rounded-full text-[9px] font-medium">
+      {(name.trim()[0] ?? "?").toUpperCase()}
+    </span>
+  );
+}
+
+/**
+ * Model picker that pins the shoot's cast (the models chosen for this location)
+ * above the full library, each shown with a headshot so the right actor is easy
+ * to spot. Falls back to a plain list when nothing is cast yet.
+ */
+function ModelSelect({
+  value,
+  onChange,
+  models,
+  castIds,
+}: {
+  value?: string;
+  onChange: (value: string | undefined) => void;
+  models: ModelOption[];
+  castIds: string[];
+}) {
+  const cast = new Set<string>(castIds);
+  const pinned = models.filter((m) => cast.has(m._id));
+  const rest = models.filter((m) => !cast.has(m._id));
+  const item = (m: ModelOption) => (
+    <SelectItem key={m._id} value={m._id} textValue={m.name}>
+      <ModelAvatar url={m.imageUrls?.[0]?.url} name={m.name} />
+      <span className="truncate">{m.name}</span>
+    </SelectItem>
+  );
+  return (
+    <Select
+      value={value ?? NONE}
+      onValueChange={(v) => onChange(v === NONE ? undefined : v)}
+    >
+      <SelectTrigger size="sm" className="w-full">
+        <SelectValue placeholder="Model" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={NONE}>
+          <span className="text-muted-foreground">None</span>
+        </SelectItem>
+        {pinned.length > 0 && (
+          <SelectGroup>
+            <SelectSeparator />
+            <SelectLabel>For this shoot</SelectLabel>
+            {pinned.map(item)}
+          </SelectGroup>
+        )}
+        {rest.length > 0 && (
+          <SelectGroup>
+            {pinned.length > 0 && <SelectSeparator />}
+            {pinned.length > 0 && <SelectLabel>All models</SelectLabel>}
+            {rest.map(item)}
+          </SelectGroup>
+        )}
+      </SelectContent>
+    </Select>
   );
 }
 
