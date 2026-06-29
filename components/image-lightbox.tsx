@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, type MouseEvent } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -61,21 +61,61 @@ async function toPng(blob: Blob): Promise<Blob> {
   return png ?? blob;
 }
 
-async function downloadImage(url: string) {
+/** File extension for a saved blob, given its MIME type and media kind. */
+function extFor(mime: string, kind: "image" | "video"): string {
+  const sub = mime.split("/")[1]?.split(";")[0];
+  if (sub) return sub.replace("jpeg", "jpg").replace("quicktime", "mov");
+  return kind === "video" ? "mp4" : "jpg";
+}
+
+/** Touch device whose OS share sheet can take files — i.e. where sharing an
+ * image/video offers "Save to Photos" into the camera roll. Desktop (mouse)
+ * keeps the plain download instead of popping a share sheet. */
+function canSaveToPhotos(files: File[]): boolean {
+  return (
+    typeof navigator !== "undefined" &&
+    (navigator.maxTouchPoints ?? 0) > 0 &&
+    typeof navigator.canShare === "function" &&
+    navigator.canShare({ files })
+  );
+}
+
+/**
+ * Save an image/video. On mobile web, hand the file to the OS share sheet so the
+ * user can "Save to Photos" straight into their camera roll — a plain
+ * `<a download>` lands in Files, not Photos, on iOS. Desktop and anything
+ * without file-sharing falls back to a normal download.
+ */
+async function saveMedia(url: string, kind: "image" | "video") {
+  let blob: Blob;
   try {
-    const blob = await fetchBlob(url);
-    const ext = (blob.type.split("/")[1] || "jpg").replace("jpeg", "jpg");
-    const href = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = href;
-    a.download = `setto-${Date.now()}.${ext}`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(href);
+    blob = await fetchBlob(url);
   } catch {
     window.open(url, "_blank");
+    return;
   }
+  const name = `setto-${Date.now()}.${extFor(blob.type, kind)}`;
+  const file = new File([blob], name, { type: blob.type });
+
+  if (canSaveToPhotos([file])) {
+    try {
+      await navigator.share({ files: [file] });
+      return;
+    } catch (e) {
+      // User dismissed the share sheet — leave it at that, don't also download.
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      // Anything else (e.g. lost user activation): fall through to a download.
+    }
+  }
+
+  const href = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = href;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(href);
 }
 
 async function copyImage(url: string) {
@@ -116,6 +156,11 @@ export function ImageLightbox({
   const hasPrev = open && index > 0;
   const hasNext = open && index < images.length - 1;
 
+  // Click the dark scrim itself (not the media or any control) to close.
+  const onBackdropClick = (e: MouseEvent) => {
+    if (e.target === e.currentTarget) onClose();
+  };
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -133,6 +178,7 @@ export function ImageLightbox({
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent
         showCloseButton={false}
+        onClick={onBackdropClick}
         className="flex h-[100dvh] w-screen max-w-none flex-col gap-2 rounded-none border-0 bg-black/90 p-2 ring-0 backdrop-blur-sm sm:max-w-none sm:p-3"
       >
         <DialogTitle className="sr-only">Image preview</DialogTitle>
@@ -178,8 +224,8 @@ export function ImageLightbox({
                   variant="ghost"
                   size="icon"
                   className={CTRL}
-                  onClick={() => downloadImage(current.url!)}
-                  title="Download"
+                  onClick={() => saveMedia(current.url!, isVideo ? "video" : "image")}
+                  title="Save"
                 >
                   <Download className="h-4 w-4" />
                 </Button>
@@ -209,7 +255,10 @@ export function ImageLightbox({
           </div>
         </div>
 
-        <div className="relative flex min-h-0 flex-1 items-center justify-center">
+        <div
+          className="relative flex min-h-0 flex-1 items-center justify-center"
+          onClick={onBackdropClick}
+        >
           {current?.url ? (
             isVideo ? (
               <video
