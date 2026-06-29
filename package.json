@@ -7,7 +7,10 @@
     "convex": "convex dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "use:dev": "bash scripts/convex-env.sh dev",
+    "use:prod": "bash scripts/convex-env.sh prod",
+    "deploy:prod": "convex deploy"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
