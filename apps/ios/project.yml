@@ -1,0 +1,33 @@
+# XcodeGen project spec. Generate the Xcode project with:
+#   brew install xcodegen   # if needed
+#   cd apps/ios && xcodegen generate && open Setto.xcodeproj
+name: Setto
+options:
+  bundleIdPrefix: app.setto
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+targets:
+  Setto:
+    type: application
+    platform: iOS
+    sources:
+      - path: Setto
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.setto.ios
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SWIFT_VERSION: "5.9"
+        DEVELOPMENT_TEAM: "" # set your Apple Developer team to run on device
+    info:
+      path: Setto/Info.plist
+      properties:
+        CFBundleDisplayName: Setto
+        UILaunchScreen: {}
+        ITSAppUsesNonExemptEncryption: false
+        # Custom URL scheme used by the WorkOS web-login callback.
+        CFBundleURLTypes:
+          - CFBundleURLName: app.setto.ios
+            CFBundleURLSchemes: [setto]

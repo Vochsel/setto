@@ -26,21 +26,36 @@ function expiryMs(token: string): number {
 export default async function CliLoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ port?: string; state?: string }>;
+  searchParams: Promise<{ port?: string; state?: string; redirect?: string }>;
 }) {
-  const { port, state } = await searchParams;
+  const { port, state, redirect: redirectParam } = await searchParams;
 
-  const portNum = Number(port);
-  const valid =
-    Number.isInteger(portNum) && portNum >= 1 && portNum <= 65535 && !!state;
+  // Two clients use this bridge:
+  //   - CLI / MCP: ?port=<loopback> -> http://127.0.0.1:<port>/callback
+  //   - iOS app:   ?redirect=setto://auth (custom URL scheme)
+  // Only loopback and the setto:// scheme are allowed as redirect targets.
+  let callback: URL | null = null;
+  if (redirectParam) {
+    try {
+      const u = new URL(redirectParam);
+      if (u.protocol === "setto:") callback = u;
+    } catch {
+      /* invalid */
+    }
+  } else if (port) {
+    const portNum = Number(port);
+    if (Number.isInteger(portNum) && portNum >= 1 && portNum <= 65535)
+      callback = new URL(`http://127.0.0.1:${portNum}/callback`);
+  }
 
-  if (!valid) {
+  if (!callback || !state) {
     return (
       <main className="grid min-h-screen place-items-center p-8 text-center">
         <div>
           <h1 className="text-lg font-semibold">Invalid login link</h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Start the login from the CLI with <code>setto login</code>.
+            Start the login from the CLI with <code>setto login</code>, or from
+            the app.
           </p>
         </div>
       </main>
@@ -50,8 +65,7 @@ export default async function CliLoginPage({
   // Signs in (redirecting to WorkOS if needed), then returns the access token.
   const { user, accessToken } = await withAuth({ ensureSignedIn: true });
 
-  const callback = new URL(`http://127.0.0.1:${portNum}/callback`);
-  callback.searchParams.set("state", state!);
+  callback.searchParams.set("state", state);
   callback.searchParams.set("access_token", accessToken);
   callback.searchParams.set("expires_at", String(expiryMs(accessToken)));
   callback.searchParams.set("sub", user.id);
