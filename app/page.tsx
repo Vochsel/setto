@@ -12,6 +12,17 @@ import {
   ArrowRight,
 } from "lucide-react";
 
+// ── Cinematic marketing track (DESIGN.md) ───────────────────────────────
+// The landing page commits to the dark track: pure-black canvas, giant
+// thin (≈330) display type, white type, and a single white-stroked black
+// pill CTA per band. Aloe/pistachio greens stay off this surface — they
+// belong to the transactional light track only.
+//
+// `button-outline-on-dark`: transparent on the black canvas, 2px white
+// border, white label, pill geometry.
+const PILL_OUTLINE_DARK =
+  "h-11 rounded-full border-2 border-white bg-transparent px-6 text-[15px] text-white shadow-none hover:bg-white/10";
+
 const features = [
   {
     icon: MapPin,
@@ -45,75 +56,161 @@ const features = [
   },
 ];
 
+const footerGroups = [
+  {
+    heading: "Product",
+    links: ["Locations", "Models", "Wardrobe", "Presets"],
+  },
+  {
+    heading: "Studio",
+    links: ["Dashboard", "Shoots", "3D staging", "Gallery"],
+  },
+  {
+    heading: "Company",
+    links: ["About", "Pricing", "Contact", "Privacy"],
+  },
+];
+
 export default async function LandingPage() {
   const { user } = await withAuth();
   if (user) redirect("/dashboard");
 
   return (
-    <div className="bg-grid relative flex min-h-screen flex-col">
-      <div className="bg-radial-glow pointer-events-none absolute inset-0" />
-
-      <header className="relative z-10 mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-6">
-        <div className="flex items-center gap-2">
-          <div className="bg-primary text-primary-foreground flex h-8 w-8 items-center justify-center rounded-lg">
-            <Camera className="h-5 w-5" />
+    <div className="font-inter ss03 flex min-h-screen flex-col bg-black text-white">
+      {/* nav-bar-dark — wordmark left, two pill actions right. */}
+      <header className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-5">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-black">
+            <Camera className="h-4.5 w-4.5" />
           </div>
-          <span className="text-lg font-semibold tracking-tight">Setto</span>
+          <span className="text-lg font-medium tracking-tight">Setto</span>
         </div>
-        <div className="flex items-center gap-2">
-          <Button asChild variant="ghost">
+        <div className="flex items-center gap-2.5">
+          <Button
+            asChild
+            className="h-10 rounded-full px-5 text-[15px] text-white/80 hover:bg-white/10 hover:text-white"
+            variant="ghost"
+          >
             <Link href="/login">Sign in</Link>
           </Button>
-          <Button asChild>
+          <Button asChild className={PILL_OUTLINE_DARK + " h-10"} variant="outline">
             <Link href="/signup">Get started</Link>
           </Button>
         </div>
       </header>
 
-      <main className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col items-center px-6">
-        <section className="flex flex-col items-center pt-20 pb-16 text-center md:pt-28">
-          <div className="border-border bg-card/60 text-muted-foreground mb-6 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs backdrop-blur">
-            <Sparkles className="h-3.5 w-3.5" /> AI photo shoots, grounded in real
-            places
-          </div>
-          <h1 className="max-w-3xl text-balance text-5xl font-semibold tracking-tight md:text-6xl">
+      <main className="flex-1">
+        {/* Hero — giant thin display set in clean negative space. */}
+        <section className="mx-auto w-full max-w-7xl px-6 pt-24 pb-28 md:pt-36 md:pb-40">
+          <p className="text-[12px] font-normal uppercase tracking-[0.72px] text-[#9dabad]">
+            AI photo shoots, grounded in real places
+          </p>
+          <h1 className="mt-8 max-w-5xl text-[clamp(3.5rem,9vw,6rem)] font-light leading-[1.0] tracking-tight text-balance">
             Shoot anywhere.
             <br />
-            <span className="from-primary to-chart-4 bg-gradient-to-r bg-clip-text text-transparent">
-              Generate everything.
-            </span>
+            <span className="text-[#a1a1aa]">Generate everything.</span>
           </h1>
-          <p className="text-muted-foreground mt-6 max-w-xl text-balance text-lg">
-            Plan fashion shoots at real locations, stage them in 3D, and generate
-            on-brand imagery with your whole team — from a single prompt pipeline.
+          <p className="mt-9 max-w-xl text-lg font-medium leading-[1.56] text-[#a1a1aa]">
+            Plan fashion shoots at real locations, stage them in 3D, and
+            generate on-brand imagery with your whole team — from a single
+            prompt pipeline.
           </p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Button asChild size="lg">
+          <div className="mt-10 flex flex-wrap items-center gap-5">
+            <Button asChild className={PILL_OUTLINE_DARK} variant="outline">
               <Link href="/signup">
                 Start a shoot <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
-            <Button asChild size="lg" variant="outline">
-              <Link href="/login">Sign in</Link>
-            </Button>
+            <Link
+              href="/login"
+              className="text-[15px] text-white/70 underline-offset-4 transition-colors hover:text-white hover:underline"
+            >
+              Sign in
+            </Link>
           </div>
         </section>
 
-        <section className="grid w-full grid-cols-1 gap-4 pb-24 sm:grid-cols-2 lg:grid-cols-3">
-          {features.map((f) => (
-            <div
-              key={f.title}
-              className="border-border bg-card/60 hover:border-primary/40 group rounded-xl border p-5 backdrop-blur transition-colors"
-            >
-              <div className="bg-primary/10 text-primary mb-3 flex h-10 w-10 items-center justify-center rounded-lg">
-                <f.icon className="h-5 w-5" />
+        {/* Feature band — card-feature-cinematic on elevated near-black. */}
+        <section className="mx-auto w-full max-w-7xl px-6 pb-32">
+          <p className="text-[12px] font-normal uppercase tracking-[0.72px] text-[#9dabad]">
+            The studio
+          </p>
+          <h2 className="mt-5 max-w-3xl text-[clamp(2.25rem,5vw,3.4rem)] font-light leading-[1.1] tracking-tight">
+            Everything a shoot needs, in one pipeline.
+          </h2>
+
+          <div className="mt-14 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {features.map((f) => (
+              <div
+                key={f.title}
+                className="highlight-inset rounded-xl border border-[#1e2c31] bg-[#0a0a0a] p-8 transition-colors hover:border-white/20"
+              >
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white">
+                  <f.icon className="h-5 w-5" />
+                </div>
+                <h3 className="mt-6 text-[20px] font-medium tracking-[0.3px]">
+                  {f.title}
+                </h3>
+                <p className="mt-3 text-[16px] leading-[1.56] text-[#a1a1aa]">
+                  {f.body}
+                </p>
               </div>
-              <h3 className="font-medium">{f.title}</h3>
-              <p className="text-muted-foreground mt-1.5 text-sm">{f.body}</p>
+            ))}
+          </div>
+        </section>
+
+        {/* Closing CTA band — one action, giant type, full negative space. */}
+        <section className="mx-auto w-full max-w-7xl px-6 pb-32">
+          <div className="border-t border-white/10 pt-24 text-center md:pt-32">
+            <h2 className="mx-auto max-w-4xl text-[clamp(2.75rem,7vw,4.75rem)] font-light leading-[1.05] tracking-tight text-balance">
+              Your next shoot starts here.
+            </h2>
+            <div className="mt-12 flex justify-center">
+              <Button asChild className={PILL_OUTLINE_DARK} variant="outline">
+                <Link href="/signup">
+                  Get started <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
             </div>
-          ))}
+          </div>
         </section>
       </main>
+
+      {/* footer-dark — muted cool-tone link columns + legal row. */}
+      <footer className="mx-auto w-full max-w-7xl px-6 py-16">
+        <div className="flex flex-col gap-12 border-t border-white/10 pt-16 md:flex-row md:justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-black">
+              <Camera className="h-4.5 w-4.5" />
+            </div>
+            <span className="text-lg font-medium tracking-tight">Setto</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-10 sm:grid-cols-3">
+            {footerGroups.map((group) => (
+              <div key={group.heading}>
+                <p className="text-[12px] font-normal uppercase tracking-[0.72px] text-[#9797a2]">
+                  {group.heading}
+                </p>
+                <ul className="mt-4 space-y-3">
+                  {group.links.map((link) => (
+                    <li key={link}>
+                      <span className="cursor-default text-[14px] text-[#bdbdca] underline-offset-4 transition-colors hover:text-white">
+                        {link}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <p className="mt-14 text-[13px] text-[#9797a2]">
+          © {new Date().getFullYear()} Setto. AI photo shoots, grounded in real
+          places.
+        </p>
+      </footer>
     </div>
   );
 }
