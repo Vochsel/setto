@@ -96,30 +96,54 @@ export const generateCopy = action({
       const n = args.count ? Math.min(Math.max(args.count, 1), cap) : cap;
       const targets = personas.slice(0, n);
 
-      // One copy agent per persona, in parallel.
-      const results = await Promise.all(
-        targets.map(async (persona) => {
-          const v = await writeForPersona({
+      // One copy agent per persona, in parallel. Use allSettled so a single
+      // failed agent doesn't discard the variants that did succeed.
+      const settled = await Promise.allSettled(
+        targets.map((persona) =>
+          writeForPersona({
             model: model.openaiModel,
             campaign: strategyCampaign,
             persona,
             positioning,
             instructions: args.instructions,
-          });
-          return {
-            id: nanoid(8),
-            ...v,
-            personaId: persona.id,
-            personaName: persona.name,
-            sources: sources?.slice(0, 3),
-          } satisfies CopyVariant;
-        }),
+          }).then(
+            (v) =>
+              ({
+                id: nanoid(8),
+                ...v,
+                personaId: persona.id,
+                personaName: persona.name,
+                sources: sources?.slice(0, 3),
+              }) satisfies CopyVariant,
+          ),
+        ),
       );
 
-      const variants = results.filter(
-        (x) => x.headline || x.tagline || x.body || x.cta,
-      );
-      if (!variants.length) throw new Error("No usable copy was generated");
+      const variants: CopyVariant[] = [];
+      for (const r of settled) {
+        if (
+          r.status === "fulfilled" &&
+          (r.value.headline ||
+            r.value.tagline ||
+            r.value.body ||
+            r.value.cta)
+        ) {
+          variants.push(r.value);
+        }
+      }
+
+      if (!variants.length) {
+        // Surface the real reason (e.g. quota / billing) rather than a generic.
+        const rejected = settled.find((r) => r.status === "rejected") as
+          | PromiseRejectedResult
+          | undefined;
+        if (rejected) {
+          throw rejected.reason instanceof Error
+            ? rejected.reason
+            : new Error(String(rejected.reason));
+        }
+        throw new Error("No usable copy was generated");
+      }
 
       await ctx.runMutation(internal.campaigns.saveCopyVariants, {
         id: args.campaignId,
