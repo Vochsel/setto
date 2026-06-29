@@ -308,6 +308,14 @@ export const generateShot = action({
         shotId: args.shotId,
         shootId: c.shootId,
         variationId: variationId ?? undefined,
+        // Freeze the shot's current recipe onto the generation so galleries
+        // attribute this image correctly even if the shot is re-cast later.
+        modelId: c.modelId ?? undefined,
+        outfitId: c.outfitId ?? undefined,
+        locationId: c.locationId ?? undefined,
+        styleId: c.styleId ?? undefined,
+        cameraId: c.cameraId ?? undefined,
+        lightingId: c.lightingId ?? undefined,
         provider: model.provider,
         modelKey,
         modelLabel: model.label,
