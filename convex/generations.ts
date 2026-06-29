@@ -1,6 +1,38 @@
-import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+  type QueryCtx,
+} from "./_generated/server";
 import { v } from "convex/values";
+import type { Doc } from "./_generated/dataModel";
 import { getScope, assertOrg } from "./lib/auth";
+
+/** Shape succeeded generations into display photos (newest first, URLs resolved). */
+async function shapeSucceeded(ctx: QueryCtx, gens: Doc<"generations">[]) {
+  const succeeded = gens
+    .filter((g) => g.status === "succeeded")
+    .sort((a, b) => b._creationTime - a._creationTime);
+  const out = await Promise.all(
+    succeeded.map(async (g) => {
+      let imageUrl = g.imageUrl;
+      if (!imageUrl && g.storageId) {
+        imageUrl = (await ctx.storage.getUrl(g.storageId)) ?? undefined;
+      }
+      return {
+        _id: g._id,
+        _creationTime: g._creationTime,
+        imageUrl,
+        shootId: g.shootId,
+        shotId: g.shotId,
+        modelLabel: g.modelLabel,
+        prompt: g.prompt,
+      };
+    }),
+  );
+  return out.filter((g) => g.imageUrl);
+}
 
 /** Resolve everything needed to build a prompt for a shot. Internal-only. */
 export const context = internalQuery({
@@ -169,6 +201,64 @@ export const listByOrg = query({
       }),
     );
     return out.filter((g) => g.imageUrl);
+  },
+});
+
+/** All succeeded photos that feature a given model (via its shots). */
+export const listByModel = query({
+  args: { modelId: v.id("models") },
+  handler: async (ctx, { modelId }) => {
+    const scope = await getScope(ctx);
+    assertOrg(await ctx.db.get(modelId), scope);
+    const shots = await ctx.db
+      .query("shots")
+      .withIndex("by_org", (q) => q.eq("orgId", scope.orgId))
+      .collect();
+    const shotIds = new Set(
+      shots.filter((s) => s.modelId === modelId).map((s) => s._id),
+    );
+    if (shotIds.size === 0) return [];
+    const gens = await ctx.db
+      .query("generations")
+      .withIndex("by_org", (q) => q.eq("orgId", scope.orgId))
+      .collect();
+    return shapeSucceeded(
+      ctx,
+      gens.filter((g) => shotIds.has(g.shotId)),
+    );
+  },
+});
+
+/** All succeeded photos shot at a given location (via its shoot-locations). */
+export const listByLocation = query({
+  args: { locationId: v.id("locations") },
+  handler: async (ctx, { locationId }) => {
+    const scope = await getScope(ctx);
+    assertOrg(await ctx.db.get(locationId), scope);
+    const sls = await ctx.db
+      .query("shootLocations")
+      .withIndex("by_org", (q) => q.eq("orgId", scope.orgId))
+      .collect();
+    const slIds = new Set(
+      sls.filter((sl) => sl.locationId === locationId).map((sl) => sl._id),
+    );
+    if (slIds.size === 0) return [];
+    const shots = await ctx.db
+      .query("shots")
+      .withIndex("by_org", (q) => q.eq("orgId", scope.orgId))
+      .collect();
+    const shotIds = new Set(
+      shots.filter((s) => slIds.has(s.shootLocationId)).map((s) => s._id),
+    );
+    if (shotIds.size === 0) return [];
+    const gens = await ctx.db
+      .query("generations")
+      .withIndex("by_org", (q) => q.eq("orgId", scope.orgId))
+      .collect();
+    return shapeSucceeded(
+      ctx,
+      gens.filter((g) => shotIds.has(g.shotId)),
+    );
   },
 });
 

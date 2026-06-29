@@ -9,9 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
+import Link from "next/link";
 import { LibraryTile } from "@/components/library-tile";
 import { DeleteOverlay } from "@/components/delete-overlay";
-import { LocationEditor } from "@/components/location-editor";
 import { LocationPickerDialog } from "@/components/location-picker-dialog";
 
 export default function LocationsPage() {
@@ -65,27 +65,22 @@ export default function LocationsPage() {
                       toast.success("Location deleted");
                     }}
                   />
-                  <LocationEditor
-                    location={l}
-                    trigger={
-                      <button className="block w-full text-left">
-                        <LibraryTile
-                          icon={MapPin}
-                          aspect="video"
-                          imageUrl={thumb}
-                          title={l.name}
-                          subtitle={l.address}
-                          footer={
-                            l.streetViewUrls?.length ? (
-                              <Badge variant="secondary">
-                                {l.streetViewUrls.length} Street View
-                              </Badge>
-                            ) : null
-                          }
-                        />
-                      </button>
-                    }
-                  />
+                  <Link href={`/locations/${l._id}`} className="block">
+                    <LibraryTile
+                      icon={MapPin}
+                      aspect="video"
+                      imageUrl={thumb}
+                      title={l.name}
+                      subtitle={l.address}
+                      footer={
+                        l.streetViewUrls?.length ? (
+                          <Badge variant="secondary">
+                            {l.streetViewUrls.length} Street View
+                          </Badge>
+                        ) : null
+                      }
+                    />
+                  </Link>
                 </div>
               );
             })}

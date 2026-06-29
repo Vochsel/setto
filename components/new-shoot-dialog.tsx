@@ -20,6 +20,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
+import { format } from "date-fns";
+
+/** Current local time formatted for a <input type="datetime-local">. */
+const nowLocal = () => format(new Date(), "yyyy-MM-dd'T'HH:mm");
 
 export function NewShootDialog({ trigger }: { trigger: ReactNode }) {
   const router = useRouter();
@@ -27,8 +31,18 @@ export function NewShootDialog({ trigger }: { trigger: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [when, setWhen] = useState("");
+  const [when, setWhen] = useState(nowLocal);
   const [saving, setSaving] = useState(false);
+
+  // Reset on open so the date/time always defaults to "now" and fields are clean.
+  function handleOpenChange(next: boolean) {
+    if (next) {
+      setName("");
+      setDescription("");
+      setWhen(nowLocal());
+    }
+    setOpen(next);
+  }
 
   async function submit() {
     if (!name.trim()) {
@@ -45,9 +59,6 @@ export function NewShootDialog({ trigger }: { trigger: ReactNode }) {
       });
       toast.success("Shoot created");
       setOpen(false);
-      setName("");
-      setDescription("");
-      setWhen("");
       router.push(`/shoots/${id}`);
     } catch {
       toast.error("Could not create shoot");
@@ -57,7 +68,7 @@ export function NewShootDialog({ trigger }: { trigger: ReactNode }) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent>
         <DialogHeader>

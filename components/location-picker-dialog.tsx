@@ -75,24 +75,30 @@ function PickerInner({ onDone }: { onDone: (id?: string) => void }) {
       if (!ll) return;
       const address = await reverseGeocode(ll.lat, ll.lng);
       setPlace({ lat: ll.lat, lng: ll.lng, address });
+      // Auto-name an unnamed pin from its address.
+      if (address) setName((n) => n || address);
     },
     [reverseGeocode],
   );
 
   function handlePlace(p: PickedPlace) {
     setPlace(p);
-    setName((n) => n || p.name || "");
+    // Prefer the place's name (nearest named location), fall back to address.
+    setName((n) => n || p.name || p.address || "");
   }
 
   async function save() {
-    if (!name.trim()) {
-      toast.error("Give the location a name");
+    // Fall back to the nearest named place, then the address, if left blank.
+    const finalName =
+      name.trim() || place?.name?.trim() || place?.address?.trim() || "";
+    if (!finalName) {
+      toast.error("Pick a place on the map, or give the location a name");
       return;
     }
     setSaving(true);
     try {
       const id = await create({
-        name: name.trim(),
+        name: finalName,
         address: place?.address,
         lat: place?.lat,
         lng: place?.lng,

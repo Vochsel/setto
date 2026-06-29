@@ -9,10 +9,10 @@ import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
+import Link from "next/link";
 import { LibraryTile } from "@/components/library-tile";
 import { ConfirmDelete } from "@/components/confirm-delete";
 import { ModelEditor } from "@/components/model-editor";
-import { ImageLightbox } from "@/components/image-lightbox";
 import type { Id } from "@/convex/_generated/dataModel";
 
 export default function ModelsPage() {
@@ -20,10 +20,6 @@ export default function ModelsPage() {
   const remove = useMutation(api.models.remove);
   const generateVariations = useAction(api.generate.generateModelVariations);
 
-  const [lb, setLb] = useState<{
-    images: { url?: string }[];
-    index: number;
-  } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
   async function genVariation(id: Id<"models">) {
@@ -135,43 +131,16 @@ export default function ModelsPage() {
                     />
                   </div>
 
-                  {/* Click image → lightbox; if no images, click → editor */}
-                  {imgs.length ? (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setLb({
-                          images: imgs.map((u) => ({ url: u.url })),
-                          index: 0,
-                        })
-                      }
-                      className="block w-full cursor-zoom-in text-left"
-                    >
-                      {tile}
-                    </button>
-                  ) : (
-                    <ModelEditor
-                      model={m}
-                      trigger={
-                        <button className="block w-full text-left">
-                          {tile}
-                        </button>
-                      }
-                    />
-                  )}
+                  {/* Click → the model's page (info + every photo they're in) */}
+                  <Link href={`/models/${m._id}`} className="block">
+                    {tile}
+                  </Link>
                 </div>
               );
             })}
           </div>
         )}
       </div>
-
-      <ImageLightbox
-        images={lb?.images ?? []}
-        index={lb?.index ?? null}
-        onIndexChange={(i) => setLb((s) => (s ? { ...s, index: i } : s))}
-        onClose={() => setLb(null)}
-      />
     </>
   );
 }
