@@ -4,11 +4,12 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { Pencil, Users, ArrowLeft } from "lucide-react";
+import { Pencil, Users, ArrowLeft, Wand2 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ModelEditor } from "@/components/model-editor";
+import { StandardizeModelsButton } from "@/components/standardize-models-button";
 import { PhotoMasonry } from "@/components/photo-masonry";
 import type { Id } from "@/convex/_generated/dataModel";
 
@@ -41,7 +42,12 @@ export default function ModelDetailPage() {
     );
   }
 
-  const refs = model.imageUrls ?? [];
+  const refs = [
+    model.headshotUrl
+      ? { url: model.headshotUrl, label: "Headshot" }
+      : null,
+    model.sheetUrl ? { url: model.sheetUrl, label: "Model sheet" } : null,
+  ].filter((r): r is { url: string; label: string } => r !== null);
 
   return (
     <>
@@ -54,6 +60,17 @@ export default function ModelDetailPage() {
             <ArrowLeft className="h-4 w-4" /> Models
           </Link>
         </Button>
+        {refs.length > 0 && (
+          <StandardizeModelsButton
+            modelIds={[id]}
+            title={`Standardize ${model.name}'s reference?`}
+            trigger={
+              <Button variant="outline" size="sm">
+                <Wand2 className="h-4 w-4" /> Standardize
+              </Button>
+            }
+          />
+        )}
         <ModelEditor
           model={model}
           trigger={
@@ -70,15 +87,19 @@ export default function ModelDetailPage() {
             <h2 className="text-muted-foreground text-sm font-medium">
               Reference images
             </h2>
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {refs.map((r, i) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  key={i}
-                  src={r.url}
-                  alt=""
-                  className="h-28 w-28 shrink-0 rounded-lg border object-cover"
-                />
+            <div className="flex gap-3 overflow-x-auto pb-1">
+              {refs.map((r) => (
+                <figure key={r.label} className="shrink-0 space-y-1">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={r.url}
+                    alt={r.label}
+                    className="h-40 w-32 rounded-lg border object-cover"
+                  />
+                  <figcaption className="text-muted-foreground text-center text-xs">
+                    {r.label}
+                  </figcaption>
+                </figure>
               ))}
             </div>
           </section>

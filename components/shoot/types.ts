@@ -42,6 +42,7 @@ export interface ShotDoc {
   outfitId?: Id<"outfits">;
   selectedVariationIds?: string[];
   posePrompt?: string;
+  clothingPrompt?: string;
   extraPrompt?: string;
   styleId?: Id<"presets">;
   cameraId?: Id<"presets">;

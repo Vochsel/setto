@@ -7,6 +7,7 @@ import { estimateCost } from "./lib/imageModels";
 const kindV = v.union(
   v.literal("shot"),
   v.literal("model_portrait"),
+  v.literal("model_sheet"),
   v.literal("model_variation"),
 );
 const statusV = v.union(v.literal("succeeded"), v.literal("failed"));

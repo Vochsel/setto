@@ -164,6 +164,9 @@ export default defineSchema({
     outfitId: v.optional(v.id("outfits")),
     selectedVariationIds: v.optional(v.array(v.string())), // empty => base outfit
     posePrompt: v.optional(v.string()),
+    // Actor's clothing other than the main wardrobe piece (which comes from the
+    // outfit image). Blank => the prompt picks clothing suited to person+place.
+    clothingPrompt: v.optional(v.string()),
     extraPrompt: v.optional(v.string()),
     styleId: v.optional(v.id("presets")), // photography_style
     cameraId: v.optional(v.id("presets")), // camera_setup
@@ -216,7 +219,8 @@ export default defineSchema({
     kind: v.union(
       v.literal("shot"), // shot generation in a shoot
       v.literal("model_portrait"), // new model portrait (model editor)
-      v.literal("model_variation"), // model resemblance variation
+      v.literal("model_sheet"), // standardized neutral model reference sheet
+      v.literal("model_variation"), // legacy: random resemblance variation
     ),
     provider: v.string(),
     modelKey: v.string(),

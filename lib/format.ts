@@ -20,11 +20,16 @@ export function formatUsd(amount: number): string {
   });
 }
 
-export type UsageKind = "shot" | "model_portrait" | "model_variation";
+export type UsageKind =
+  | "shot"
+  | "model_portrait"
+  | "model_sheet"
+  | "model_variation";
 
 export const usageKindMeta: Record<UsageKind, string> = {
   shot: "Shot",
   model_portrait: "Model portrait",
+  model_sheet: "Model sheet",
   model_variation: "Model variation",
 };
 

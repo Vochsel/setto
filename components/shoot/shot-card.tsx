@@ -14,6 +14,7 @@ import {
   Layers,
   Copy,
   Check,
+  Shirt,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -88,6 +89,7 @@ export function ShotCard({
 
   const [name, setName] = useState(shot.name ?? "");
   const [pose, setPose] = useState(shot.posePrompt ?? "");
+  const [clothing, setClothing] = useState(shot.clothingPrompt ?? "");
   const [extra, setExtra] = useState(shot.extraPrompt ?? "");
   // Model selection: local override → workspace default (db) → built-in default.
   const [modelKeyOverride, setModelKeyOverride] = useState<string | null>(null);
@@ -107,6 +109,7 @@ export function ShotCard({
     outfitId?: Id<"outfits"> | null;
     selectedVariationIds?: string[];
     posePrompt?: string;
+    clothingPrompt?: string;
     extraPrompt?: string;
     styleId?: Id<"presets"> | null;
     cameraId?: Id<"presets"> | null;
@@ -142,7 +145,12 @@ export function ShotCard({
   const lighting = library.lightings.find((p) => p._id === shot.lightingId);
   const previewVariation = variations.find((v) => selectedVars.includes(v.id));
   const preview = buildPrompt({
-    shot: { name: shot.name, posePrompt: pose, extraPrompt: extra },
+    shot: {
+      name: shot.name,
+      posePrompt: pose,
+      clothingPrompt: clothing,
+      extraPrompt: extra,
+    },
     model: model
       ? {
           name: model.name,
@@ -287,6 +295,25 @@ export function ShotCard({
           </div>
         </div>
       )}
+
+      <div className="space-y-1.5">
+        <span className="text-muted-foreground flex items-center gap-1 text-xs">
+          <Shirt className="h-3 w-3" /> Other clothing
+          <span className="text-muted-foreground/60">
+            · besides the wardrobe piece
+          </span>
+        </span>
+        <Textarea
+          value={clothing}
+          onChange={(e) => setClothing(e.target.value)}
+          onBlur={() =>
+            clothing !== (shot.clothingPrompt ?? "") &&
+            save({ clothingPrompt: clothing })
+          }
+          placeholder="e.g. straight-leg blue jeans and white sneakers — leave blank to let the AI pick something that suits the person & location"
+          className="min-h-[44px] text-sm"
+        />
+      </div>
 
       <Textarea
         value={pose}

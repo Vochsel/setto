@@ -72,6 +72,7 @@ export const update = mutation({
     outfitId: v.optional(v.union(v.id("outfits"), v.null())),
     selectedVariationIds: v.optional(v.array(v.string())),
     posePrompt: v.optional(v.string()),
+    clothingPrompt: v.optional(v.string()),
     extraPrompt: v.optional(v.string()),
     styleId: v.optional(v.union(v.id("presets"), v.null())),
     cameraId: v.optional(v.union(v.id("presets"), v.null())),

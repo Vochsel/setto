@@ -72,6 +72,7 @@ export const context = internalQuery({
       shot: {
         name: shot.name,
         posePrompt: shot.posePrompt,
+        clothingPrompt: shot.clothingPrompt,
         extraPrompt: shot.extraPrompt,
         cameraFraming: shot.cameraFraming ?? null,
         selectedVariationIds: shot.selectedVariationIds ?? [],

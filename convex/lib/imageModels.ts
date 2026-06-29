@@ -219,6 +219,7 @@ export function buildFalInput(
     prompt: string;
     referenceImageUrls?: string[];
     seed?: number;
+    aspectRatio?: string;
   },
 ): Record<string, unknown> {
   const input: Record<string, unknown> = {
@@ -226,6 +227,10 @@ export function buildFalInput(
     ...(model.falDefaultParams ?? {}),
   };
   if (typeof args.seed === "number") input.seed = args.seed;
+  // Pin the output shape when requested (e.g. the fixed-size model sheet).
+  if (args.aspectRatio && !("image_size" in input)) {
+    input.aspect_ratio = args.aspectRatio;
+  }
   const refs = args.referenceImageUrls?.filter(Boolean) ?? [];
   if (model.supportsImagePrompt && refs.length && model.falImageParam) {
     if (model.falImageParam === "image_urls") input.image_urls = refs;

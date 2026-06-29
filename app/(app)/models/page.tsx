@@ -1,10 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
-import { Plus, Users, Wand2, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Plus, Users, Pencil, Trash2, Wand2 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,30 +12,24 @@ import Link from "next/link";
 import { LibraryTile } from "@/components/library-tile";
 import { ConfirmDelete } from "@/components/confirm-delete";
 import { ModelEditor } from "@/components/model-editor";
-import type { Id } from "@/convex/_generated/dataModel";
+import { StandardizeModelsButton } from "@/components/standardize-models-button";
 
 export default function ModelsPage() {
   const models = useQuery(api.models.list, {});
   const remove = useMutation(api.models.remove);
-  const generateVariations = useAction(api.generate.generateModelVariations);
-
-  const [busy, setBusy] = useState<string | null>(null);
-
-  async function genVariation(id: Id<"models">) {
-    setBusy(id);
-    try {
-      await generateVariations({ modelId: id });
-      toast.success("Generating a variation in the background…");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not start");
-    } finally {
-      setBusy(null);
-    }
-  }
 
   return (
     <>
       <PageHeader title="Models" description="People you can cast into shots">
+        {models && models.length > 0 && (
+          <StandardizeModelsButton
+            trigger={
+              <Button variant="outline">
+                <Wand2 className="h-4 w-4" /> Standardize references
+              </Button>
+            }
+          />
+        )}
         <ModelEditor
           trigger={
             <Button>
@@ -71,12 +64,13 @@ export default function ModelsPage() {
         ) : (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {models.map((m) => {
-              const imgs = m.imageUrls ?? [];
+              // Thumbnail: headshot first, falling back to the model sheet.
+              const thumb = m.headshotUrl ?? m.sheetUrl;
               const tile = (
                 <LibraryTile
                   icon={Users}
                   aspect="portrait"
-                  imageUrl={imgs[0]?.url}
+                  imageUrl={thumb}
                   title={m.name}
                   subtitle={m.promptDescriptor ?? m.description}
                 />
@@ -85,20 +79,6 @@ export default function ModelsPage() {
                 <div key={m._id} className="group relative">
                   {/* Hover actions */}
                   <div className="absolute right-2 top-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                    <Button
-                      variant="secondary"
-                      size="icon"
-                      title="Generate variation (background)"
-                      className="bg-background/85 size-7 rounded-full shadow-sm backdrop-blur"
-                      disabled={busy === m._id}
-                      onClick={() => genVariation(m._id)}
-                    >
-                      {busy === m._id ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Wand2 className="h-3.5 w-3.5" />
-                      )}
-                    </Button>
                     <ModelEditor
                       model={m}
                       trigger={

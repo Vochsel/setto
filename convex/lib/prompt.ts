@@ -33,6 +33,9 @@ export interface CameraFraming {
 export interface PromptShot {
   name?: string;
   posePrompt?: string;
+  /** Clothing other than the main wardrobe piece (which comes from the outfit
+   * image). Blank => the prompt chooses clothing suited to person + setting. */
+  clothingPrompt?: string;
   extraPrompt?: string;
   cameraFraming?: CameraFraming | null;
 }
@@ -107,14 +110,33 @@ export function buildPrompt(inputs: PromptInputs): AssembledPrompt {
     );
   }
 
-  // 2. Wardrobe
-  const wardrobe = [
+  // 2. Wardrobe — the key piece comes from the outfit/variation (and its
+  // reference image). The "other clothing" completes the look: use the explicit
+  // direction if given, otherwise instruct the model to choose something that
+  // suits the person and place (kept subordinate to the key piece).
+  const keyPiece = [
     inputs.outfit?.promptDescriptor || inputs.outfit?.name,
     inputs.variation?.promptDescriptor || inputs.variation?.name,
   ]
     .filter(Boolean)
     .join(", ");
-  push("Wardrobe", wardrobe);
+  push("Wardrobe (key piece)", keyPiece);
+
+  const otherClothing = (inputs.shot.clothingPrompt ?? "").trim();
+  if (otherClothing) {
+    push("Other clothing", otherClothing);
+  } else if (keyPiece) {
+    push(
+      "Other clothing",
+      "Complete the rest of the outfit with clothing that suits this person and " +
+        "the setting; keep it understated so the key wardrobe piece stays the focus.",
+    );
+  } else {
+    push(
+      "Wardrobe",
+      "Dress the subject in clothing appropriate to this person and the setting.",
+    );
+  }
 
   // 3. Pose / action
   push("Pose", inputs.shot.posePrompt);
