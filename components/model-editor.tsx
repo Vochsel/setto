@@ -4,7 +4,7 @@ import { ReactNode, useState } from "react";
 import { useMutation, useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
-import { Loader2, Sparkles, Wand2 } from "lucide-react";
+import { Image as ImageIcon, Loader2, Sparkles, Wand2 } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -27,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ImageUploader } from "@/components/image-uploader";
 import {
   IMAGE_MODELS,
@@ -64,6 +65,11 @@ function splitImages(model?: ModelDoc): {
   return { headshot, sheet };
 }
 
+/** How the headshot is created. "describe" builds it from the text descriptor
+ * (or re-renders an uploaded headshot as the same person); "reference" takes an
+ * uploaded inspiration photo and invents a brand-new, similar-looking person. */
+type CreateMode = "describe" | "reference";
+
 const ATTR_FIELDS: { key: string; label: string; placeholder: string }[] = [
   { key: "age", label: "Age", placeholder: "late 20s" },
   { key: "build", label: "Build", placeholder: "tall, athletic" },
@@ -100,6 +106,10 @@ export function ModelEditor({
   const [sheet, setSheet] = useState<ImageRef | null>(
     () => splitImages(model).sheet,
   );
+  const [mode, setMode] = useState<CreateMode>("describe");
+  // The inspiration photo for "reference" mode — used only to seed generation,
+  // never saved on the model itself.
+  const [reference, setReference] = useState<ImageRef | null>(null);
   const [genModelKey, setGenModelKey] = useState<string | null>(null);
   const genDesired =
     genModelKey ?? settings?.defaultImageModelKey ?? DEFAULT_MODEL_ID;
@@ -116,25 +126,48 @@ export function ModelEditor({
       const split = splitImages(model);
       setHeadshot(split.headshot);
       setSheet(split.sheet);
+      setMode("describe");
+      setReference(null);
       setGenModelKey(null);
     }
     setOpen(next);
   }
 
   async function generate(kind: "headshot" | "sheet") {
-    if (kind === "sheet" && !headshot?.url) {
+    if (kind === "sheet" && !headshot?.storageId && !headshot?.url) {
       toast.error("Add or generate a headshot first");
+      return;
+    }
+    if (kind === "headshot" && mode === "reference" && !reference) {
+      toast.error("Upload a reference image first");
       return;
     }
     setGenerating(kind);
     try {
-      // The sheet is seeded from the headshot for identity; a headshot is
-      // re-rendered from its own image when one exists, else from the text.
-      const refs = headshot?.url ? [headshot.url] : undefined;
+      // Pick which image seeds this generation, and how strictly to follow it:
+      //  - sheet: always the exact same person as the headshot.
+      //  - headshot in "reference" mode: a brand-new, similar-looking person
+      //    from the uploaded inspiration photo (resemblance, not a copy).
+      //  - headshot in "describe" mode: re-render an uploaded headshot as the
+      //    same person, else build from the text descriptor.
+      const seed =
+        kind === "sheet"
+          ? headshot
+          : mode === "reference"
+            ? reference
+            : headshot;
+      const resemblance = kind === "headshot" && mode === "reference";
+      // A ready URL goes straight through; a just-uploaded image (storageId
+      // only, no signed URL yet) is resolved server-side.
+      const referenceImageUrls = seed?.url ? [seed.url] : undefined;
+      const referenceStorageIds =
+        seed && !seed.url && seed.storageId ? [seed.storageId] : undefined;
       const r = await generateImage({
         kind,
         prompt: descriptor.trim() || name.trim() || undefined,
-        referenceImageUrls: refs,
+        referenceImageUrls,
+        referenceStorageIds,
+        resemblance: resemblance || undefined,
         modelKey: genModel,
       });
       const ref: ImageRef = {
@@ -210,6 +243,34 @@ export function ModelEditor({
           </div>
 
           <div className="bg-muted/30 grid gap-3 rounded-lg border p-3">
+            <Tabs
+              value={mode}
+              onValueChange={(v) => setMode(v as CreateMode)}
+            >
+              <TabsList className="w-full">
+                <TabsTrigger value="describe">Describe</TabsTrigger>
+                <TabsTrigger value="reference">From reference</TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            {mode === "reference" && (
+              <div className="grid gap-2">
+                <Label className="flex items-center gap-1.5 text-xs">
+                  <ImageIcon className="h-3.5 w-3.5" /> Reference image
+                </Label>
+                <ImageUploader
+                  max={1}
+                  value={reference ? [reference] : []}
+                  onChange={(refs) => setReference(refs[0] ?? null)}
+                />
+                <p className="text-muted-foreground text-xs">
+                  Upload a photo of someone whose look you want to match. We’ll
+                  invent a brand-new, similar-looking person — same overall age,
+                  build, hair and colouring — not an exact copy.
+                </p>
+              </div>
+            )}
+
             <div className="flex items-center justify-between gap-2">
               <Label className="flex items-center gap-1.5">
                 <Wand2 className="h-3.5 w-3.5" /> Generate with
@@ -255,8 +316,15 @@ export function ModelEditor({
                   type="button"
                   variant="secondary"
                   size="sm"
-                  disabled={!!generating}
+                  disabled={
+                    !!generating || (mode === "reference" && !reference)
+                  }
                   onClick={() => generate("headshot")}
+                  title={
+                    mode === "reference"
+                      ? "Generate a similar-looking headshot from the reference image"
+                      : undefined
+                  }
                 >
                   {generating === "headshot" ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -294,11 +362,23 @@ export function ModelEditor({
             </div>
 
             <p className="text-muted-foreground text-xs">
-              Start with a headshot — generate one from the description below, or
-              upload your own. Then generate the{" "}
-              <span className="font-medium">model sheet</span> (a neutral face,
-              angles &amp; T-pose turnaround) from it. Neutral clothing keeps a
-              shot’s real wardrobe from bleeding in.
+              {mode === "reference" ? (
+                <>
+                  Upload a reference above, then generate a similar-looking{" "}
+                  <span className="font-medium">headshot</span>. Once you’re happy
+                  with it, generate the{" "}
+                  <span className="font-medium">model sheet</span> (a neutral
+                  face, angles &amp; T-pose turnaround) from that headshot.
+                </>
+              ) : (
+                <>
+                  Start with a headshot — generate one from the description below,
+                  or upload your own. Then generate the{" "}
+                  <span className="font-medium">model sheet</span> (a neutral
+                  face, angles &amp; T-pose turnaround) from it. Neutral clothing
+                  keeps a shot’s real wardrobe from bleeding in.
+                </>
+              )}
             </p>
           </div>
 
