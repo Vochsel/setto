@@ -49,7 +49,11 @@ function NavSection({
 }) {
   return (
     <SidebarGroup>
-      {label ? <SidebarGroupLabel>{label}</SidebarGroupLabel> : null}
+      {label ? (
+        <SidebarGroupLabel className="text-[11px] uppercase tracking-[0.72px]">
+          {label}
+        </SidebarGroupLabel>
+      ) : null}
       <SidebarGroupContent>
         <SidebarMenu>
           {items.map((item) => {
@@ -57,7 +61,12 @@ function NavSection({
               pathname === item.href || pathname.startsWith(item.href + "/");
             return (
               <SidebarMenuItem key={item.href}>
-                <SidebarMenuButton asChild isActive={active} tooltip={item.title}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={active}
+                  tooltip={item.title}
+                  className="rounded-full data-[active=true]:bg-[#c1fbd4] data-[active=true]:text-black data-[active=true]:hover:bg-[#b6f2c9] dark:data-[active=true]:bg-white/15 dark:data-[active=true]:text-white"
+                >
                   <Link href={item.href}>
                     <item.icon />
                     <span>{item.title}</span>
@@ -83,17 +92,24 @@ export function AppSidebar({ user }: { user: SidebarUser }) {
       .toUpperCase() || "?";
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible="icon" className="font-inter ss03">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild size="lg" tooltip="Setto">
+            <SidebarMenuButton
+              asChild
+              size="lg"
+              tooltip="Setto"
+              className="rounded-xl"
+            >
               <Link href="/dashboard">
-                <div className="bg-primary text-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
+                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-black text-white dark:bg-white dark:text-black">
                   <Camera className="size-4" />
                 </div>
                 <div className="flex flex-col gap-0.5 leading-none">
-                  <span className="font-semibold">Setto</span>
+                  <span className="text-[15px] font-medium tracking-tight">
+                    Setto
+                  </span>
                   <span className="text-muted-foreground flex items-center gap-1 text-xs">
                     <Building2 className="size-3" />
                     {user.orgLabel}
@@ -116,7 +132,7 @@ export function AppSidebar({ user }: { user: SidebarUser }) {
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <SidebarMenuButton size="lg">
+                <SidebarMenuButton size="lg" className="rounded-xl">
                   <Avatar className="size-8 rounded-lg">
                     <AvatarImage src={user.avatarUrl} alt={user.name} />
                     <AvatarFallback className="rounded-lg">

@@ -313,8 +313,8 @@ export function ShotCard({
         </CollapsibleContent>
       </Collapsible>
 
-      {/* Generate bar */}
-      <div className="flex items-center gap-2">
+      {/* Generate bar — model picker on its own row so the button never clips */}
+      <div className="space-y-2">
         <Select
           value={modelKey}
           onValueChange={(v) => {
@@ -322,7 +322,7 @@ export function ShotCard({
             setDefaultModel({ modelKey: v }).catch(() => {});
           }}
         >
-          <SelectTrigger size="sm" className="flex-1">
+          <SelectTrigger size="sm" className="w-full min-w-0">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -339,28 +339,35 @@ export function ShotCard({
           </SelectContent>
         </Select>
 
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="icon" className="size-8 shrink-0">
-              <Eye className="h-4 w-4" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-96" align="end">
-            <p className="mb-2 text-xs font-medium">Assembled prompt</p>
-            <pre className="bg-muted/50 text-muted-foreground max-h-72 overflow-auto whitespace-pre-wrap rounded-md p-2 font-mono text-[11px] leading-relaxed">
-              {preview.prompt}
-            </pre>
-          </PopoverContent>
-        </Popover>
+        <div className="flex items-center gap-2">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="icon" className="size-8 shrink-0">
+                <Eye className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-96" align="start">
+              <p className="mb-2 text-xs font-medium">Assembled prompt</p>
+              <pre className="bg-muted/50 text-muted-foreground max-h-72 overflow-auto whitespace-pre-wrap rounded-md p-2 font-mono text-[11px] leading-relaxed">
+                {preview.prompt}
+              </pre>
+            </PopoverContent>
+          </Popover>
 
-        <Button size="sm" onClick={runGenerate} disabled={generating}>
-          {generating ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Sparkles className="h-4 w-4" />
-          )}
-          Generate {genCount > 1 ? `×${genCount}` : ""}
-        </Button>
+          <Button
+            size="sm"
+            className="flex-1"
+            onClick={runGenerate}
+            disabled={generating}
+          >
+            {generating ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkles className="h-4 w-4" />
+            )}
+            Generate {genCount > 1 ? `×${genCount}` : ""}
+          </Button>
+        </div>
       </div>
 
       {shot.generations.length > 0 && (

@@ -77,14 +77,15 @@
   --chart-4: oklch(0.6 0.2 340);
   --chart-5: oklch(0.68 0.18 145);
 
-  --sidebar: oklch(0.98 0.003 285);
-  --sidebar-foreground: oklch(0.25 0.01 285);
-  --sidebar-primary: oklch(0.55 0.21 285);
-  --sidebar-primary-foreground: oklch(0.99 0.005 285);
-  --sidebar-accent: oklch(0.95 0.02 285);
-  --sidebar-accent-foreground: oklch(0.3 0.05 285);
-  --sidebar-border: oklch(0.91 0.004 285);
-  --sidebar-ring: oklch(0.55 0.21 285);
+  /* Sidebar = DESIGN.md light track (white nav, ink text, neutral hover). */
+  --sidebar: #ffffff;
+  --sidebar-foreground: #3f3f46;
+  --sidebar-primary: #000000;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f4f4f5;
+  --sidebar-accent-foreground: #000000;
+  --sidebar-border: #e4e4e7;
+  --sidebar-ring: #c1fbd4;
 }
 
 /* Dark theme — primary surface. Deep cool neutral with a violet accent. */
@@ -114,14 +115,15 @@
   --chart-4: oklch(0.66 0.21 340);
   --chart-5: oklch(0.72 0.17 150);
 
-  --sidebar: oklch(0.135 0.006 285);
-  --sidebar-foreground: oklch(0.9 0.005 285);
-  --sidebar-primary: oklch(0.66 0.2 287);
-  --sidebar-primary-foreground: oklch(0.16 0.02 287);
-  --sidebar-accent: oklch(0.24 0.012 287);
-  --sidebar-accent-foreground: oklch(0.95 0.01 287);
-  --sidebar-border: oklch(1 0 0 / 7%);
-  --sidebar-ring: oklch(0.66 0.2 287);
+  /* Sidebar = DESIGN.md cinematic track (black nav, white text). */
+  --sidebar: #000000;
+  --sidebar-foreground: #a1a1aa;
+  --sidebar-primary: #ffffff;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: oklch(1 0 0 / 8%);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #1e2c31;
+  --sidebar-ring: oklch(1 0 0 / 20%);
 }
 
 @layer base {
