@@ -132,6 +132,11 @@
   }
   html {
     @apply font-sans;
+    /* Gentle vertical snapping: only elements that opt in (e.g. shot cards via
+       `snap-start`) snap, and `proximity` never traps scrolling on pages that
+       declare no snap targets. `scroll-padding-top` clears the sticky header. */
+    scroll-snap-type: y proximity;
+    scroll-padding-top: 4.5rem;
   }
   body {
     @apply bg-background text-foreground antialiased;

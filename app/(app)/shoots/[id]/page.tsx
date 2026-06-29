@@ -173,9 +173,10 @@ export default function ShootEditorPage() {
   return (
     <>
       <PageHeader title={shoot.name} description={formatDateTime(shoot.scheduledAt)}>
-        <Button asChild variant="ghost" size="sm">
+        <Button asChild variant="ghost" size="sm" className="shrink-0">
           <Link href="/shoots">
-            <ArrowLeft className="h-4 w-4" /> Shoots
+            <ArrowLeft className="h-4 w-4" />
+            <span className="hidden sm:inline">Shoots</span>
           </Link>
         </Button>
         <Select
@@ -184,7 +185,10 @@ export default function ShootEditorPage() {
             updateShoot({ id: shootId, status: v as ShootStatus })
           }
         >
-          <SelectTrigger size="sm" className={cn("w-32", status.className)}>
+          <SelectTrigger
+            size="sm"
+            className={cn("w-28 shrink-0 sm:w-32", status.className)}
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -340,8 +344,9 @@ function ShootSettings({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Settings2 className="h-4 w-4" /> Settings
+        <Button variant="outline" size="sm" className="shrink-0">
+          <Settings2 className="h-4 w-4" />
+          <span className="hidden sm:inline">Settings</span>
         </Button>
       </DialogTrigger>
       <DialogContent>

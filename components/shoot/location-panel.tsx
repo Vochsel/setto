@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
@@ -10,6 +11,8 @@ import { ConfirmDelete } from "@/components/confirm-delete";
 import { EmptyState } from "@/components/empty-state";
 import { ModelMultiSelect } from "@/components/shoot/model-multiselect";
 import { ShotCard } from "@/components/shoot/shot-card";
+import { AddLocationPhoto } from "@/components/shoot/add-location-photo";
+import { ImageLightbox } from "@/components/image-lightbox";
 import { StagingDialog } from "@/components/shoot/staging/staging-dialog";
 import type { StageState } from "@/components/shoot/staging/types";
 import type {
@@ -42,6 +45,18 @@ export function LocationPanel({
   const loc = shootLocation.location;
   const presentModels =
     shootLocation.models.length > 0 ? shootLocation.models : library.models;
+
+  // Reference imagery for this location: the user's own photos first (captured
+  // on the day), then any Street View frames. Tap any to view full-screen.
+  const references: { url: string; caption?: string; source: string }[] = [
+    ...(loc?.imageUrls ?? []).map((r) => ({ url: r.url, source: "yours" })),
+    ...(loc?.streetViewUrls ?? []).map((r) => ({
+      url: r.url,
+      caption: r.caption,
+      source: "street_view",
+    })),
+  ];
+  const [refIndex, setRefIndex] = useState<number | null>(null);
 
   return (
     <div className="space-y-4">
@@ -77,25 +92,45 @@ export function LocationPanel({
           />
         </div>
 
-        {loc?.streetViewUrls?.length ? (
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {loc.streetViewUrls.map((s, i) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={i}
-                src={s.url}
-                alt={s.caption ?? ""}
-                title={s.caption}
-                className="h-20 w-28 shrink-0 rounded-md object-cover"
-              />
-            ))}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-muted-foreground text-xs font-medium">
+              References{" "}
+              {references.length > 0 ? `(${references.length})` : ""}
+            </span>
+            {loc?._id ? <AddLocationPhoto locationId={loc._id} /> : null}
           </div>
-        ) : (
-          <p className="text-muted-foreground bg-muted/40 rounded-md p-2 text-xs">
-            No Street View references yet — open this location in the Locations
-            library to capture some.
-          </p>
-        )}
+          {references.length ? (
+            <div className="scrollbar-thin -mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-1">
+              {references.map((s, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setRefIndex(i)}
+                  title={s.caption}
+                  className="group/ref relative h-28 w-40 shrink-0 cursor-zoom-in snap-start overflow-hidden rounded-md border"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={s.url}
+                    alt={s.caption ?? ""}
+                    className="h-full w-full object-cover transition-transform group-hover/ref:scale-105"
+                  />
+                  {s.source === "yours" ? (
+                    <span className="absolute left-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
+                      Yours
+                    </span>
+                  ) : null}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-muted-foreground bg-muted/40 rounded-md p-2 text-xs">
+              No references yet — take a photo on location, upload from your
+              camera roll, or capture Street View from the Locations library.
+            </p>
+          )}
+        </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <ModelMultiSelect
@@ -166,6 +201,13 @@ export function LocationPanel({
           ))}
         </div>
       )}
+
+      <ImageLightbox
+        images={references}
+        index={refIndex}
+        onIndexChange={setRefIndex}
+        onClose={() => setRefIndex(null)}
+      />
     </div>
   );
 }

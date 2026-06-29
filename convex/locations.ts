@@ -80,6 +80,20 @@ export const update = mutation({
   },
 });
 
+/**
+ * Append reference images to a location without clobbering the existing set.
+ * Used by the on-location photo capture in the shoot editor, where the client
+ * doesn't hold the full current `images` array.
+ */
+export const addImages = mutation({
+  args: { id: v.id("locations"), images: v.array(imageRef) },
+  handler: async (ctx, { id, images }) => {
+    const scope = await getScope(ctx);
+    const doc = assertOrg(await ctx.db.get(id), scope);
+    await ctx.db.patch(id, { images: [...(doc.images ?? []), ...images] });
+  },
+});
+
 export const remove = mutation({
   args: { id: v.id("locations") },
   handler: async (ctx, { id }) => {

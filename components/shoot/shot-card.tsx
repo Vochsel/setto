@@ -45,6 +45,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ConfirmDelete } from "@/components/confirm-delete";
 import { ImageLightbox } from "@/components/image-lightbox";
+import { OutputCarousel } from "@/components/shoot/output-carousel";
 import { cn } from "@/lib/utils";
 import { buildPrompt, BASE_VARIATION_ID } from "@/convex/lib/prompt";
 import {
@@ -234,7 +235,7 @@ export function ShotCard({
     <Card
       id={`shot-${shot._id}`}
       className={cn(
-        "scroll-mt-20 gap-3 p-3",
+        "scroll-mt-20 snap-start gap-3 p-3",
         highlight && "ring-primary ring-2",
       )}
     >
@@ -498,19 +499,29 @@ export function ShotCard({
       </div>
 
       {shot.generations.length > 0 && (
-        <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
+        <OutputCarousel
+          count={shot.generations.length}
+          controls={shot.generations.length > 1}
+        >
           {shot.generations.map((g) => (
-            <GenerationTile
+            <div
               key={g._id}
-              gen={g}
-              onDelete={() => removeGen({ id: g._id })}
-              onOpen={() => {
-                const i = succeeded.findIndex((s) => s._id === g._id);
-                if (i !== -1) setLightboxIndex(i);
-              }}
-            />
+              className={cn(
+                "shrink-0 snap-start",
+                shot.generations.length === 1 ? "w-full" : "w-[78%] sm:w-48",
+              )}
+            >
+              <GenerationTile
+                gen={g}
+                onDelete={() => removeGen({ id: g._id })}
+                onOpen={() => {
+                  const i = succeeded.findIndex((s) => s._id === g._id);
+                  if (i !== -1) setLightboxIndex(i);
+                }}
+              />
+            </div>
           ))}
-        </div>
+        </OutputCarousel>
       )}
 
       {allVideos.length > 0 && (
@@ -521,19 +532,31 @@ export function ShotCard({
               · animated from images above
             </span>
           </span>
-          <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
+          <OutputCarousel
+            count={allVideos.length}
+            controls={allVideos.length > 1}
+          >
             {allVideos.map((vd) => (
-              <VideoTile
+              <div
                 key={vd._id}
-                video={vd}
-                onDelete={() => removeVideo({ id: vd._id })}
-                onOpen={() => {
-                  const i = succeededVideos.findIndex((s) => s._id === vd._id);
-                  if (i !== -1) setVideoLightboxIndex(i);
-                }}
-              />
+                className={cn(
+                  "shrink-0 snap-start",
+                  allVideos.length === 1 ? "w-full" : "w-[78%] sm:w-48",
+                )}
+              >
+                <VideoTile
+                  video={vd}
+                  onDelete={() => removeVideo({ id: vd._id })}
+                  onOpen={() => {
+                    const i = succeededVideos.findIndex(
+                      (s) => s._id === vd._id,
+                    );
+                    if (i !== -1) setVideoLightboxIndex(i);
+                  }}
+                />
+              </div>
             ))}
-          </div>
+          </OutputCarousel>
         </div>
       )}
 
