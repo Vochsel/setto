@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
 // Translucent control button for the dark lightbox scrim, with hover + click
 // feedback. Built on the shared Button so focus/disabled states come for free.
 const CTRL =
-  "size-9 rounded-full bg-white/10 text-white ring-1 ring-white/15 backdrop-blur transition hover:bg-white/20 active:scale-90";
+  "size-9 rounded-full bg-white/10 text-white ring-1 ring-white/15 backdrop-blur transition hover:bg-white/20";
 
 export interface LightboxImage {
   url?: string;
@@ -123,7 +123,7 @@ export function ImageLightbox({
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent
         showCloseButton={false}
-        className="flex h-[100dvh] w-screen max-w-none flex-col gap-2 rounded-none border-0 bg-black/90 p-2 ring-0 backdrop-blur-sm sm:h-[90vh] sm:w-[90vw] sm:max-w-[90vw] sm:rounded-2xl sm:p-3"
+        className="flex h-[100dvh] w-screen max-w-none flex-col gap-2 rounded-none border-0 bg-black/90 p-2 ring-0 backdrop-blur-sm sm:p-3"
       >
         <DialogTitle className="sr-only">Image preview</DialogTitle>
 
@@ -231,7 +231,7 @@ function NavButton({
       disabled={disabled}
       aria-label={side === "left" ? "Previous" : "Next"}
       className={cn(
-        "absolute top-1/2 size-11 -translate-y-1/2 rounded-full bg-white/10 text-white ring-1 ring-white/15 backdrop-blur transition hover:bg-white/20 active:scale-90 disabled:pointer-events-none disabled:opacity-0",
+        "absolute top-1/2 size-11 -translate-y-1/2 rounded-full bg-white/10 text-white ring-1 ring-white/15 backdrop-blur transition hover:bg-white/20 disabled:pointer-events-none disabled:opacity-0",
         side === "left" ? "left-2 sm:left-4" : "right-2 sm:right-4",
       )}
     >
