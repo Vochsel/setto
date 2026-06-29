@@ -6,6 +6,7 @@ import {
   type QueryCtx,
 } from "./_generated/server";
 import { v } from "convex/values";
+import { paginationOptsValidator } from "convex/server";
 import type { Doc } from "./_generated/dataModel";
 import { getScope, assertOrg } from "./lib/auth";
 
@@ -69,9 +70,18 @@ export const context = internalQuery({
       shootId: shot.shootId,
       scheduledAt: shoot?.scheduledAt ?? null,
       timezone: shoot?.timezone ?? null,
+      // Recipe ids, frozen onto the generation so per-model / per-location
+      // galleries stay accurate even after the shot is re-cast.
+      modelId: shot.modelId ?? null,
+      outfitId: shot.outfitId ?? null,
+      locationId: sl?.locationId ?? null,
+      styleId: shot.styleId ?? null,
+      cameraId: shot.cameraId ?? null,
+      lightingId: shot.lightingId ?? null,
       shot: {
         name: shot.name,
         posePrompt: shot.posePrompt,
+        clothingPrompt: shot.clothingPrompt,
         extraPrompt: shot.extraPrompt,
         cameraFraming: shot.cameraFraming ?? null,
         selectedVariationIds: shot.selectedVariationIds ?? [],
@@ -128,6 +138,12 @@ export const create = internalMutation({
     shotId: v.id("shots"),
     shootId: v.id("shoots"),
     variationId: v.optional(v.string()),
+    modelId: v.optional(v.id("models")),
+    outfitId: v.optional(v.id("outfits")),
+    locationId: v.optional(v.id("locations")),
+    styleId: v.optional(v.id("presets")),
+    cameraId: v.optional(v.id("presets")),
+    lightingId: v.optional(v.id("presets")),
     provider: v.string(),
     modelKey: v.string(),
     modelLabel: v.optional(v.string()),
@@ -143,6 +159,26 @@ export const create = internalMutation({
   },
 });
 
+export const setProgress = internalMutation({
+  args: {
+    id: v.id("generations"),
+    status: v.optional(
+      v.union(
+        v.literal("queued"),
+        v.literal("generating"),
+        v.literal("succeeded"),
+        v.literal("failed"),
+      ),
+    ),
+    progress: v.optional(v.number()),
+    progressLabel: v.optional(v.string()),
+    falRequestId: v.optional(v.string()),
+  },
+  handler: async (ctx, { id, ...patch }) => {
+    await ctx.db.patch(id, patch);
+  },
+});
+
 export const attachResult = internalMutation({
   args: {
     id: v.id("generations"),
@@ -154,7 +190,8 @@ export const attachResult = internalMutation({
     error: v.optional(v.string()),
   },
   handler: async (ctx, { id, ...patch }) => {
-    await ctx.db.patch(id, patch);
+    // Clear any in-flight progress when the final result lands.
+    await ctx.db.patch(id, { progressLabel: undefined, ...patch });
   },
 });
 
@@ -168,6 +205,49 @@ export const listByShoot = query({
       .withIndex("by_shoot", (q) => q.eq("shootId", shootId))
       .order("desc")
       .collect();
+  },
+});
+
+/**
+ * Paginated feed of ALL image generations (every status), newest first, for the
+ * queue page. Merged client-side with the video feed. Items carry `shotId` so
+ * each links back to its source shot.
+ */
+export const queueFeed = query({
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, { paginationOpts }) => {
+    const scope = await getScope(ctx);
+    const result = await ctx.db
+      .query("generations")
+      .withIndex("by_org", (q) => q.eq("orgId", scope.orgId))
+      .order("desc")
+      .paginate(paginationOpts);
+
+    const page = await Promise.all(
+      result.page.map(async (g) => {
+        let thumbUrl = g.imageUrl;
+        if (!thumbUrl && g.storageId) {
+          thumbUrl = (await ctx.storage.getUrl(g.storageId)) ?? undefined;
+        }
+        return {
+          kind: "image" as const,
+          _id: g._id as string,
+          _creationTime: g._creationTime,
+          status: g.status,
+          thumbUrl,
+          videoUrl: undefined as string | undefined,
+          modelKey: g.modelKey,
+          modelLabel: g.modelLabel,
+          prompt: g.prompt,
+          progress: g.progress,
+          progressLabel: g.progressLabel,
+          error: g.error,
+          shootId: g.shootId as string,
+          shotId: g.shotId as string,
+        };
+      }),
+    );
+    return { ...result, page };
   },
 });
 
@@ -204,60 +284,80 @@ export const listByOrg = query({
   },
 });
 
-/** All succeeded photos that feature a given model (via its shots). */
+/**
+ * All succeeded photos that feature a given model.
+ *
+ * Each generation carries a frozen `modelId` snapshot of the shot's recipe at
+ * the time it was produced, so re-casting a shot to a different model never
+ * re-attributes images that were already made. Rows created before snapshots
+ * existed (`modelId` undefined) fall back to the shot's *current* model.
+ */
 export const listByModel = query({
   args: { modelId: v.id("models") },
   handler: async (ctx, { modelId }) => {
     const scope = await getScope(ctx);
     assertOrg(await ctx.db.get(modelId), scope);
-    const shots = await ctx.db
-      .query("shots")
-      .withIndex("by_org", (q) => q.eq("orgId", scope.orgId))
-      .collect();
-    const shotIds = new Set(
-      shots.filter((s) => s.modelId === modelId).map((s) => s._id),
-    );
-    if (shotIds.size === 0) return [];
     const gens = await ctx.db
       .query("generations")
       .withIndex("by_org", (q) => q.eq("orgId", scope.orgId))
       .collect();
+
+    // Resolve a fallback model only for legacy rows missing the snapshot.
+    const legacyShotIds = new Set(
+      gens.filter((g) => g.modelId === undefined).map((g) => g.shotId),
+    );
+    const shotModel = new Map<string, string | undefined>();
+    await Promise.all(
+      [...legacyShotIds].map(async (sid) => {
+        const shot = await ctx.db.get(sid);
+        shotModel.set(sid, shot?.modelId);
+      }),
+    );
+
+    const effectiveModelId = (g: Doc<"generations">) =>
+      g.modelId ?? shotModel.get(g.shotId);
     return shapeSucceeded(
       ctx,
-      gens.filter((g) => shotIds.has(g.shotId)),
+      gens.filter((g) => effectiveModelId(g) === modelId),
     );
   },
 });
 
-/** All succeeded photos shot at a given location (via its shoot-locations). */
+/**
+ * All succeeded photos shot at a given location.
+ *
+ * Mirrors `listByModel`: prefers each generation's frozen `locationId`
+ * snapshot and only falls back to resolving the shot's current location for
+ * legacy rows that predate snapshots.
+ */
 export const listByLocation = query({
   args: { locationId: v.id("locations") },
   handler: async (ctx, { locationId }) => {
     const scope = await getScope(ctx);
     assertOrg(await ctx.db.get(locationId), scope);
-    const sls = await ctx.db
-      .query("shootLocations")
-      .withIndex("by_org", (q) => q.eq("orgId", scope.orgId))
-      .collect();
-    const slIds = new Set(
-      sls.filter((sl) => sl.locationId === locationId).map((sl) => sl._id),
-    );
-    if (slIds.size === 0) return [];
-    const shots = await ctx.db
-      .query("shots")
-      .withIndex("by_org", (q) => q.eq("orgId", scope.orgId))
-      .collect();
-    const shotIds = new Set(
-      shots.filter((s) => slIds.has(s.shootLocationId)).map((s) => s._id),
-    );
-    if (shotIds.size === 0) return [];
     const gens = await ctx.db
       .query("generations")
       .withIndex("by_org", (q) => q.eq("orgId", scope.orgId))
       .collect();
+
+    // For legacy rows, resolve location via shot -> shootLocation.
+    const legacyShotIds = new Set(
+      gens.filter((g) => g.locationId === undefined).map((g) => g.shotId),
+    );
+    const shotLocation = new Map<string, string | undefined>();
+    await Promise.all(
+      [...legacyShotIds].map(async (sid) => {
+        const shot = await ctx.db.get(sid);
+        const sl = shot ? await ctx.db.get(shot.shootLocationId) : null;
+        shotLocation.set(sid, sl?.locationId);
+      }),
+    );
+
+    const effectiveLocationId = (g: Doc<"generations">) =>
+      g.locationId ?? shotLocation.get(g.shotId);
     return shapeSucceeded(
       ctx,
-      gens.filter((g) => shotIds.has(g.shotId)),
+      gens.filter((g) => effectiveLocationId(g) === locationId),
     );
   },
 });

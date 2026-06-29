@@ -27,7 +27,14 @@ export const listByShoot = query({
             if (!imageUrl && g.storageId) {
               imageUrl = (await ctx.storage.getUrl(g.storageId)) ?? undefined;
             }
-            return { ...g, imageUrl };
+            // Attach this image's videos (newest first) so the card can show
+            // them inline and live-update their render progress.
+            const videos = await ctx.db
+              .query("videos")
+              .withIndex("by_generation", (q) => q.eq("generationId", g._id))
+              .order("desc")
+              .collect();
+            return { ...g, imageUrl, videos };
           }),
         );
         return { ...shot, generations: resolvedGens };
@@ -72,6 +79,7 @@ export const update = mutation({
     outfitId: v.optional(v.union(v.id("outfits"), v.null())),
     selectedVariationIds: v.optional(v.array(v.string())),
     posePrompt: v.optional(v.string()),
+    clothingPrompt: v.optional(v.string()),
     extraPrompt: v.optional(v.string()),
     styleId: v.optional(v.union(v.id("presets"), v.null())),
     cameraId: v.optional(v.union(v.id("presets"), v.null())),

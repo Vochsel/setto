@@ -23,16 +23,20 @@ export function formatUsd(amount: number): string {
 export type UsageKind =
   | "shot"
   | "model_portrait"
+  | "model_sheet"
   | "model_variation"
   | "campaign_copy"
-  | "campaign_creative";
+  | "campaign_creative"
+  | "video";
 
 export const usageKindMeta: Record<UsageKind, string> = {
   shot: "Shot",
   model_portrait: "Model portrait",
+  model_sheet: "Model sheet",
   model_variation: "Model variation",
   campaign_copy: "Campaign copy",
   campaign_creative: "Campaign creative",
+  video: "Video",
 };
 
 export type CampaignStatus = "draft" | "active" | "archived";

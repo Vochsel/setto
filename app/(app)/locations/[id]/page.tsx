@@ -9,14 +9,16 @@ import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LocationEditor } from "@/components/location-editor";
-import { PhotoMasonry } from "@/components/photo-masonry";
+import { PhotoMasonry, mergeMedia } from "@/components/photo-masonry";
 import type { Id } from "@/convex/_generated/dataModel";
 
 export default function LocationDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params.id as Id<"locations">;
   const location = useQuery(api.locations.get, { id });
-  const photos = useQuery(api.generations.listByLocation, { locationId: id });
+  const images = useQuery(api.generations.listByLocation, { locationId: id });
+  const videos = useQuery(api.videos.listByLocation, { locationId: id });
+  const photos = mergeMedia(images, videos);
 
   if (location === undefined) {
     return (
@@ -85,17 +87,13 @@ export default function LocationDetailPage() {
 
         <section className="space-y-3">
           <h2 className="text-sm font-medium">
-            Photos shot here{" "}
+            Photos &amp; videos shot here{" "}
             <span className="text-muted-foreground">
               ({photos?.length ?? 0})
             </span>
           </h2>
           <PhotoMasonry
-            photos={photos?.map((p) => ({
-              _id: p._id,
-              imageUrl: p.imageUrl,
-              caption: p.modelLabel,
-            }))}
+            photos={photos}
             emptyIcon={Camera}
             emptyTitle="No photos here yet"
             emptyDescription="Add this location to a shoot and generate shots — every image made here collects on this page."

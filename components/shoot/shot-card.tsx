@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
@@ -14,6 +14,9 @@ import {
   Layers,
   Copy,
   Check,
+  Shirt,
+  Film,
+  Play,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -51,11 +54,13 @@ import {
   formatPrice,
   type ImageProvider,
 } from "@/convex/lib/imageModels";
+import { AnimatePopover } from "@/components/animate-popover";
 import type { Id } from "@/convex/_generated/dataModel";
 import type {
   ShotDoc,
   LibraryData,
   GenerationDoc,
+  VideoDoc,
 } from "@/components/shoot/types";
 
 const NONE = "__none__";
@@ -72,22 +77,27 @@ export function ShotCard({
   library,
   location,
   scheduledAt,
+  highlight,
 }: {
   shot: ShotDoc;
   library: LibraryData;
   location: LocationInfo;
   scheduledAt?: number;
+  /** Deep-link target — scroll into view and ring this shot. */
+  highlight?: boolean;
 }) {
   const update = useMutation(api.shots.update);
   const remove = useMutation(api.shots.remove);
   const duplicateShot = useMutation(api.shots.duplicate);
   const removeGen = useMutation(api.generations.remove);
+  const removeVideo = useMutation(api.videos.remove);
   const generate = useAction(api.generate.generateShot);
   const settings = useQuery(api.settings.get, {});
   const setDefaultModel = useMutation(api.settings.setDefaultImageModel);
 
   const [name, setName] = useState(shot.name ?? "");
   const [pose, setPose] = useState(shot.posePrompt ?? "");
+  const [clothing, setClothing] = useState(shot.clothingPrompt ?? "");
   const [extra, setExtra] = useState(shot.extraPrompt ?? "");
   // Model selection: local override → workspace default (db) → built-in default.
   const [modelKeyOverride, setModelKeyOverride] = useState<string | null>(null);
@@ -96,6 +106,18 @@ export function ShotCard({
   const modelKey = getImageModel(desiredKey) ? desiredKey : DEFAULT_MODEL_ID;
   const [generating, setGenerating] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [videoLightboxIndex, setVideoLightboxIndex] = useState<number | null>(
+    null,
+  );
+
+  // Deep-link: when this is the targeted shot, scroll it into view.
+  useEffect(() => {
+    if (highlight) {
+      document
+        .getElementById(`shot-${shot._id}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [highlight, shot._id]);
 
   const outfit = library.outfits.find((o) => o._id === shot.outfitId);
   const variations = outfit?.variations ?? [];
@@ -107,6 +129,7 @@ export function ShotCard({
     outfitId?: Id<"outfits"> | null;
     selectedVariationIds?: string[];
     posePrompt?: string;
+    clothingPrompt?: string;
     extraPrompt?: string;
     styleId?: Id<"presets"> | null;
     cameraId?: Id<"presets"> | null;
@@ -142,7 +165,12 @@ export function ShotCard({
   const lighting = library.lightings.find((p) => p._id === shot.lightingId);
   const previewVariation = variations.find((v) => selectedVars.includes(v.id));
   const preview = buildPrompt({
-    shot: { name: shot.name, posePrompt: pose, extraPrompt: extra },
+    shot: {
+      name: shot.name,
+      posePrompt: pose,
+      clothingPrompt: clothing,
+      extraPrompt: extra,
+    },
     model: model
       ? {
           name: model.name,
@@ -181,10 +209,30 @@ export function ShotCard({
   const lightboxImages = succeeded.map((g) => ({
     url: g.imageUrl,
     caption: g.modelLabel,
+    generationId: g._id,
+  }));
+
+  // Videos across all of this shot's images, newest first (the per-generation
+  // arrays are already ordered desc). Surfaced in their own row below the grid.
+  const allVideos = shot.generations.flatMap((g) => g.videos ?? []);
+  const succeededVideos = allVideos.filter(
+    (vd) => vd.status === "succeeded" && vd.videoUrl,
+  );
+  const videoLightbox = succeededVideos.map((vd) => ({
+    kind: "video" as const,
+    url: vd.videoUrl,
+    posterUrl: vd.posterUrl,
+    caption: vd.modelLabel,
   }));
 
   return (
-    <Card className="gap-3 p-3">
+    <Card
+      id={`shot-${shot._id}`}
+      className={cn(
+        "scroll-mt-20 gap-3 p-3",
+        highlight && "ring-primary ring-2",
+      )}
+    >
       <div className="flex items-center gap-2">
         <Input
           value={name}
@@ -287,6 +335,25 @@ export function ShotCard({
           </div>
         </div>
       )}
+
+      <div className="space-y-1.5">
+        <span className="text-muted-foreground flex items-center gap-1 text-xs">
+          <Shirt className="h-3 w-3" /> Other clothing
+          <span className="text-muted-foreground/60">
+            · besides the wardrobe piece
+          </span>
+        </span>
+        <Textarea
+          value={clothing}
+          onChange={(e) => setClothing(e.target.value)}
+          onBlur={() =>
+            clothing !== (shot.clothingPrompt ?? "") &&
+            save({ clothingPrompt: clothing })
+          }
+          placeholder="e.g. straight-leg blue jeans and white sneakers — leave blank to let the AI pick something that suits the person & location"
+          className="min-h-[44px] text-sm"
+        />
+      </div>
 
       <Textarea
         value={pose}
@@ -420,11 +487,41 @@ export function ShotCard({
         </div>
       )}
 
+      {allVideos.length > 0 && (
+        <div className="space-y-1.5">
+          <span className="text-muted-foreground flex items-center gap-1 text-xs">
+            <Film className="h-3 w-3" /> Videos
+            <span className="text-muted-foreground/60">
+              · animated from images above
+            </span>
+          </span>
+          <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
+            {allVideos.map((vd) => (
+              <VideoTile
+                key={vd._id}
+                video={vd}
+                onDelete={() => removeVideo({ id: vd._id })}
+                onOpen={() => {
+                  const i = succeededVideos.findIndex((s) => s._id === vd._id);
+                  if (i !== -1) setVideoLightboxIndex(i);
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       <ImageLightbox
         images={lightboxImages}
         index={lightboxIndex}
         onIndexChange={setLightboxIndex}
         onClose={() => setLightboxIndex(null)}
+      />
+      <ImageLightbox
+        images={videoLightbox}
+        index={videoLightboxIndex}
+        onIndexChange={setVideoLightboxIndex}
+        onClose={() => setVideoLightboxIndex(null)}
       />
     </Card>
   );
@@ -439,9 +536,10 @@ function GenerationTile({
   onDelete: () => void;
   onOpen: () => void;
 }) {
+  const succeeded = gen.status === "succeeded" && gen.imageUrl;
   return (
     <div className="group bg-muted/50 relative aspect-[3/4] overflow-hidden rounded-md border">
-      {gen.status === "succeeded" && gen.imageUrl ? (
+      {succeeded ? (
         <button
           type="button"
           onClick={onOpen}
@@ -465,14 +563,129 @@ function GenerationTile({
           <TooltipContent className="max-w-60">{gen.error}</TooltipContent>
         </Tooltip>
       ) : (
-        <div className="text-muted-foreground flex h-full w-full items-center justify-center">
-          <Loader2 className="h-4 w-4 animate-spin" />
+        <ProgressOverlay label={gen.progressLabel} progress={gen.progress} />
+      )}
+
+      {/* Animate this image into a video (one or many). */}
+      {succeeded && (
+        <AnimatePopover
+          generationId={gen._id}
+          trigger={
+            <button
+              className="absolute bottom-1 left-1 z-10 flex items-center gap-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white opacity-0 transition-opacity group-hover:opacity-100"
+              aria-label="Animate into video"
+            >
+              <Film className="h-3 w-3" /> Animate
+            </button>
+          }
+        />
+      )}
+
+      <button
+        onClick={onDelete}
+        className="absolute right-1 top-1 z-10 rounded bg-black/60 p-0.5 text-white opacity-0 transition-opacity group-hover:opacity-100"
+        aria-label="Delete generation"
+      >
+        <Trash2 className="h-3 w-3" />
+      </button>
+    </div>
+  );
+}
+
+/** Spinner + (when available) a live stage label and thin progress bar. */
+function ProgressOverlay({
+  label,
+  progress,
+}: {
+  label?: string;
+  progress?: number;
+}) {
+  return (
+    <div className="text-muted-foreground flex h-full w-full flex-col items-center justify-center gap-1.5 p-1.5 text-center">
+      <Loader2 className="h-4 w-4 animate-spin" />
+      {label ? (
+        <span className="text-[9px] leading-tight">{label}</span>
+      ) : null}
+      {typeof progress === "number" ? (
+        <div className="bg-muted h-1 w-full overflow-hidden rounded-full">
+          <div
+            className="bg-primary h-full rounded-full transition-all"
+            style={{ width: `${Math.round(progress * 100)}%` }}
+          />
         </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** A single video render tile: poster + play, progress, or error. */
+function VideoTile({
+  video,
+  onDelete,
+  onOpen,
+}: {
+  video: VideoDoc;
+  onDelete: () => void;
+  onOpen: () => void;
+}) {
+  const succeeded = video.status === "succeeded" && video.videoUrl;
+  return (
+    <div className="group bg-muted/50 relative aspect-[3/4] overflow-hidden rounded-md border">
+      {succeeded ? (
+        <button
+          type="button"
+          onClick={onOpen}
+          className="relative block h-full w-full cursor-pointer"
+        >
+          {video.posterUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={video.posterUrl}
+              alt=""
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="bg-muted h-full w-full" />
+          )}
+          <span className="absolute inset-0 flex items-center justify-center">
+            <span className="flex size-7 items-center justify-center rounded-full bg-black/55 text-white ring-1 ring-white/20 backdrop-blur">
+              <Play className="h-3.5 w-3.5 translate-x-px" fill="currentColor" />
+            </span>
+          </span>
+        </button>
+      ) : video.status === "failed" ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="text-destructive flex h-full w-full flex-col items-center justify-center gap-1 p-1 text-center">
+              <AlertCircle className="h-4 w-4" />
+              <span className="text-[9px] leading-tight">Failed</span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-60">{video.error}</TooltipContent>
+        </Tooltip>
+      ) : (
+        <>
+          {/* Faint poster behind the progress so you can see what's animating. */}
+          {video.posterUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={video.posterUrl}
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover opacity-30"
+            />
+          ) : null}
+          <div className="absolute inset-0">
+            <ProgressOverlay
+              label={video.progressLabel}
+              progress={video.progress}
+            />
+          </div>
+        </>
       )}
       <button
         onClick={onDelete}
-        className="absolute right-1 top-1 rounded bg-black/60 p-0.5 text-white opacity-0 transition-opacity group-hover:opacity-100"
-        aria-label="Delete generation"
+        className="absolute right-1 top-1 z-10 rounded bg-black/60 p-0.5 text-white opacity-0 transition-opacity group-hover:opacity-100"
+        aria-label="Delete video"
       >
         <Trash2 className="h-3 w-3" />
       </button>

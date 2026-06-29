@@ -8,6 +8,7 @@ import {
   ExternalLink,
   Download,
   Copy,
+  Film,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -16,16 +17,24 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { AnimatePopover } from "@/components/animate-popover";
 import { cn } from "@/lib/utils";
+import type { Id } from "@/convex/_generated/dataModel";
 
 // Translucent control button for the dark lightbox scrim, with hover + click
 // feedback. Built on the shared Button so focus/disabled states come for free.
 const CTRL =
-  "size-9 rounded-full bg-white/10 text-white ring-1 ring-white/15 backdrop-blur transition hover:bg-white/20 active:scale-90";
+  "size-9 rounded-full bg-white/10 text-white ring-1 ring-white/15 backdrop-blur transition hover:bg-white/20";
 
 export interface LightboxImage {
   url?: string;
   caption?: string;
+  /** "video" renders a player; defaults to "image". */
+  kind?: "image" | "video";
+  /** Poster frame for video items (usually the source image). */
+  posterUrl?: string;
+  /** Source generation id — when set on an image, enables "Animate". */
+  generationId?: string;
 }
 
 async function fetchBlob(url: string): Promise<Blob> {
@@ -103,6 +112,7 @@ export function ImageLightbox({
 }) {
   const open = index !== null;
   const current = open ? images[index] : undefined;
+  const isVideo = current?.kind === "video";
   const hasPrev = open && index > 0;
   const hasNext = open && index < images.length - 1;
 
@@ -123,7 +133,7 @@ export function ImageLightbox({
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent
         showCloseButton={false}
-        className="flex h-[100dvh] w-screen max-w-none flex-col gap-2 rounded-none border-0 bg-black/90 p-2 ring-0 backdrop-blur-sm sm:h-[90vh] sm:w-[90vw] sm:max-w-[90vw] sm:rounded-2xl sm:p-3"
+        className="flex h-[100dvh] w-screen max-w-none flex-col gap-2 rounded-none border-0 bg-black/90 p-2 ring-0 backdrop-blur-sm sm:max-w-none sm:p-3"
       >
         <DialogTitle className="sr-only">Image preview</DialogTitle>
 
@@ -134,16 +144,35 @@ export function ImageLightbox({
           <div className="flex items-center gap-1.5">
             {current?.url && (
               <>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className={CTRL}
-                  onClick={() => copyImage(current.url!)}
-                  title="Copy image"
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
+                {!isVideo && current.generationId && (
+                  <AnimatePopover
+                    generationId={current.generationId as Id<"generations">}
+                    align="end"
+                    trigger={
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={CTRL}
+                        title="Animate into video"
+                      >
+                        <Film className="h-4 w-4" />
+                      </Button>
+                    }
+                  />
+                )}
+                {!isVideo && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className={CTRL}
+                    onClick={() => copyImage(current.url!)}
+                    title="Copy image"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                )}
                 <Button
                   type="button"
                   variant="ghost"
@@ -182,12 +211,25 @@ export function ImageLightbox({
 
         <div className="relative flex min-h-0 flex-1 items-center justify-center">
           {current?.url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={current.url}
-              alt={current.caption ?? ""}
-              className="max-h-full max-w-full rounded-lg object-contain"
-            />
+            isVideo ? (
+              <video
+                key={current.url}
+                src={current.url}
+                poster={current.posterUrl}
+                controls
+                autoPlay
+                loop
+                playsInline
+                className="max-h-full max-w-full rounded-lg object-contain"
+              />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={current.url}
+                alt={current.caption ?? ""}
+                className="max-h-full max-w-full rounded-lg object-contain"
+              />
+            )
           ) : null}
 
           <NavButton
@@ -231,7 +273,7 @@ function NavButton({
       disabled={disabled}
       aria-label={side === "left" ? "Previous" : "Next"}
       className={cn(
-        "absolute top-1/2 size-11 -translate-y-1/2 rounded-full bg-white/10 text-white ring-1 ring-white/15 backdrop-blur transition hover:bg-white/20 active:scale-90 disabled:pointer-events-none disabled:opacity-0",
+        "absolute top-1/2 size-11 -translate-y-1/2 rounded-full bg-white/10 text-white ring-1 ring-white/15 backdrop-blur transition hover:bg-white/20 disabled:pointer-events-none disabled:opacity-0",
         side === "left" ? "left-2 sm:left-4" : "right-2 sm:right-4",
       )}
     >

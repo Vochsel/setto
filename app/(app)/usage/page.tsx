@@ -1,8 +1,15 @@
 "use client";
 
 import { useQuery } from "convex/react";
+import { useRouter } from "next/navigation";
 import { api } from "@/convex/_generated/api";
-import { Activity, DollarSign, CalendarClock, CheckCircle2 } from "lucide-react";
+import {
+  Activity,
+  DollarSign,
+  CalendarClock,
+  CheckCircle2,
+  ChevronRight,
+} from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +24,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getImageModel, formatPrice } from "@/convex/lib/imageModels";
+import { getVideoModel } from "@/convex/lib/videoModels";
 import {
   formatUsd,
   formatRelative,
@@ -26,7 +34,21 @@ import {
 import { cn } from "@/lib/utils";
 
 function modelName(modelKey: string, modelLabel?: string) {
-  return modelLabel ?? getImageModel(modelKey)?.label ?? modelKey;
+  return (
+    modelLabel ??
+    getImageModel(modelKey)?.label ??
+    getVideoModel(modelKey)?.label ??
+    modelKey
+  );
+}
+
+/** Per-unit price hint for a model row: "$0.04/img" or "$0.07/s". */
+function unitPrice(modelKey: string): string | null {
+  const img = getImageModel(modelKey);
+  if (img) return `${formatPrice(img.pricePerImage)}/img`;
+  const vid = getVideoModel(modelKey);
+  if (vid) return `${formatPrice(vid.pricePerSecond)}/s`;
+  return null;
 }
 
 function StatCard({
@@ -72,6 +94,7 @@ function StatusBadge({ status }: { status: "succeeded" | "failed" }) {
 }
 
 export default function UsagePage() {
+  const router = useRouter();
   const summary = useQuery(api.usage.summary, {});
   const recent = useQuery(api.usage.recent, { limit: 100 });
 
@@ -145,10 +168,11 @@ export default function UsagePage() {
                     <TableRow key={m.modelKey}>
                       <TableCell className="font-medium">
                         {modelName(m.modelKey, m.modelLabel)}
-                        <span className="text-muted-foreground ml-1 text-xs">
-                          ~{formatPrice(getImageModel(m.modelKey)?.pricePerImage)}
-                          /img
-                        </span>
+                        {unitPrice(m.modelKey) ? (
+                          <span className="text-muted-foreground ml-1 text-xs">
+                            ~{unitPrice(m.modelKey)}
+                          </span>
+                        ) : null}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
                         {m.count}
@@ -246,7 +270,21 @@ export default function UsagePage() {
                         </TableRow>
                       ))
                     : recent.map((e) => (
-                        <TableRow key={e._id}>
+                        <TableRow
+                          key={e._id}
+                          onClick={() =>
+                            e.shootId &&
+                            router.push(
+                              `/shoots/${e.shootId}${
+                                e.shotId ? `?shot=${e.shotId}` : ""
+                              }`,
+                            )
+                          }
+                          title={e.shootId ? "Open source shot" : undefined}
+                          className={cn(
+                            e.shootId && "hover:bg-muted/50 cursor-pointer",
+                          )}
+                        >
                           <TableCell className="text-muted-foreground whitespace-nowrap text-xs">
                             {formatRelative(e._creationTime)}
                           </TableCell>
@@ -254,7 +292,14 @@ export default function UsagePage() {
                             {e.userName ?? e.userEmail ?? "Unknown"}
                           </TableCell>
                           <TableCell className="whitespace-nowrap">
-                            {usageKindMeta[e.kind as UsageKind] ?? e.kind}
+                            {e.shootId ? (
+                              <span className="text-primary flex items-center gap-0.5">
+                                {usageKindMeta[e.kind as UsageKind] ?? e.kind}
+                                <ChevronRight className="h-3.5 w-3.5" />
+                              </span>
+                            ) : (
+                              (usageKindMeta[e.kind as UsageKind] ?? e.kind)
+                            )}
                           </TableCell>
                           <TableCell
                             className="max-w-48 truncate"

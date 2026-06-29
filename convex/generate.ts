@@ -82,7 +82,7 @@ async function callOpenAI(
 async function callGoogle(
   model: ImageModel,
   apiKey: string,
-  args: { prompt: string; referenceImageUrls: string[] },
+  args: { prompt: string; referenceImageUrls: string[]; aspectRatio?: string },
 ): Promise<{ b64: string; mime: string }> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const parts: any[] = [{ text: args.prompt }];
@@ -100,7 +100,13 @@ async function callGoogle(
   const res = await fetch(endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ contents: [{ role: "user", parts }] }),
+    body: JSON.stringify({
+      contents: [{ role: "user", parts }],
+      // Pin the output shape when requested (e.g. the fixed-size model sheet).
+      ...(args.aspectRatio
+        ? { generationConfig: { imageConfig: { aspectRatio: args.aspectRatio } } }
+        : {}),
+    }),
   });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const json: any = await res.json();
@@ -145,13 +151,14 @@ async function generateAndStore(
   ctx: ActionCtx,
   model: ImageModel,
   apiKey: string,
-  args: { prompt: string; referenceImageUrls: string[] },
+  args: { prompt: string; referenceImageUrls: string[]; aspectRatio?: string },
 ): Promise<{ storageId: Id<"_storage">; url: string }> {
   if (model.provider === "fal") {
     fal.config({ credentials: apiKey });
     const input = buildFalInput(model, {
       prompt: args.prompt,
       referenceImageUrls: args.referenceImageUrls,
+      aspectRatio: args.aspectRatio,
     });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result: any = await fal.subscribe(model.falEndpoint!, { input });
@@ -175,50 +182,56 @@ async function generateAndStore(
   return { storageId, url };
 }
 
-// Randomized scene directives for model variations — keeps the same person but
-// varies pose, framing, mood and backdrop.
-const VAR_POSES = [
-  "standing relaxed with weight on one leg",
-  "walking toward camera mid-stride",
-  "leaning casually against a wall",
-  "seated, relaxed posture",
-  "three-quarter turn glancing over the shoulder",
-  "hands in pockets, candid",
-  "arms crossed, confident stance",
-];
-const VAR_EXPRESSIONS = [
-  "soft neutral expression",
-  "subtle smile",
-  "serious editorial gaze",
-  "laughing naturally",
-  "contemplative look away from camera",
-];
-const VAR_ANGLES = [
-  "eye-level full-body shot",
-  "slight low angle",
-  "high-angle three-quarter view",
-  "waist-up portrait",
-  "wide environmental shot",
-];
-const VAR_LIGHTS = [
-  "soft overcast daylight",
-  "warm golden-hour backlight",
-  "dramatic side lighting",
-  "bright studio softbox",
-  "moody low-key lighting",
-];
-const VAR_SETTINGS = [
-  "minimal seamless studio backdrop",
-  "sunlit urban street",
-  "industrial concrete interior",
-  "lush green park",
-  "neutral textured wall",
-  "modern architectural space",
-];
+/**
+ * The standardized model reference. A single neutral "model sheet" — a clear
+ * face close-up, a few head angles, and a full-body T-pose (front + side) on a
+ * seamless studio backdrop in plain neutral clothing. Neutral clothing is
+ * deliberate: the sheet teaches identity + proportions, not wardrobe, so a
+ * shot's real outfit dominates instead of the reference's clothing bleeding in.
+ */
+/** Fixed output shape for every model image (headshot + sheet), so the library
+ * stays uniform. 4:5 portrait matches the model library tile aspect. */
+const MODEL_IMAGE_ASPECT = "4:5";
 
-function randomModelScene(): string {
-  const pick = (a: string[]) => a[Math.floor(Math.random() * a.length)];
-  return `${pick(VAR_ANGLES)}, ${pick(VAR_POSES)}, ${pick(VAR_EXPRESSIONS)}, ${pick(VAR_LIGHTS)}, ${pick(VAR_SETTINGS)}.`;
+/** A clean, neutral studio headshot — the model's primary face reference and
+ * card thumbnail. Neutral grey clothing keeps wardrobe out of the reference. */
+function modelHeadshotPrompt(descriptor: string, hasRefs: boolean): string {
+  return (
+    "Photorealistic studio headshot portrait — head and shoulders, centred, " +
+    "facing the camera with a clear, unobstructed face and a relaxed neutral " +
+    "expression. " +
+    (hasRefs
+      ? "The exact same person shown in the reference images — identical face, " +
+        "hair and skin tone. "
+      : "") +
+    (descriptor ? `${descriptor}. ` : "") +
+    "Plain heather-grey crew-neck T-shirt, seamless light-grey background, soft " +
+    "even lighting, natural skin texture, sharp focus, no text or watermark."
+  );
+}
+
+function modelSheetPrompt(descriptor?: string): string {
+  const base = (descriptor ?? "").trim();
+  return (
+    "Create a professional character reference sheet of the exact same person " +
+    "shown in the reference images — identical face, hair, skin tone and body " +
+    "proportions. " +
+    (base ? `${base}. ` : "") +
+    "Compose it as a compact 4:5 portrait sheet that COMPLETELY FILLS the frame " +
+    "with no empty bands, blank margins or gaps between panels, on a seamless " +
+    "light-grey studio backdrop with soft, even, neutral lighting. Upper third: " +
+    "a single row of three equally-sized head-and-shoulders views at the same " +
+    "scale — a front-facing face close-up, an angled three-quarter view, and a " +
+    "side profile. Lower two-thirds: two equally-sized full-body T-poses at the " +
+    "same scale, side by side — one from the front and one from the side — arms " +
+    "held out horizontally in a neutral, straight stance, head near the top of " +
+    "that band and feet at the bottom edge. Scale the rows so they touch and the " +
+    "entire frame is used. Dress them in plain, form-fitting NEUTRAL clothing — a " +
+    "plain heather-grey crew-neck T-shirt and plain mid-grey shorts, barefoot — " +
+    "no logos, patterns, jewellery or accessories. Keep the person's identity " +
+    "perfectly consistent across every view. Photorealistic, natural skin " +
+    "texture, sharp focus, no text, labels, captions or watermark."
+  );
 }
 
 /**
@@ -261,7 +274,13 @@ export const generateShot = action({
         : null;
 
       const assembled = buildPrompt({
-        shot: c.shot,
+        shot: {
+          name: c.shot.name,
+          posePrompt: c.shot.posePrompt,
+          clothingPrompt: c.shot.clothingPrompt,
+          extraPrompt: c.shot.extraPrompt,
+          cameraFraming: c.shot.cameraFraming,
+        },
         model: c.model,
         outfit: c.outfit,
         variation,
@@ -297,9 +316,17 @@ export const generateShot = action({
           ...shuffledLoc.slice(1, 3), // extra location grounding
         ]),
       );
-      // Nudge multi-image models to actually use the references (provider-aware).
+      // Nudge multi-image models to actually use the references (provider-aware),
+      // and — when the subject reference is included — tell the model to read it
+      // for identity only, never for clothing (the model reference is a neutral
+      // studio sheet, so its plain clothing must not bleed into the wardrobe).
+      const identityNote = modelImgs.length
+        ? " The person reference is a neutral studio model sheet — use it only " +
+          "for the subject's facial identity and body proportions; do not copy " +
+          "its plain clothing, T-pose, panel layout, or background."
+        : "";
       const promptText = references.length
-        ? `${assembled.prompt}\n\n${referenceGuidance(model)}`
+        ? `${assembled.prompt}\n\n${referenceGuidance(model)}${identityNote}`
         : assembled.prompt;
 
       const genId = await ctx.runMutation(internal.generations.create, {
@@ -308,6 +335,14 @@ export const generateShot = action({
         shotId: args.shotId,
         shootId: c.shootId,
         variationId: variationId ?? undefined,
+        // Freeze the shot's current recipe onto the generation so galleries
+        // attribute this image correctly even if the shot is re-cast later.
+        modelId: c.modelId ?? undefined,
+        outfitId: c.outfitId ?? undefined,
+        locationId: c.locationId ?? undefined,
+        styleId: c.styleId ?? undefined,
+        cameraId: c.cameraId ?? undefined,
+        lightingId: c.lightingId ?? undefined,
         provider: model.provider,
         modelKey,
         modelLabel: model.label,
@@ -379,8 +414,32 @@ export const runOne = internalAction({
           prompt: args.prompt,
           referenceImageUrls: args.referenceImageUrls,
         });
+        // Stream coarse progress to the row as the fal queue advances (sync
+        // callback, so fire-and-forget the patch, only on status transitions).
+        let last = "";
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const result: any = await fal.subscribe(model.falEndpoint!, { input });
+        const result: any = await fal.subscribe(model.falEndpoint!, {
+          input,
+          onQueueUpdate: (update) => {
+            if (update.status === last) return;
+            last = update.status;
+            if (update.status === "IN_QUEUE") {
+              const pos =
+                "queue_position" in update ? update.queue_position : undefined;
+              void ctx.runMutation(internal.generations.setProgress, {
+                id: args.genId,
+                progress: 0.1,
+                progressLabel: pos != null ? `In queue (${pos})` : "In queue…",
+              });
+            } else if (update.status === "IN_PROGRESS") {
+              void ctx.runMutation(internal.generations.setProgress, {
+                id: args.genId,
+                progress: 0.5,
+                progressLabel: "Generating…",
+              });
+            }
+          },
+        });
         const data = result?.data ?? result;
         const imageUrl = data?.images?.[0]?.url ?? data?.image?.url ?? data?.url;
         if (!imageUrl) throw new Error("fal returned no image URL");
@@ -562,11 +621,17 @@ export const runOneCreative = internalAction({
  * Generate a single model reference image and store it. With no references it
  * produces a fresh portrait from the text description; with references it
  * produces a resemblance-preserving variation in a randomized scene. The image
- * is stored but NOT attached to any model — the caller decides whether to keep
- * it (approve/curate in the editor).
+ * Generate a single model reference image and store it (NOT attached to any
+ * model — the caller curates it in the editor). `kind` selects the prompt:
+ *  - "headshot": a clean neutral studio headshot (from the description, or a
+ *    same-person headshot when a reference is supplied) — the card thumbnail.
+ *  - "sheet": the standardized neutral model reference sheet (face + head
+ *    angles + T-pose front/side) seeded from the headshot for identity.
+ * Both are produced at the fixed model-image aspect so the library is uniform.
  */
 export const generateModelImage = action({
   args: {
+    kind: v.optional(v.union(v.literal("headshot"), v.literal("sheet"))),
     prompt: v.optional(v.string()),
     referenceImageUrls: v.optional(v.array(v.string())),
     modelKey: v.optional(v.string()),
@@ -577,6 +642,7 @@ export const generateModelImage = action({
     const userId = identity.subject;
     const orgId = (identity.org_id as string | undefined) ?? `user:${userId}`;
 
+    const kind = args.kind ?? "headshot";
     const model =
       getImageModel(args.modelKey ?? DEFAULT_MODEL_ID) ??
       getImageModel(DEFAULT_MODEL_ID)!;
@@ -584,7 +650,10 @@ export const generateModelImage = action({
       ctx.runMutation(internal.usage.record, {
         orgId,
         userId,
-        kind: "model_portrait" as const,
+        kind:
+          kind === "sheet"
+            ? ("model_sheet" as const)
+            : ("model_portrait" as const),
         provider: model.provider,
         modelKey: model.id,
         modelLabel: model.label,
@@ -602,28 +671,18 @@ export const generateModelImage = action({
     const base = (args.prompt ?? "").trim();
 
     let prompt: string;
-    if (refs.length) {
-      prompt =
-        "Photorealistic full-body fashion photograph of the exact same person " +
-        "shown in the reference images — identical face, hair, skin tone and " +
-        "body proportions. " +
-        (base ? `${base}. ` : "") +
-        `${randomModelScene()} Keep their identity and likeness perfectly ` +
-        "consistent. " +
-        referenceGuidance(model);
+    if (kind === "sheet") {
+      prompt = `${modelSheetPrompt(base)} ${referenceGuidance(model)}`;
     } else {
-      prompt =
-        "Photorealistic studio reference photograph of a fashion model: " +
-        (base || "an adult fashion model") +
-        ". Neutral seamless background, soft even lighting, clear unobstructed " +
-        "face, three-quarter to full body, natural skin texture, sharp focus, " +
-        "no text or watermark.";
+      prompt = modelHeadshotPrompt(base, refs.length > 0);
+      if (refs.length) prompt += ` ${referenceGuidance(model)}`;
     }
 
     try {
       const out = await generateAndStore(ctx, model, apiKey, {
         prompt,
         referenceImageUrls: refs,
+        aspectRatio: MODEL_IMAGE_ASPECT,
       });
       await logUsage("succeeded");
       return out;
@@ -635,14 +694,15 @@ export const generateModelImage = action({
 });
 
 /**
- * Kick off N resemblance-preserving variations for an existing model in the
- * background. Returns immediately; each finished image is appended to the
- * model's reference set (the library updates reactively).
+ * Back-migrate models to the standardized neutral reference sheet. For each
+ * target model with at least one reference image, schedule a background job
+ * that regenerates a single neutral sheet (seeded from its current images for
+ * identity) and REPLACES the model's images with it. `modelIds` omitted => all
+ * non-archived models in the workspace.
  */
-export const generateModelVariations = action({
+export const migrateModelsToSheets = action({
   args: {
-    modelId: v.id("models"),
-    count: v.optional(v.number()),
+    modelIds: v.optional(v.array(v.id("models"))),
     modelKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -651,31 +711,36 @@ export const generateModelVariations = action({
     const userId = identity.subject;
     const orgId = (identity.org_id as string | undefined) ?? `user:${userId}`;
 
-    const model = await ctx.runQuery(api.models.get, { id: args.modelId });
-    if (model.orgId !== orgId) throw new Error("Not found");
-
-    const refs = (model.imageUrls ?? [])
-      .map((u) => u.url)
-      .filter(Boolean) as string[];
-    const count = Math.min(Math.max(args.count ?? 1, 1), 4);
+    const all = await ctx.runQuery(api.models.list, {});
+    const wanted = args.modelIds
+      ? new Set(args.modelIds as string[])
+      : null;
     const modelKey = args.modelKey ?? DEFAULT_MODEL_ID;
 
-    for (let i = 0; i < count; i++) {
-      await ctx.scheduler.runAfter(0, internal.generate.runModelVariation, {
+    let scheduled = 0;
+    for (const m of all) {
+      if (wanted && !wanted.has(m._id)) continue;
+      // Seed identity from the headshot (fall back to the first image); never
+      // from the old sheet, so the new sheet isn't a copy of the previous one.
+      const seed = m.headshotUrl ?? m.imageUrls?.[0]?.url;
+      if (!seed) continue; // need at least one image to seed identity
+      await ctx.scheduler.runAfter(0, internal.generate.runModelSheet, {
         orgId,
         userId,
-        modelId: args.modelId,
+        modelId: m._id,
         modelKey,
-        prompt: model.promptDescriptor ?? model.name,
-        referenceImageUrls: refs,
+        prompt: m.promptDescriptor ?? m.name,
+        referenceImageUrls: [seed],
       });
+      scheduled++;
     }
-    return { scheduled: count };
+    return { scheduled };
   },
 });
 
-/** Background worker: generate one model variation and append it. */
-export const runModelVariation = internalAction({
+/** Background worker: generate one neutral model sheet and REPLACE the model's
+ * images with it (the standardized single reference). */
+export const runModelSheet = internalAction({
   args: {
     orgId: v.string(),
     userId: v.string(),
@@ -691,7 +756,7 @@ export const runModelVariation = internalAction({
       ctx.runMutation(internal.usage.record, {
         orgId: args.orgId,
         userId: args.userId,
-        kind: "model_variation" as const,
+        kind: "model_sheet" as const,
         provider: model.provider,
         modelKey: model.id,
         modelLabel: model.label,
@@ -707,24 +772,17 @@ export const runModelVariation = internalAction({
     }
 
     const refs = args.referenceImageUrls.filter(Boolean);
-    const base = (args.prompt ?? "").trim();
-    const prompt =
-      "Photorealistic full-body fashion photograph of the exact same person " +
-      "shown in the reference images — identical face, hair, skin tone and " +
-      "body proportions. " +
-      (base ? `${base}. ` : "") +
-      `${randomModelScene()} Keep their identity and likeness perfectly ` +
-      "consistent. " +
-      referenceGuidance(model);
+    const prompt = `${modelSheetPrompt((args.prompt ?? "").trim())} ${referenceGuidance(model)}`;
 
     try {
       const { storageId } = await generateAndStore(ctx, model, apiKey, {
         prompt,
         referenceImageUrls: refs,
+        aspectRatio: MODEL_IMAGE_ASPECT,
       });
-      await ctx.runMutation(internal.models.appendImage, {
+      await ctx.runMutation(internal.models.setSheet, {
         id: args.modelId,
-        image: { storageId, source: "generated" },
+        image: { storageId, source: "sheet" },
       });
       await logUsage("succeeded");
     } catch (e) {

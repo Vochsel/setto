@@ -48,6 +48,22 @@ interface ModelDoc {
   imageUrls?: { url: string }[];
 }
 
+/** A model holds at most two images: a headshot (thumbnail + face reference)
+ * and a neutral model sheet. Split a model's stored images into those slots,
+ * falling back for legacy models (first non-sheet image → headshot). */
+function splitImages(model?: ModelDoc): {
+  headshot: ImageRef | null;
+  sheet: ImageRef | null;
+} {
+  const refs = withDisplayUrls(model?.images, model?.imageUrls);
+  const sheet = refs.find((r) => r.source === "sheet") ?? null;
+  const headshot =
+    refs.find((r) => r.source === "headshot") ??
+    refs.find((r) => r !== sheet) ??
+    null;
+  return { headshot, sheet };
+}
+
 const ATTR_FIELDS: { key: string; label: string; placeholder: string }[] = [
   { key: "age", label: "Age", placeholder: "late 20s" },
   { key: "build", label: "Build", placeholder: "tall, athletic" },
@@ -68,7 +84,7 @@ export function ModelEditor({
   const settings = useQuery(api.settings.get, {});
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [generating, setGenerating] = useState<null | "base" | "variation">(
+  const [generating, setGenerating] = useState<null | "headshot" | "sheet">(
     null,
   );
 
@@ -78,8 +94,11 @@ export function ModelEditor({
   const [attrs, setAttrs] = useState<Record<string, string>>(
     (model?.attributes as Record<string, string>) ?? {},
   );
-  const [images, setImages] = useState<ImageRef[]>(
-    withDisplayUrls(model?.images, model?.imageUrls),
+  const [headshot, setHeadshot] = useState<ImageRef | null>(
+    () => splitImages(model).headshot,
+  );
+  const [sheet, setSheet] = useState<ImageRef | null>(
+    () => splitImages(model).sheet,
   );
   const [genModelKey, setGenModelKey] = useState<string | null>(null);
   const genDesired =
@@ -94,30 +113,39 @@ export function ModelEditor({
       setDescriptor(model?.promptDescriptor ?? "");
       setDescription(model?.description ?? "");
       setAttrs((model?.attributes as Record<string, string>) ?? {});
-      setImages(withDisplayUrls(model?.images, model?.imageUrls));
+      const split = splitImages(model);
+      setHeadshot(split.headshot);
+      setSheet(split.sheet);
       setGenModelKey(null);
     }
     setOpen(next);
   }
 
-  async function generate(kind: "base" | "variation") {
+  async function generate(kind: "headshot" | "sheet") {
+    if (kind === "sheet" && !headshot?.url) {
+      toast.error("Add or generate a headshot first");
+      return;
+    }
     setGenerating(kind);
     try {
-      const refs =
-        kind === "variation"
-          ? (images.map((i) => i.url).filter(Boolean) as string[])
-          : undefined;
+      // The sheet is seeded from the headshot for identity; a headshot is
+      // re-rendered from its own image when one exists, else from the text.
+      const refs = headshot?.url ? [headshot.url] : undefined;
       const r = await generateImage({
+        kind,
         prompt: descriptor.trim() || name.trim() || undefined,
         referenceImageUrls: refs,
         modelKey: genModel,
       });
-      setImages((prev) => [
-        ...prev,
-        { storageId: r.storageId, url: r.url, source: "generated" },
-      ]);
+      const ref: ImageRef = {
+        storageId: r.storageId,
+        url: r.url,
+        source: kind,
+      };
+      if (kind === "sheet") setSheet(ref);
+      else setHeadshot(ref);
       toast.success(
-        kind === "variation" ? "Variation generated" : "Portrait generated",
+        kind === "sheet" ? "Model sheet generated" : "Headshot generated",
       );
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Generation failed");
@@ -135,6 +163,10 @@ export function ModelEditor({
     const cleanedAttrs = Object.fromEntries(
       Object.entries(attrs).filter(([, v]) => v?.trim()),
     );
+    // A model stores exactly its headshot + sheet (each tagged by source).
+    const images: ImageRef[] = [];
+    if (headshot) images.push({ ...headshot, source: "headshot" });
+    if (sheet) images.push({ ...sheet, source: "sheet" });
     const payload = {
       name: name.trim(),
       promptDescriptor: descriptor.trim() || undefined,
@@ -177,20 +209,12 @@ export function ModelEditor({
             />
           </div>
 
-          <div className="grid gap-2">
-            <Label>Reference images</Label>
-            <ImageUploader value={images} onChange={setImages} />
-          </div>
-
-          <div className="bg-muted/30 grid gap-2 rounded-lg border p-3">
+          <div className="bg-muted/30 grid gap-3 rounded-lg border p-3">
             <div className="flex items-center justify-between gap-2">
               <Label className="flex items-center gap-1.5">
-                <Wand2 className="h-3.5 w-3.5" /> Generate with AI
+                <Wand2 className="h-3.5 w-3.5" /> Generate with
               </Label>
-              <Select
-                value={genModel}
-                onValueChange={(v) => setGenModelKey(v)}
-              >
+              <Select value={genModel} onValueChange={(v) => setGenModelKey(v)}>
                 <SelectTrigger size="sm" className="w-44">
                   <SelectValue />
                 </SelectTrigger>
@@ -217,41 +241,65 @@ export function ModelEditor({
                 </SelectContent>
               </Select>
             </div>
-            <p className="text-muted-foreground text-xs">
-              Uses the description below as the prompt. Generate a portrait for
-              approval, then add variations that keep the same person with random
-              pose &amp; lighting. Delete any you don’t like before saving.
-            </p>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                disabled={!!generating}
-                onClick={() => generate("base")}
-              >
-                {generating === "base" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Sparkles className="h-4 w-4" />
-                )}
-                Generate portrait
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={!!generating || images.length === 0}
-                onClick={() => generate("variation")}
-              >
-                {generating === "variation" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Wand2 className="h-4 w-4" />
-                )}
-                Generate variation
-              </Button>
+
+            <div className="grid grid-cols-2 gap-3">
+              {/* Headshot — the card thumbnail + face reference */}
+              <div className="grid gap-2">
+                <Label className="text-xs">Headshot</Label>
+                <ImageUploader
+                  max={1}
+                  value={headshot ? [headshot] : []}
+                  onChange={(refs) => setHeadshot(refs[0] ?? null)}
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={!!generating}
+                  onClick={() => generate("headshot")}
+                >
+                  {generating === "headshot" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
+                  Generate headshot
+                </Button>
+              </div>
+
+              {/* Model sheet — neutral face + angles + T-pose turnaround */}
+              <div className="grid gap-2">
+                <Label className="text-xs">Model sheet</Label>
+                <ImageUploader
+                  max={1}
+                  value={sheet ? [sheet] : []}
+                  onChange={(refs) => setSheet(refs[0] ?? null)}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!!generating || !headshot}
+                  onClick={() => generate("sheet")}
+                  title="Neutral model sheet generated from the headshot"
+                >
+                  {generating === "sheet" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Wand2 className="h-4 w-4" />
+                  )}
+                  Generate model sheet
+                </Button>
+              </div>
             </div>
+
+            <p className="text-muted-foreground text-xs">
+              Start with a headshot — generate one from the description below, or
+              upload your own. Then generate the{" "}
+              <span className="font-medium">model sheet</span> (a neutral face,
+              angles &amp; T-pose turnaround) from it. Neutral clothing keeps a
+              shot’s real wardrobe from bleeding in.
+            </p>
           </div>
 
           <div className="grid gap-2">

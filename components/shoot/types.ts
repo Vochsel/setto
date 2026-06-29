@@ -22,6 +22,21 @@ export interface PresetOption {
   promptDescriptor?: string;
 }
 
+export interface VideoDoc {
+  _id: Id<"videos">;
+  generationId: Id<"generations">;
+  status: "queued" | "generating" | "succeeded" | "failed";
+  videoUrl?: string;
+  posterUrl?: string;
+  modelKey: string;
+  modelLabel?: string;
+  prompt: string;
+  durationSeconds: number;
+  progress?: number;
+  progressLabel?: string;
+  error?: string;
+}
+
 export interface GenerationDoc {
   _id: Id<"generations">;
   status: "queued" | "generating" | "succeeded" | "failed";
@@ -30,7 +45,10 @@ export interface GenerationDoc {
   modelLabel?: string;
   modelKey: string;
   prompt: string;
+  progress?: number;
+  progressLabel?: string;
   error?: string;
+  videos: VideoDoc[];
 }
 
 export interface ShotDoc {
@@ -42,6 +60,7 @@ export interface ShotDoc {
   outfitId?: Id<"outfits">;
   selectedVariationIds?: string[];
   posePrompt?: string;
+  clothingPrompt?: string;
   extraPrompt?: string;
   styleId?: Id<"presets">;
   cameraId?: Id<"presets">;

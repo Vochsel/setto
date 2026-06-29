@@ -33,6 +33,7 @@ import { ConfirmDelete } from "@/components/confirm-delete";
 import { EmptyState } from "@/components/empty-state";
 import { ShootMap } from "@/components/shoot/shoot-map";
 import { AddLocation } from "@/components/shoot/add-location";
+import { AddNearbyLocation } from "@/components/shoot/add-nearby-location";
 import { LocationPanel } from "@/components/shoot/location-panel";
 import { formatDateTime, shootStatusMeta, type ShootStatus } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -63,13 +64,29 @@ export default function ShootEditorPage() {
   const removeShoot = useMutation(api.shoots.remove);
 
   const [selectedLocIdRaw, setSelectedLocId] = useState<string | undefined>();
-  // Derive the effective selection during render: fall back to the first
-  // location when nothing is picked or the picked one no longer exists.
+
+  // Deep-link: `?shot=<id>` (from the queue / usage audit log) opens the source
+  // shot. Read once on mount; ShotCard scrolls to and rings the target.
+  const [targetShotId] = useState<string | null>(() =>
+    typeof window === "undefined"
+      ? null
+      : new URLSearchParams(window.location.search).get("shot"),
+  );
+  const targetLocId = useMemo(() => {
+    if (!targetShotId || !shots) return undefined;
+    return (shots as unknown as ShotDoc[]).find((s) => s._id === targetShotId)
+      ?.shootLocationId;
+  }, [targetShotId, shots]);
+
+  // Derive the effective selection during render: an explicit pick wins, else
+  // the deep-link target's location, else the first location.
   const selectedLocId =
     selectedLocIdRaw &&
     shootLocations?.some((l) => l._id === selectedLocIdRaw)
       ? selectedLocIdRaw
-      : shootLocations?.[0]?._id;
+      : targetLocId && shootLocations?.some((l) => l._id === targetLocId)
+        ? targetLocId
+        : shootLocations?.[0]?._id;
 
   const library: LibraryData = useMemo(
     () => ({
@@ -136,6 +153,17 @@ export default function ShootEditorPage() {
 
   const locs = (shootLocations ?? []) as unknown as ShootLocationDoc[];
   const selected = locs.find((l) => l._id === selectedLocId);
+  // Seed the "add nearby" map near the shoot's existing stops, and flag places
+  // already on the shoot so we don't suggest adding them twice.
+  const firstLocated = locs.find(
+    (l) => l.location?.lat != null && l.location?.lng != null,
+  );
+  const mapCenter = firstLocated
+    ? { lat: firstLocated.location!.lat!, lng: firstLocated.location!.lng! }
+    : undefined;
+  const shootPlaceIds = locs
+    .map((l) => (l.location as { googlePlaceId?: string } | null)?.googlePlaceId)
+    .filter((id): id is string => Boolean(id));
   const shotCounts: Record<string, number> = Object.fromEntries(
     locs.map((l) => [l._id, shotsByLocation[l._id]?.length ?? 0]),
   );
@@ -189,10 +217,17 @@ export default function ShootEditorPage() {
               Locations{" "}
               <span className="text-muted-foreground">({locs.length})</span>
             </h2>
-            <AddLocation
-              shootId={shootId}
-              existingLocationIds={locs.map((l) => l.locationId)}
-            />
+            <div className="flex items-center gap-2">
+              <AddNearbyLocation
+                shootId={shootId}
+                center={mapCenter}
+                shootPlaceIds={shootPlaceIds}
+              />
+              <AddLocation
+                shootId={shootId}
+                existingLocationIds={locs.map((l) => l.locationId)}
+              />
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -239,6 +274,7 @@ export default function ShootEditorPage() {
               library={library}
               scheduledAt={shoot.scheduledAt}
               onRemoved={() => setSelectedLocId(undefined)}
+              highlightShotId={targetShotId ?? undefined}
             />
           ) : (
             <EmptyState
