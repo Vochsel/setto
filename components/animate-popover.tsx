@@ -30,7 +30,8 @@ import {
 import type { Id } from "@/convex/_generated/dataModel";
 
 /** Sensible starting motion prompt — natural, ambient movement. */
-const DEFAULT_MOTION_PROMPT = "natural video footage of ambient life";
+const DEFAULT_MOTION_PROMPT =
+  "natural video footage of ambient life, keep subject in frame and same expression and pose";
 
 /**
  * Popover to animate a finished image into a video: pick a fal i2v model, a
