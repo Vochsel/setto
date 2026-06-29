@@ -1,8 +1,15 @@
 "use client";
 
 import { ReactNode } from "react";
-import { APIProvider } from "@vis.gl/react-google-maps";
+import { APIProvider, ColorScheme } from "@vis.gl/react-google-maps";
+import { useTheme } from "next-themes";
 import { MapPinOff } from "lucide-react";
+
+/** Map color scheme that follows the app's resolved light/dark theme. */
+export function useMapColorScheme() {
+  const { resolvedTheme } = useTheme();
+  return resolvedTheme === "dark" ? ColorScheme.DARK : ColorScheme.LIGHT;
+}
 
 export const MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 // "DEMO_MAP_ID" is Google's public dev map id — enables Advanced Markers

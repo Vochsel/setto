@@ -10,7 +10,6 @@ import {
   Pin,
   useMap,
   useMapsLibrary,
-  ColorScheme,
   type MapMouseEvent,
 } from "@vis.gl/react-google-maps";
 import { Loader2, MapPin } from "lucide-react";
@@ -31,6 +30,7 @@ import {
   MapsUnavailable,
   MAPS_API_KEY,
   MAP_ID,
+  useMapColorScheme,
 } from "@/components/map/map-provider";
 import { PlaceSearch, type PickedPlace } from "@/components/map/place-search";
 
@@ -118,6 +118,7 @@ function PickerInner({ onDone }: { onDone: (id?: string) => void }) {
   const center = place
     ? { lat: place.lat, lng: place.lng }
     : { lat: 48.8566, lng: 2.3522 };
+  const colorScheme = useMapColorScheme();
 
   return (
     <div className="space-y-3">
@@ -130,7 +131,7 @@ function PickerInner({ onDone }: { onDone: (id?: string) => void }) {
           defaultZoom={place ? 15 : 4}
           gestureHandling="greedy"
           disableDefaultUI
-          colorScheme={ColorScheme.DARK}
+          colorScheme={colorScheme}
           onClick={handleMapClick}
         >
           <PanTo target={place} />

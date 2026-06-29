@@ -6,6 +6,7 @@ import {
   MapPin,
   SlidersHorizontal,
   Settings,
+  Activity,
   type LucideIcon,
 } from "lucide-react";
 
@@ -21,12 +22,13 @@ export const mainNav: NavItem[] = [
 ];
 
 export const settingsNav: NavItem[] = [
+  { title: "Usage", href: "/usage", icon: Activity },
   { title: "Settings", href: "/settings", icon: Settings },
 ];
 
 export const libraryNav: NavItem[] = [
   { title: "Models", href: "/models", icon: Users },
-  { title: "Outfits", href: "/outfits", icon: Shirt },
+  { title: "Wardrobe", href: "/outfits", icon: Shirt },
   { title: "Locations", href: "/locations", icon: MapPin },
   { title: "Presets", href: "/presets", icon: SlidersHorizontal },
 ];

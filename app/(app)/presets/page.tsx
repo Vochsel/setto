@@ -1,9 +1,17 @@
 "use client";
 
+import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
-import { Plus, SlidersHorizontal, Sparkles, Pencil } from "lucide-react";
+import {
+  Plus,
+  SlidersHorizontal,
+  Sparkles,
+  Pencil,
+  Trash2,
+  LibraryBig,
+} from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -11,12 +19,52 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/empty-state";
 import { ConfirmDelete } from "@/components/confirm-delete";
+import { ImageLightbox } from "@/components/image-lightbox";
+import { PresetLibraryDialog } from "@/components/preset-library-dialog";
 import {
   PresetEditor,
   PRESET_TYPE_LABEL,
   type PresetType,
 } from "@/components/preset-editor";
-import { Trash2 } from "lucide-react";
+import type { Id } from "@/convex/_generated/dataModel";
+
+/** Thumbnail strip of past renders that used this preset. */
+function PresetRenders({ presetId }: { presetId: Id<"presets"> }) {
+  const renders = useQuery(api.presets.usageRenders, { presetId, limit: 8 });
+  const [idx, setIdx] = useState<number | null>(null);
+  if (!renders || renders.length === 0) return null;
+  return (
+    <div className="mt-1">
+      <p className="text-muted-foreground mb-1.5 text-[11px] uppercase tracking-[0.06em]">
+        Renders using this preset
+      </p>
+      <div className="flex gap-1.5 overflow-x-auto pb-1">
+        {renders.map((r, i) => (
+          <button
+            key={r._id}
+            type="button"
+            onClick={() => setIdx(i)}
+            className="hover:ring-primary/50 size-12 shrink-0 cursor-zoom-in overflow-hidden rounded-md border transition-shadow hover:ring-2"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={r.url}
+              alt=""
+              loading="lazy"
+              className="h-full w-full object-cover"
+            />
+          </button>
+        ))}
+      </div>
+      <ImageLightbox
+        images={renders.map((r) => ({ url: r.url }))}
+        index={idx}
+        onIndexChange={setIdx}
+        onClose={() => setIdx(null)}
+      />
+    </div>
+  );
+}
 
 const TYPES: PresetType[] = ["photography_style", "camera_setup", "lighting"];
 
@@ -112,6 +160,7 @@ function PresetList({ type }: { type: PresetType }) {
               {p.promptDescriptor}
             </p>
           ) : null}
+          <PresetRenders presetId={p._id} />
         </Card>
       ))}
     </div>
@@ -124,7 +173,15 @@ export default function PresetsPage() {
       <PageHeader
         title="Presets"
         description="Reusable photography styles, camera setups and lighting"
-      />
+      >
+        <PresetLibraryDialog
+          trigger={
+            <Button variant="outline">
+              <LibraryBig className="h-4 w-4" /> Browse library
+            </Button>
+          }
+        />
+      </PageHeader>
       <div className="p-4 md:p-6">
         <Tabs defaultValue={TYPES[0]}>
           <div className="flex items-center justify-between">

@@ -61,6 +61,17 @@ export function PresetEditor({
   const [description, setDescription] = useState(preset?.description ?? "");
   const [descriptor, setDescriptor] = useState(preset?.promptDescriptor ?? "");
 
+  // Reset on open so a reused "New …" trigger always starts fresh.
+  function handleOpenChange(next: boolean) {
+    if (next) {
+      setSelType(preset?.type ?? type);
+      setName(preset?.name ?? "");
+      setDescription(preset?.description ?? "");
+      setDescriptor(preset?.promptDescriptor ?? "");
+    }
+    setOpen(next);
+  }
+
   async function submit() {
     if (!name.trim()) {
       toast.error("Name is required");
@@ -94,7 +105,7 @@ export function PresetEditor({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent>
         <DialogHeader>

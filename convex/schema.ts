@@ -75,12 +75,23 @@ export default defineSchema({
     archived: v.optional(v.boolean()),
   }).index("by_org", ["orgId"]),
 
+  // --- Library: outfit categories (editable taxonomy) ---------------------
+  outfitCategories: defineTable({
+    orgId: v.string(),
+    createdBy: v.string(),
+    name: v.string(),
+    order: v.optional(v.number()),
+  }).index("by_org", ["orgId"]),
+
   // --- Library: outfits (with embedded variations) ------------------------
   outfits: defineTable({
     orgId: v.string(),
     createdBy: v.string(),
     name: v.string(),
     description: v.optional(v.string()),
+    // `categoryId` is the new editable taxonomy; `category` is the legacy
+    // free-text value, kept for back-compat and used as a display fallback.
+    categoryId: v.optional(v.id("outfitCategories")),
     category: v.optional(v.string()),
     promptDescriptor: v.optional(v.string()),
     images: v.optional(v.array(imageRef)),
@@ -193,4 +204,32 @@ export default defineSchema({
     .index("by_shoot", ["shootId"])
     .index("by_org", ["orgId"])
     .index("by_status", ["status"]),
+
+  // --- Usage & audit log --------------------------------------------------
+  // One row per image-generation attempt, anywhere in the product. Powers team
+  // usage tracking (counts + estimated spend) and the audit trail.
+  usageEvents: defineTable({
+    orgId: v.string(),
+    userId: v.string(), // WorkOS user id of who triggered it
+    userName: v.optional(v.string()),
+    userEmail: v.optional(v.string()),
+    kind: v.union(
+      v.literal("shot"), // shot generation in a shoot
+      v.literal("model_portrait"), // new model portrait (model editor)
+      v.literal("model_variation"), // model resemblance variation
+    ),
+    provider: v.string(),
+    modelKey: v.string(),
+    modelLabel: v.optional(v.string()),
+    status: v.union(v.literal("succeeded"), v.literal("failed")),
+    cost: v.number(), // estimated USD (0 on failure)
+    // Context links (best-effort; depend on the source).
+    generationId: v.optional(v.id("generations")),
+    shotId: v.optional(v.id("shots")),
+    shootId: v.optional(v.id("shoots")),
+    modelId: v.optional(v.id("models")),
+    error: v.optional(v.string()),
+  })
+    .index("by_org", ["orgId"])
+    .index("by_org_user", ["orgId", "userId"]),
 });

@@ -15,7 +15,13 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+
+// Translucent control button for the dark lightbox scrim, with hover + click
+// feedback. Built on the shared Button so focus/disabled states come for free.
+const CTRL =
+  "size-9 rounded-full bg-white/10 text-white ring-1 ring-white/15 backdrop-blur transition hover:bg-white/20 active:scale-90";
 
 export interface LightboxImage {
   url?: string;
@@ -122,47 +128,55 @@ export function ImageLightbox({
         <DialogTitle className="sr-only">Image preview</DialogTitle>
 
         <div className="flex items-center justify-between gap-2 px-1">
-          <span className="text-muted-foreground rounded-md bg-black/40 px-2 py-1 text-xs tabular-nums text-white">
+          <span className="rounded-full bg-white/10 px-3 py-1 text-xs tabular-nums text-white ring-1 ring-white/15 backdrop-blur">
             {open ? index + 1 : 0} / {images.length}
           </span>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             {current?.url && (
               <>
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon"
+                  className={CTRL}
                   onClick={() => copyImage(current.url!)}
                   title="Copy image"
-                  className="rounded-md bg-black/40 p-1.5 text-white transition-colors hover:bg-black/60"
                 >
                   <Copy className="h-4 w-4" />
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon"
+                  className={CTRL}
                   onClick={() => downloadImage(current.url!)}
                   title="Download"
-                  className="rounded-md bg-black/40 p-1.5 text-white transition-colors hover:bg-black/60"
                 >
                   <Download className="h-4 w-4" />
-                </button>
-                <a
-                  href={current.url}
-                  target="_blank"
-                  rel="noreferrer"
+                </Button>
+                <Button
+                  asChild
+                  variant="ghost"
+                  size="icon"
+                  className={CTRL}
                   title="Open original"
-                  className="rounded-md bg-black/40 p-1.5 text-white transition-colors hover:bg-black/60"
                 >
-                  <ExternalLink className="h-4 w-4" />
-                </a>
+                  <a href={current.url} target="_blank" rel="noreferrer">
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                </Button>
               </>
             )}
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
+              className={CTRL}
               onClick={onClose}
               title="Close"
-              className="rounded-md bg-black/40 p-1.5 text-white transition-colors hover:bg-black/60"
             >
               <X className="h-4 w-4" />
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -209,17 +223,19 @@ function NavButton({
 }) {
   const Icon = side === "left" ? ChevronLeft : ChevronRight;
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size="icon"
       onClick={onClick}
       disabled={disabled}
       aria-label={side === "left" ? "Previous" : "Next"}
       className={cn(
-        "absolute top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-2 text-white transition-all hover:bg-black/60 disabled:pointer-events-none disabled:opacity-0",
-        side === "left" ? "left-2" : "right-2",
+        "absolute top-1/2 size-11 -translate-y-1/2 rounded-full bg-white/10 text-white ring-1 ring-white/15 backdrop-blur transition hover:bg-white/20 active:scale-90 disabled:pointer-events-none disabled:opacity-0",
+        side === "left" ? "left-2 sm:left-4" : "right-2 sm:right-4",
       )}
     >
-      <Icon className="h-6 w-6" />
-    </button>
+      <Icon className="size-6" />
+    </Button>
   );
 }

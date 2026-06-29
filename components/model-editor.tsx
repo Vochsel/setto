@@ -33,6 +33,7 @@ import {
   DEFAULT_MODEL_ID,
   PROVIDER_LABEL,
   getImageModel,
+  formatPrice,
   type ImageProvider,
 } from "@/convex/lib/imageModels";
 import { cleanImageRefs, withDisplayUrls, type ImageRef } from "@/lib/types";
@@ -85,6 +86,20 @@ export function ModelEditor({
     genModelKey ?? settings?.defaultImageModelKey ?? DEFAULT_MODEL_ID;
   const genModel = getImageModel(genDesired) ? genDesired : DEFAULT_MODEL_ID;
 
+  // Reset to a clean slate every time the sheet opens, so a reused "New model"
+  // trigger never carries over values from a prior session.
+  function handleOpenChange(next: boolean) {
+    if (next) {
+      setName(model?.name ?? "");
+      setDescriptor(model?.promptDescriptor ?? "");
+      setDescription(model?.description ?? "");
+      setAttrs((model?.attributes as Record<string, string>) ?? {});
+      setImages(withDisplayUrls(model?.images, model?.imageUrls));
+      setGenModelKey(null);
+    }
+    setOpen(next);
+  }
+
   async function generate(kind: "base" | "variation") {
     setGenerating(kind);
     try {
@@ -129,15 +144,7 @@ export function ModelEditor({
     };
     try {
       if (model) await update({ id: model._id as never, ...payload });
-      else {
-        await create(payload);
-        // Clear the form so the next "New model" starts blank.
-        setName("");
-        setDescriptor("");
-        setDescription("");
-        setAttrs({});
-        setImages([]);
-      }
+      else await create(payload);
       toast.success(model ? "Model updated" : "Model created");
       setOpen(false);
     } catch {
@@ -148,7 +155,7 @@ export function ModelEditor({
   }
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetTrigger asChild>{trigger}</SheetTrigger>
       <SheetContent className="flex w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-lg">
         <SheetHeader className="border-b">
@@ -195,7 +202,12 @@ export function ModelEditor({
                         {IMAGE_MODELS.filter((m) => m.provider === prov).map(
                           (m) => (
                             <SelectItem key={m.id} value={m.id}>
-                              {m.label}
+                              <span className="flex w-full items-center justify-between gap-3">
+                                <span className="truncate">{m.label}</span>
+                                <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
+                                  ~{formatPrice(m.pricePerImage)}
+                                </span>
+                              </span>
                             </SelectItem>
                           ),
                         )}

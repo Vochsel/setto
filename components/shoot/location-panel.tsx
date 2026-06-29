@@ -132,7 +132,7 @@ export function LocationPanel({
         <EmptyState
           icon={Camera}
           title="No shots at this location"
-          description="A shot pairs a model with an outfit, pose and camera — then generates imagery."
+          description="A shot pairs a model with a wardrobe item, pose and camera — then generates imagery."
           action={
             <Button
               onClick={async () => {

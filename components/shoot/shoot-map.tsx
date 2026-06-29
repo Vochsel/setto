@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect } from "react";
-import {
-  Map,
-  AdvancedMarker,
-  useMap,
-  ColorScheme,
-} from "@vis.gl/react-google-maps";
+import { Map, AdvancedMarker, useMap } from "@vis.gl/react-google-maps";
 import { MapPin } from "lucide-react";
-import { MapProvider, MapsUnavailable, MAP_ID, MAPS_API_KEY } from "@/components/map/map-provider";
+import {
+  MapProvider,
+  MapsUnavailable,
+  MAP_ID,
+  MAPS_API_KEY,
+  useMapColorScheme,
+} from "@/components/map/map-provider";
 import { cn } from "@/lib/utils";
 import type { ShootLocationDoc } from "@/components/shoot/types";
 
@@ -48,6 +49,7 @@ function MapInner({
     lat: sl.location!.lat!,
     lng: sl.location!.lng!,
   }));
+  const colorScheme = useMapColorScheme();
 
   return (
     <Map
@@ -56,7 +58,7 @@ function MapInner({
       defaultZoom={points.length ? 12 : 2}
       gestureHandling="greedy"
       disableDefaultUI
-      colorScheme={ColorScheme.DARK}
+      colorScheme={colorScheme}
       className="h-full w-full"
     >
       <FitBounds points={points} />

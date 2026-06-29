@@ -10,6 +10,24 @@ export function formatRelative(ts?: number | null): string {
   return formatDistanceToNow(new Date(ts), { addSuffix: true });
 }
 
+/** USD amount for dashboards — e.g. $0.04, $12.50, $1,240.00. */
+export function formatUsd(amount: number): string {
+  return amount.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: amount < 1 ? 3 : 2,
+  });
+}
+
+export type UsageKind = "shot" | "model_portrait" | "model_variation";
+
+export const usageKindMeta: Record<UsageKind, string> = {
+  shot: "Shot",
+  model_portrait: "Model portrait",
+  model_variation: "Model variation",
+};
+
 export type ShootStatus = "draft" | "active" | "completed" | "archived";
 
 export const shootStatusMeta: Record<

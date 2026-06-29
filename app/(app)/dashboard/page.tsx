@@ -46,23 +46,25 @@ function StatCard({
 }) {
   return (
     <Link href={href} className="group/stat block">
-      <div className="dark:highlight-inset relative flex h-full min-h-[8.5rem] flex-col overflow-hidden rounded-xl border border-[#e4e4e7] bg-white p-6 shadow-soft transition-transform group-hover/stat:-translate-y-0.5 dark:border-[#1e2c31] dark:bg-[#0a0a0a] dark:shadow-none">
-        <div className="flex items-center justify-between">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#c1fbd4] text-black dark:bg-white/10 dark:text-white">
+      <div className="dark:highlight-inset relative overflow-hidden rounded-xl border border-[#e4e4e7] bg-white p-5 shadow-soft transition-all hover:border-black/20 group-hover/stat:-translate-y-0.5 dark:border-[#1e2c31] dark:bg-[#0a0a0a] dark:shadow-none dark:hover:border-white/20">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[12px] uppercase tracking-[0.72px] text-[#71717a] dark:text-[#a1a1aa]">
+            {label}
+          </span>
+          <div className="flex size-8 items-center justify-center rounded-full bg-[#c1fbd4] text-black dark:bg-white/10 dark:text-white">
             <Icon className="h-4 w-4" />
           </div>
-          <ArrowUpRight className="h-4 w-4 text-[#a1a1aa] opacity-0 transition-opacity group-hover/stat:opacity-100" />
         </div>
-        {value === undefined ? (
-          <Skeleton className="mt-auto h-10 w-12" />
-        ) : (
-          <p className="mt-auto text-4xl font-light tracking-tight tabular-nums">
-            {value}
-          </p>
-        )}
-        <p className="mt-1 text-[12px] uppercase tracking-[0.72px] text-[#71717a] dark:text-[#a1a1aa]">
-          {label}
-        </p>
+        <div className="mt-4 flex items-end justify-between">
+          {value === undefined ? (
+            <Skeleton className="h-9 w-12" />
+          ) : (
+            <p className="text-4xl font-light leading-none tracking-tight tabular-nums">
+              {value}
+            </p>
+          )}
+          <ArrowUpRight className="mb-0.5 h-4 w-4 text-[#a1a1aa] opacity-0 transition-opacity group-hover/stat:opacity-100" />
+        </div>
       </div>
     </Link>
   );
@@ -93,7 +95,7 @@ export default function DashboardPage() {
             Dashboard
           </h1>
           <p className="mt-5 max-w-xl text-lg leading-relaxed text-[#3f3f46] dark:text-[#a1a1aa]">
-            Plan AI photo shoots in real places — your shoots, models, outfits
+            Plan AI photo shoots in real places — your shoots, models, wardrobe
             and the latest generations, all in one view.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
@@ -126,7 +128,7 @@ export default function DashboardPage() {
           />
           <StatCard
             icon={Shirt}
-            label="Outfits"
+            label="Wardrobe"
             value={outfits?.length}
             href="/outfits"
           />

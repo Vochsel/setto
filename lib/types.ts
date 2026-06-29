@@ -13,6 +13,8 @@ export interface OutfitVariation {
   name: string;
   promptDescriptor?: string;
   images?: ImageRef[];
+  /** Resolved display URLs (read-only; populated by outfits.list/get). */
+  imageUrls?: { url: string }[];
 }
 
 /**

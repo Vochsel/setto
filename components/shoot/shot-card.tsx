@@ -13,6 +13,7 @@ import {
   AlertCircle,
   Layers,
   Copy,
+  Check,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,7 @@ import {
   DEFAULT_MODEL_ID,
   PROVIDER_LABEL,
   getImageModel,
+  formatPrice,
   type ImageProvider,
 } from "@/convex/lib/imageModels";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -229,7 +231,7 @@ export function ShotCard({
           options={library.models.map((m) => ({ value: m._id, label: m.name }))}
         />
         <NullableSelect
-          placeholder="Outfit"
+          placeholder="Wardrobe"
           value={shot.outfitId}
           onChange={(v) =>
             save({
@@ -242,27 +244,47 @@ export function ShotCard({
       </div>
 
       {variations.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="space-y-1.5">
           <span className="text-muted-foreground flex items-center gap-1 text-xs">
-            <Layers className="h-3 w-3" /> Variations:
+            <Layers className="h-3 w-3" /> Variations
+            <span className="text-muted-foreground/60">
+              · tap to include (one image each)
+            </span>
           </span>
-          {variations.map((v) => {
-            const active = selectedVars.includes(v.id);
-            return (
-              <button
-                key={v.id}
-                onClick={() => toggleVariation(v.id)}
-                className={cn(
-                  "rounded-full border px-2 py-0.5 text-xs transition-colors",
-                  active
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "border-border hover:bg-muted",
-                )}
-              >
-                {v.name}
-              </button>
-            );
-          })}
+          <div className="flex flex-wrap gap-1.5">
+            {variations.map((v) => {
+              const active = selectedVars.includes(v.id);
+              const thumb = v.imageUrls?.[0]?.url;
+              return (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => toggleVariation(v.id)}
+                  title={v.name}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-full border py-0.5 pr-2.5 text-xs transition-colors",
+                    thumb ? "pl-0.5" : "pl-2.5",
+                    active
+                      ? "border-primary bg-primary/10 text-foreground"
+                      : "border-border hover:bg-muted",
+                  )}
+                >
+                  {thumb ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={thumb}
+                      alt=""
+                      className="size-5 rounded-full object-cover"
+                    />
+                  ) : null}
+                  <span className="max-w-28 truncate">{v.name}</span>
+                  {active ? (
+                    <Check className="text-primary h-3 w-3 shrink-0" />
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -331,7 +353,12 @@ export function ShotCard({
                 <SelectLabel>{PROVIDER_LABEL[prov]}</SelectLabel>
                 {IMAGE_MODELS.filter((m) => m.provider === prov).map((m) => (
                   <SelectItem key={m.id} value={m.id}>
-                    {m.label}
+                    <span className="flex w-full items-center justify-between gap-3">
+                      <span className="truncate">{m.label}</span>
+                      <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
+                        ~{formatPrice(m.pricePerImage)}
+                      </span>
+                    </span>
                   </SelectItem>
                 ))}
               </SelectGroup>
@@ -368,6 +395,13 @@ export function ShotCard({
             Generate {genCount > 1 ? `×${genCount}` : ""}
           </Button>
         </div>
+        <p className="text-muted-foreground text-right text-[11px] tabular-nums">
+          Est. ~
+          {formatPrice(
+            (getImageModel(modelKey)?.pricePerImage ?? 0) * genCount,
+          )}{" "}
+          · {genCount} image{genCount > 1 ? "s" : ""}
+        </p>
       </div>
 
       {shot.generations.length > 0 && (

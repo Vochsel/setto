@@ -43,6 +43,11 @@ export function AddLocation({
     }
   }
 
+  const total = locations?.length ?? 0;
+  const available = locations?.filter(
+    (l) => !existingLocationIds.includes(l._id),
+  ).length;
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -50,25 +55,52 @@ export function AddLocation({
           <Plus className="h-4 w-4" /> Add location
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-72 p-0" align="end">
+      <PopoverContent className="w-80 overflow-hidden p-0" align="end">
         <Command>
           <CommandInput placeholder="Search locations…" />
           <CommandList>
-            <CommandEmpty>No saved locations.</CommandEmpty>
-            <CommandGroup heading="Saved locations">
+            <CommandEmpty>
+              <span className="text-muted-foreground text-sm">
+                No locations match.
+              </span>
+            </CommandEmpty>
+            <CommandGroup
+              heading={
+                total > 0
+                  ? `Saved locations${
+                      available !== undefined ? ` · ${available} available` : ""
+                    }`
+                  : "Saved locations"
+              }
+            >
               {locations?.map((l) => {
                 const added = existingLocationIds.includes(l._id);
                 return (
                   <CommandItem
                     key={l._id}
-                    value={l.name}
+                    value={`${l.name} ${l.address ?? ""}`}
                     disabled={added}
                     onSelect={() => add(l._id)}
-                    className="gap-2"
+                    className="gap-2.5 py-2"
                   >
-                    <MapPin className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">{l.name}</span>
-                    {added && <Check className="ml-auto h-3.5 w-3.5" />}
+                    <span className="bg-muted text-muted-foreground flex size-7 shrink-0 items-center justify-center rounded-full">
+                      <MapPin className="h-3.5 w-3.5" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium">
+                        {l.name}
+                      </span>
+                      {l.address ? (
+                        <span className="text-muted-foreground block truncate text-xs">
+                          {l.address}
+                        </span>
+                      ) : null}
+                    </span>
+                    {added && (
+                      <span className="text-muted-foreground flex shrink-0 items-center gap-1 text-[11px]">
+                        <Check className="h-3.5 w-3.5" /> Added
+                      </span>
+                    )}
                   </CommandItem>
                 );
               })}
@@ -79,8 +111,15 @@ export function AddLocation({
           <LocationPickerDialog
             onCreated={(id) => add(id as Id<"locations">)}
             trigger={
-              <Button variant="ghost" className="w-full justify-start">
-                <Plus className="h-4 w-4" /> Create new location
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start font-normal"
+              >
+                <span className="bg-primary/10 text-primary mr-0.5 flex size-7 items-center justify-center rounded-full">
+                  <Plus className="h-3.5 w-3.5" />
+                </span>
+                Create new location
               </Button>
             }
           />

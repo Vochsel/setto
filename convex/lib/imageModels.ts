@@ -13,6 +13,11 @@ export interface ImageModel {
   description: string;
   /** Whether reference images (model identity / Street View) can condition it. */
   supportsImagePrompt: boolean;
+  /**
+   * Approximate provider cost per generated image, in USD. Used for team usage
+   * tracking and shown in the picker. Estimates at the configured size/quality.
+   */
+  pricePerImage: number;
 
   // fal
   falEndpoint?: string;
@@ -37,6 +42,7 @@ export const IMAGE_MODELS: ImageModel[] = [
     description:
       "Google's top image model. Best reasoning, composition and reference fidelity — uses real locations as inspiration without copying them.",
     supportsImagePrompt: true,
+    pricePerImage: 0.134,
     googleModel: "gemini-3-pro-image-preview",
   },
   {
@@ -46,6 +52,7 @@ export const IMAGE_MODELS: ImageModel[] = [
     description:
       "Google direct. Fast and great at honoring reference photos — ideal for grounding a shot in real location imagery.",
     supportsImagePrompt: true,
+    pricePerImage: 0.039,
     googleModel: "gemini-2.5-flash-image",
   },
   // ── OpenAI (direct) ──────────────────────────────────────────────
@@ -56,6 +63,7 @@ export const IMAGE_MODELS: ImageModel[] = [
     description:
       "OpenAI's newest — highest fidelity, excellent prompt adherence and reference-image support.",
     supportsImagePrompt: true,
+    pricePerImage: 0.25,
     openaiModel: "gpt-image-2",
     openaiSize: "1024x1536",
     openaiQuality: "high",
@@ -66,6 +74,7 @@ export const IMAGE_MODELS: ImageModel[] = [
     label: "GPT Image 1.5",
     description: "Strong quality with reference-image support.",
     supportsImagePrompt: true,
+    pricePerImage: 0.25,
     openaiModel: "gpt-image-1.5",
     openaiSize: "1024x1536",
     openaiQuality: "high",
@@ -77,6 +86,7 @@ export const IMAGE_MODELS: ImageModel[] = [
     description:
       "Strong prompt adherence and text; uses reference images via the edits endpoint.",
     supportsImagePrompt: true,
+    pricePerImage: 0.19,
     openaiModel: "gpt-image-1",
     openaiSize: "1024x1536",
     openaiQuality: "high",
@@ -87,6 +97,7 @@ export const IMAGE_MODELS: ImageModel[] = [
     label: "GPT Image 1 mini",
     description: "Faster and cheaper; good for quick iterations.",
     supportsImagePrompt: true,
+    pricePerImage: 0.04,
     openaiModel: "gpt-image-1-mini",
     openaiSize: "1024x1536",
     openaiQuality: "medium",
@@ -98,6 +109,7 @@ export const IMAGE_MODELS: ImageModel[] = [
     label: "Nano Banana — via fal",
     description: "Gemini Flash Image through fal.",
     supportsImagePrompt: true,
+    pricePerImage: 0.039,
     falEndpoint: "fal-ai/nano-banana/edit",
     falImageParam: "image_urls",
     falDefaultParams: { num_images: 1 },
@@ -108,6 +120,7 @@ export const IMAGE_MODELS: ImageModel[] = [
     label: "FLUX1.1 [pro] ultra — via fal",
     description: "Top-tier FLUX photorealism (text-to-image).",
     supportsImagePrompt: false,
+    pricePerImage: 0.06,
     falEndpoint: "fal-ai/flux-pro/v1.1-ultra",
     falDefaultParams: { aspect_ratio: "3:4", num_images: 1, safety_tolerance: "5" },
   },
@@ -117,6 +130,7 @@ export const IMAGE_MODELS: ImageModel[] = [
     label: "FLUX [dev] image-to-image — via fal",
     description: "FLUX dev conditioned on a reference image.",
     supportsImagePrompt: true,
+    pricePerImage: 0.025,
     falEndpoint: "fal-ai/flux/dev/image-to-image",
     falImageParam: "image_url",
     falDefaultParams: { strength: 0.85, num_images: 1 },
@@ -127,6 +141,7 @@ export const IMAGE_MODELS: ImageModel[] = [
     label: "Imagen 4 — via fal",
     description: "Google Imagen 4 (text-to-image).",
     supportsImagePrompt: false,
+    pricePerImage: 0.04,
     falEndpoint: "fal-ai/imagen4/preview",
     falDefaultParams: { aspect_ratio: "3:4", num_images: 1 },
   },
@@ -136,6 +151,7 @@ export const IMAGE_MODELS: ImageModel[] = [
     label: "Ideogram v3 — via fal",
     description: "Great composition and typography.",
     supportsImagePrompt: false,
+    pricePerImage: 0.08,
     falEndpoint: "fal-ai/ideogram/v3",
     falDefaultParams: { rendering_speed: "BALANCED", num_images: 1 },
   },
@@ -145,6 +161,7 @@ export const IMAGE_MODELS: ImageModel[] = [
     label: "Recraft v3 — via fal",
     description: "Versatile photo and design styles.",
     supportsImagePrompt: false,
+    pricePerImage: 0.04,
     falEndpoint: "fal-ai/recraft-v3",
     falDefaultParams: { image_size: "portrait_4_3" },
   },
@@ -160,6 +177,18 @@ export const DEFAULT_MODEL_ID = "google/gemini-2.5-flash-image";
 
 export function getImageModel(id: string): ImageModel | undefined {
   return IMAGE_MODELS.find((m) => m.id === id);
+}
+
+/** Estimated USD cost for one image from this model (0 if unknown). */
+export function estimateCost(modelKey: string): number {
+  return getImageModel(modelKey)?.pricePerImage ?? 0;
+}
+
+/** Compact per-image price, e.g. "$0.039" or "$0.25". */
+export function formatPrice(usd: number | undefined): string {
+  if (usd == null) return "—";
+  const s = usd.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
+  return `$${s}`;
 }
 
 /**

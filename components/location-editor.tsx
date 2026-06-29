@@ -11,7 +11,6 @@ import {
   Pin,
   useMap,
   useMapsLibrary,
-  ColorScheme,
   type MapMouseEvent,
 } from "@vis.gl/react-google-maps";
 import {
@@ -33,6 +32,7 @@ import {
   MapsUnavailable,
   MAPS_API_KEY,
   MAP_ID,
+  useMapColorScheme,
 } from "@/components/map/map-provider";
 import { PlaceSearch, type PickedPlace } from "@/components/map/place-search";
 import {
@@ -103,6 +103,7 @@ function LocationMap({
   );
 
   const center = place ?? { lat: 48.8566, lng: 2.3522 };
+  const colorScheme = useMapColorScheme();
 
   return (
     <div className="space-y-2">
@@ -115,7 +116,7 @@ function LocationMap({
           defaultZoom={place ? 15 : 4}
           gestureHandling="greedy"
           disableDefaultUI
-          colorScheme={ColorScheme.DARK}
+          colorScheme={colorScheme}
           onClick={handleMapClick}
         >
           <PanTo target={place} />

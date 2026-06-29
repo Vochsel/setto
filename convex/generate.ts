@@ -342,20 +342,32 @@ export const runOne = internalAction({
   handler: async (ctx, args) => {
     const model = getImageModel(args.modelKey);
     if (!model) {
+      const error = `Unknown model: ${args.modelKey}`;
       await ctx.runMutation(internal.generations.attachResult, {
         id: args.genId,
         status: "failed",
-        error: `Unknown model: ${args.modelKey}`,
+        error,
+      });
+      await ctx.runMutation(internal.usage.recordForGeneration, {
+        generationId: args.genId,
+        status: "failed",
+        error,
       });
       return;
     }
 
     const apiKey = providerKey(model.provider);
     if (!apiKey) {
+      const error = missingKeyMessage(model.provider);
       await ctx.runMutation(internal.generations.attachResult, {
         id: args.genId,
         status: "failed",
-        error: missingKeyMessage(model.provider),
+        error,
+      });
+      await ctx.runMutation(internal.usage.recordForGeneration, {
+        generationId: args.genId,
+        status: "failed",
+        error,
       });
       return;
     }
@@ -378,6 +390,10 @@ export const runOne = internalAction({
           imageUrl,
           seed: typeof data?.seed === "number" ? data.seed : undefined,
           falRequestId: result?.requestId,
+        });
+        await ctx.runMutation(internal.usage.recordForGeneration, {
+          generationId: args.genId,
+          status: "succeeded",
         });
       } else {
         const out =
@@ -403,12 +419,22 @@ export const runOne = internalAction({
           storageId,
           imageUrl,
         });
+        await ctx.runMutation(internal.usage.recordForGeneration, {
+          generationId: args.genId,
+          status: "succeeded",
+        });
       }
     } catch (e) {
+      const error = e instanceof Error ? e.message : String(e);
       await ctx.runMutation(internal.generations.attachResult, {
         id: args.genId,
         status: "failed",
-        error: e instanceof Error ? e.message : String(e),
+        error,
+      });
+      await ctx.runMutation(internal.usage.recordForGeneration, {
+        generationId: args.genId,
+        status: "failed",
+        error,
       });
     }
   },
@@ -430,12 +456,29 @@ export const generateModelImage = action({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
+    const userId = identity.subject;
+    const orgId = (identity.org_id as string | undefined) ?? `user:${userId}`;
 
     const model =
       getImageModel(args.modelKey ?? DEFAULT_MODEL_ID) ??
       getImageModel(DEFAULT_MODEL_ID)!;
+    const logUsage = (status: "succeeded" | "failed", error?: string) =>
+      ctx.runMutation(internal.usage.record, {
+        orgId,
+        userId,
+        kind: "model_portrait" as const,
+        provider: model.provider,
+        modelKey: model.id,
+        modelLabel: model.label,
+        status,
+        error,
+      });
+
     const apiKey = providerKey(model.provider);
-    if (!apiKey) throw new Error(missingKeyMessage(model.provider));
+    if (!apiKey) {
+      await logUsage("failed", missingKeyMessage(model.provider));
+      throw new Error(missingKeyMessage(model.provider));
+    }
 
     const refs = (args.referenceImageUrls ?? []).filter(Boolean);
     const base = (args.prompt ?? "").trim();
@@ -459,10 +502,17 @@ export const generateModelImage = action({
         "no text or watermark.";
     }
 
-    return await generateAndStore(ctx, model, apiKey, {
-      prompt,
-      referenceImageUrls: refs,
-    });
+    try {
+      const out = await generateAndStore(ctx, model, apiKey, {
+        prompt,
+        referenceImageUrls: refs,
+      });
+      await logUsage("succeeded");
+      return out;
+    } catch (e) {
+      await logUsage("failed", e instanceof Error ? e.message : String(e));
+      throw e;
+    }
   },
 });
 
@@ -480,8 +530,8 @@ export const generateModelVariations = action({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
-    const orgId =
-      (identity.org_id as string | undefined) ?? `user:${identity.subject}`;
+    const userId = identity.subject;
+    const orgId = (identity.org_id as string | undefined) ?? `user:${userId}`;
 
     const model = await ctx.runQuery(api.models.get, { id: args.modelId });
     if (model.orgId !== orgId) throw new Error("Not found");
@@ -494,6 +544,8 @@ export const generateModelVariations = action({
 
     for (let i = 0; i < count; i++) {
       await ctx.scheduler.runAfter(0, internal.generate.runModelVariation, {
+        orgId,
+        userId,
         modelId: args.modelId,
         modelKey,
         prompt: model.promptDescriptor ?? model.name,
@@ -507,6 +559,8 @@ export const generateModelVariations = action({
 /** Background worker: generate one model variation and append it. */
 export const runModelVariation = internalAction({
   args: {
+    orgId: v.string(),
+    userId: v.string(),
     modelId: v.id("models"),
     modelKey: v.string(),
     prompt: v.optional(v.string()),
@@ -515,8 +569,24 @@ export const runModelVariation = internalAction({
   handler: async (ctx, args) => {
     const model =
       getImageModel(args.modelKey) ?? getImageModel(DEFAULT_MODEL_ID)!;
+    const logUsage = (status: "succeeded" | "failed", error?: string) =>
+      ctx.runMutation(internal.usage.record, {
+        orgId: args.orgId,
+        userId: args.userId,
+        kind: "model_variation" as const,
+        provider: model.provider,
+        modelKey: model.id,
+        modelLabel: model.label,
+        status,
+        modelId: args.modelId,
+        error,
+      });
+
     const apiKey = providerKey(model.provider);
-    if (!apiKey) return;
+    if (!apiKey) {
+      await logUsage("failed", missingKeyMessage(model.provider));
+      return;
+    }
 
     const refs = args.referenceImageUrls.filter(Boolean);
     const base = (args.prompt ?? "").trim();
@@ -538,8 +608,9 @@ export const runModelVariation = internalAction({
         id: args.modelId,
         image: { storageId, source: "generated" },
       });
-    } catch {
-      /* background job — swallow errors */
+      await logUsage("succeeded");
+    } catch (e) {
+      await logUsage("failed", e instanceof Error ? e.message : String(e));
     }
   },
 });

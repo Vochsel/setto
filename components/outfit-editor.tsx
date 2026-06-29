@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode, useState } from "react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
 import { nanoid } from "nanoid";
@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Combobox } from "@/components/ui/combobox";
 import { ImageUploader } from "@/components/image-uploader";
 import {
   cleanImageRefs,
@@ -26,15 +27,25 @@ import {
   type ImageRef,
   type OutfitVariation,
 } from "@/lib/types";
+import type { Id } from "@/convex/_generated/dataModel";
 
 interface OutfitDoc {
   _id: string;
   name: string;
-  category?: string;
+  categoryId?: Id<"outfitCategories">;
+  categoryName?: string;
   promptDescriptor?: string;
   images?: ImageRef[];
   imageUrls?: { url: string }[];
   variations?: OutfitVariation[];
+}
+
+/** Seed editor variations with display URLs so existing images render. */
+function seedVariations(variations?: OutfitVariation[]): OutfitVariation[] {
+  return (variations ?? []).map((v) => ({
+    ...v,
+    images: withDisplayUrls(v.images, v.imageUrls),
+  }));
 }
 
 export function OutfitEditor({
@@ -46,18 +57,44 @@ export function OutfitEditor({
 }) {
   const create = useMutation(api.outfits.create);
   const update = useMutation(api.outfits.update);
+  const categories = useQuery(api.outfitCategories.list, {});
+  const createCategory = useMutation(api.outfitCategories.create);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [name, setName] = useState(outfit?.name ?? "");
-  const [category, setCategory] = useState(outfit?.category ?? "");
+  const [categoryId, setCategoryId] = useState<
+    Id<"outfitCategories"> | undefined
+  >(outfit?.categoryId);
   const [descriptor, setDescriptor] = useState(outfit?.promptDescriptor ?? "");
   const [images, setImages] = useState<ImageRef[]>(
     withDisplayUrls(outfit?.images, outfit?.imageUrls),
   );
   const [variations, setVariations] = useState<OutfitVariation[]>(
-    outfit?.variations ?? [],
+    seedVariations(outfit?.variations),
   );
+
+  // Reset the form whenever the sheet opens, so a reused trigger (e.g. the
+  // single "New item" button) never shows stale values from a prior create.
+  function handleOpenChange(next: boolean) {
+    if (next) {
+      setName(outfit?.name ?? "");
+      setCategoryId(outfit?.categoryId);
+      setDescriptor(outfit?.promptDescriptor ?? "");
+      setImages(withDisplayUrls(outfit?.images, outfit?.imageUrls));
+      setVariations(seedVariations(outfit?.variations));
+    }
+    setOpen(next);
+  }
+
+  async function pickNewCategory(catName: string) {
+    try {
+      const id = await createCategory({ name: catName });
+      setCategoryId(id);
+    } catch {
+      toast.error("Could not create category");
+    }
+  }
 
   function addVariation() {
     setVariations((v) => [
@@ -77,7 +114,6 @@ export function OutfitEditor({
     setSaving(true);
     const payload = {
       name: name.trim(),
-      category: category.trim() || undefined,
       promptDescriptor: descriptor.trim() || undefined,
       images: cleanImageRefs(images),
       variations: variations
@@ -90,23 +126,30 @@ export function OutfitEditor({
         })),
     };
     try {
-      if (outfit) await update({ id: outfit._id as never, ...payload });
-      else await create(payload);
-      toast.success(outfit ? "Outfit updated" : "Outfit created");
+      if (outfit)
+        await update({
+          id: outfit._id as never,
+          ...payload,
+          categoryId: categoryId ?? null,
+        });
+      else await create({ ...payload, categoryId });
+      toast.success(outfit ? "Item updated" : "Item created");
       setOpen(false);
     } catch {
-      toast.error("Could not save outfit");
+      toast.error("Could not save item");
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetTrigger asChild>{trigger}</SheetTrigger>
       <SheetContent className="flex w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-lg">
         <SheetHeader className="border-b">
-          <SheetTitle>{outfit ? "Edit outfit" : "New outfit"}</SheetTitle>
+          <SheetTitle>
+            {outfit ? "Edit wardrobe item" : "New wardrobe item"}
+          </SheetTitle>
           <SheetDescription>
             Add variations (colorways, stylings) to batch-generate every option
             from a single shot.
@@ -114,8 +157,8 @@ export function OutfitEditor({
         </SheetHeader>
 
         <div className="flex-1 space-y-5 p-4">
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2 grid gap-2">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-2">
               <Label htmlFor="o-name">Name</Label>
               <Input
                 id="o-name"
@@ -125,12 +168,21 @@ export function OutfitEditor({
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="o-cat">Category</Label>
-              <Input
-                id="o-cat"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                placeholder="outerwear"
+              <Label>Category</Label>
+              <Combobox
+                value={categoryId}
+                onChange={(v) =>
+                  setCategoryId(v as Id<"outfitCategories"> | undefined)
+                }
+                options={(categories ?? []).map((c) => ({
+                  value: c._id,
+                  label: c.name,
+                }))}
+                placeholder="Uncategorised"
+                searchPlaceholder="Find or create…"
+                emptyText="No categories yet."
+                onCreate={pickNewCategory}
+                createLabel="Create category"
               />
             </div>
           </div>
@@ -209,7 +261,7 @@ export function OutfitEditor({
         <SheetFooter className="border-t">
           <Button onClick={submit} disabled={saving}>
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-            {outfit ? "Save changes" : "Create outfit"}
+            {outfit ? "Save changes" : "Create item"}
           </Button>
         </SheetFooter>
       </SheetContent>

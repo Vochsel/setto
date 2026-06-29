@@ -16,6 +16,7 @@ import type * as lib_imageModels from "../lib/imageModels.js";
 import type * as lib_prompt from "../lib/prompt.js";
 import type * as locations from "../locations.js";
 import type * as models from "../models.js";
+import type * as outfitCategories from "../outfitCategories.js";
 import type * as outfits from "../outfits.js";
 import type * as presets from "../presets.js";
 import type * as settings from "../settings.js";
@@ -23,6 +24,7 @@ import type * as shootLocations from "../shootLocations.js";
 import type * as shoots from "../shoots.js";
 import type * as shots from "../shots.js";
 import type * as streetview from "../streetview.js";
+import type * as usage from "../usage.js";
 import type * as users from "../users.js";
 
 import type {
@@ -40,6 +42,7 @@ declare const fullApi: ApiFromModules<{
   "lib/prompt": typeof lib_prompt;
   locations: typeof locations;
   models: typeof models;
+  outfitCategories: typeof outfitCategories;
   outfits: typeof outfits;
   presets: typeof presets;
   settings: typeof settings;
@@ -47,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   shoots: typeof shoots;
   shots: typeof shots;
   streetview: typeof streetview;
+  usage: typeof usage;
   users: typeof users;
 }>;
 

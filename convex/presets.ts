@@ -70,6 +70,52 @@ export const remove = mutation({
   },
 });
 
+/** Succeeded renders whose shot used this preset (style/camera/lighting). */
+export const usageRenders = query({
+  args: { presetId: v.id("presets"), limit: v.optional(v.number()) },
+  handler: async (ctx, { presetId, limit }) => {
+    const scope = await getScope(ctx);
+    assertOrg(await ctx.db.get(presetId), scope);
+
+    const shots = await ctx.db
+      .query("shots")
+      .withIndex("by_org", (q) => q.eq("orgId", scope.orgId))
+      .collect();
+    const shotIds = shots
+      .filter(
+        (s) =>
+          s.styleId === presetId ||
+          s.cameraId === presetId ||
+          s.lightingId === presetId,
+      )
+      .map((s) => s._id);
+    if (!shotIds.length) return [];
+
+    const gens = [];
+    for (const sid of shotIds) {
+      const g = await ctx.db
+        .query("generations")
+        .withIndex("by_shot", (q) => q.eq("shotId", sid))
+        .collect();
+      gens.push(...g);
+    }
+    gens.sort((a, b) => b._creationTime - a._creationTime);
+
+    const max = limit ?? 8;
+    const out: { _id: string; url: string }[] = [];
+    for (const g of gens) {
+      if (g.status !== "succeeded") continue;
+      let u = g.imageUrl;
+      if (!u && g.storageId) {
+        u = (await ctx.storage.getUrl(g.storageId)) ?? undefined;
+      }
+      if (u) out.push({ _id: g._id, url: u });
+      if (out.length >= max) break;
+    }
+    return out;
+  },
+});
+
 /**
  * Seed a starter set of photography style / camera / lighting presets for a new
  * workspace. Idempotent-ish: only seeds when the workspace has no presets yet.

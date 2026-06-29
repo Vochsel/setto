@@ -25,8 +25,8 @@ const features = [
   },
   {
     icon: Shirt,
-    title: "Outfits & variations",
-    body: "Store wardrobe with colorways and styling variations, then batch-generate every option in one click.",
+    title: "Wardrobe & variations",
+    body: "Store clothing, hats, bags and accessories with colorways and styling variations, then batch-generate every option in one click.",
   },
   {
     icon: Boxes,
