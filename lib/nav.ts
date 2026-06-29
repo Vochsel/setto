@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   Clapperboard,
+  Megaphone,
   Users,
   Shirt,
   MapPin,
@@ -19,6 +20,7 @@ export interface NavItem {
 export const mainNav: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { title: "Shoots", href: "/shoots", icon: Clapperboard },
+  { title: "Campaigns", href: "/campaigns", icon: Megaphone },
 ];
 
 export const settingsNav: NavItem[] = [
