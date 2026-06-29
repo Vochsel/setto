@@ -31,7 +31,38 @@ export function ShotsPanel({
   campaignId: Id<"campaigns">;
   selected: SelectedShot[];
 }) {
-  const toggleShot = useMutation(api.campaigns.toggleShot);
+  // Optimistic update so the checkmark flips instantly on click, rather than
+  // waiting on the mutation round-trip (which also re-resolves every selected
+  // shot's storage URL server-side).
+  const toggleShot = useMutation(api.campaigns.toggleShot).withOptimisticUpdate(
+    (store, { id, generationId, shootId }) => {
+      const campaign = store.getQuery(api.campaigns.get, { id });
+      if (!campaign) return;
+      const current = campaign.selectedShotImages ?? [];
+      const exists = current.some((s) => s.generationId === generationId);
+      const next = exists
+        ? current.filter((s) => s.generationId !== generationId)
+        : [
+            ...current,
+            {
+              generationId,
+              shootId,
+              // Grab the thumbnail from the open photo list so the selected
+              // grid shows it immediately; falls back to "" until the server
+              // resolves the real URL.
+              url:
+                store
+                  .getQuery(api.generations.listByOrg, {})
+                  ?.find((p) => p._id === generationId)?.imageUrl ?? "",
+            },
+          ];
+      store.setQuery(
+        api.campaigns.get,
+        { id },
+        { ...campaign, selectedShotImages: next },
+      );
+    },
+  );
   const selectedIds = new Set(selected.map((s) => s.generationId));
 
   function toggle(generationId: Id<"generations">, shootId?: Id<"shoots">) {
@@ -108,14 +139,14 @@ function PickShotsDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="sm:max-w-5xl">
         <DialogHeader>
           <DialogTitle>Pick shots</DialogTitle>
         </DialogHeader>
-        <div className="max-h-[70vh] overflow-y-auto">
+        <div className="max-h-[75vh] overflow-y-auto">
           {photos === undefined ? (
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-              {Array.from({ length: 8 }).map((_, i) => (
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-5">
+              {Array.from({ length: 10 }).map((_, i) => (
                 <Skeleton key={i} className="aspect-[3/4] rounded-md" />
               ))}
             </div>
@@ -125,7 +156,7 @@ function PickShotsDialog({
               No photos yet — generate some shots in a shoot first.
             </div>
           ) : (
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-5">
               {photos.map((p) => {
                 const active = selectedIds.has(p._id);
                 return (
