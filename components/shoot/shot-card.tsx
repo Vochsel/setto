@@ -41,6 +41,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ConfirmDelete } from "@/components/confirm-delete";
 import { ImageLightbox } from "@/components/image-lightbox";
+import { ReviewPanel, ReviewBadges } from "@/components/shoot/image-review";
 import { cn } from "@/lib/utils";
 import { buildPrompt } from "@/convex/lib/prompt";
 import {
@@ -425,6 +426,19 @@ export function ShotCard({
         index={lightboxIndex}
         onIndexChange={setLightboxIndex}
         onClose={() => setLightboxIndex(null)}
+        sidebar={
+          lightboxIndex !== null && succeeded[lightboxIndex] ? (
+            <ReviewPanel
+              generationId={succeeded[lightboxIndex]._id}
+              state={{
+                favorite: succeeded[lightboxIndex].favorite ?? false,
+                rating: succeeded[lightboxIndex].rating ?? 0,
+                approval: succeeded[lightboxIndex].approval ?? null,
+                comments: succeeded[lightboxIndex].comments ?? [],
+              }}
+            />
+          ) : undefined
+        }
       />
     </Card>
   );
@@ -452,6 +466,12 @@ function GenerationTile({
             src={gen.imageUrl}
             alt=""
             className="h-full w-full object-cover"
+          />
+          <ReviewBadges
+            favorite={gen.favorite ?? false}
+            rating={gen.rating ?? 0}
+            approval={gen.approval ?? null}
+            commentCount={gen.comments?.length ?? 0}
           />
         </button>
       ) : gen.status === "failed" ? (

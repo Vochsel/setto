@@ -29,11 +29,18 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { ConfirmDelete } from "@/components/confirm-delete";
 import { EmptyState } from "@/components/empty-state";
 import { ShootMap } from "@/components/shoot/shoot-map";
 import { AddLocation } from "@/components/shoot/add-location";
 import { LocationPanel } from "@/components/shoot/location-panel";
+import { ShootGallery } from "@/components/shoot/shoot-gallery";
 import { formatDateTime, shootStatusMeta, type ShootStatus } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -113,6 +120,20 @@ export default function ShootEditorPage() {
     return map;
   }, [shots]);
 
+  // Count of succeeded images across the shoot (for the Gallery tab badge).
+  const photoCount = useMemo(
+    () =>
+      ((shots ?? []) as unknown as ShotDoc[]).reduce(
+        (n, s) =>
+          n +
+          s.generations.filter(
+            (g) => g.status === "succeeded" && g.imageUrl,
+          ).length,
+        0,
+      ),
+    [shots],
+  );
+
   if (shoot === undefined) {
     return (
       <>
@@ -172,9 +193,27 @@ export default function ShootEditorPage() {
         />
       </PageHeader>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 md:p-6 lg:grid-cols-[360px_1fr]">
-        {/* Left: map + locations */}
-        <div className="space-y-3">
+      <Tabs defaultValue="plan" className="flex min-h-0 flex-1 flex-col gap-0">
+        <div className="px-4 pt-3 md:px-6">
+          <TabsList>
+            <TabsTrigger value="plan">Plan</TabsTrigger>
+            <TabsTrigger value="gallery">
+              Gallery
+              {photoCount > 0 && (
+                <span className="text-muted-foreground ml-1 tabular-nums">
+                  {photoCount}
+                </span>
+              )}
+            </TabsTrigger>
+          </TabsList>
+        </div>
+
+        <TabsContent
+          value="plan"
+          className="grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 md:p-6 lg:grid-cols-[360px_1fr]"
+        >
+          {/* Left: map + locations */}
+          <div className="space-y-3">
           <Card className="h-72 overflow-hidden p-0">
             <ShootMap
               shootLocations={locs}
@@ -247,8 +286,16 @@ export default function ShootEditorPage() {
               description="Add a location and select it to place models and build shots."
             />
           )}
-        </div>
-      </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent
+          value="gallery"
+          className="min-h-0 flex-1 overflow-auto p-4 md:p-6"
+        >
+          <ShootGallery shootId={shootId} />
+        </TabsContent>
+      </Tabs>
     </>
   );
 }
