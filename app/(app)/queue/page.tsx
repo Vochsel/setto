@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePaginatedQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -12,6 +12,7 @@ import {
   Clock,
   ImageOff,
   Play,
+  Eye,
   ChevronRight,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
@@ -19,6 +20,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
+import { ImageLightbox, type LightboxImage } from "@/components/image-lightbox";
 import {
   Tooltip,
   TooltipContent,
@@ -106,6 +108,33 @@ export default function QueuePage() {
       .sort((a, b) => b._creationTime - a._creationTime);
   }, [genResults, vidResults, gens.status, vids.status]);
 
+  // In-queue "quick look": a lightbox over every loaded item with viewable
+  // media, so you can flick through results without leaving the queue.
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const media = useMemo(
+    () =>
+      items.filter((it) =>
+        it.status === "succeeded" &&
+        (it.kind === "video" ? it.videoUrl : it.thumbUrl),
+      ),
+    [items],
+  );
+  const lightboxImages = useMemo<LightboxImage[]>(
+    () =>
+      media.map((it) => ({
+        kind: it.kind,
+        url: it.kind === "video" ? it.videoUrl : it.thumbUrl,
+        posterUrl: it.kind === "video" ? it.thumbUrl : undefined,
+        caption: it.modelLabel,
+      })),
+    [media],
+  );
+  const mediaIndexById = useMemo(() => {
+    const m = new Map<string, number>();
+    media.forEach((it, i) => m.set(it._id, i));
+    return m;
+  }, [media]);
+
   const isDone = gens.status === "Exhausted" && vids.status === "Exhausted";
   const loadingFirst =
     items.length === 0 &&
@@ -155,15 +184,23 @@ export default function QueuePage() {
           />
         ) : (
           <>
-            {items.map((it) => (
-              <QueueRow
-                key={it._id}
-                item={it}
-                onOpen={() =>
-                  router.push(`/shoots/${it.shootId}?shot=${it.shotId}`)
-                }
-              />
-            ))}
+            {items.map((it) => {
+              const mediaIndex = mediaIndexById.get(it._id);
+              return (
+                <QueueRow
+                  key={it._id}
+                  item={it}
+                  onOpen={() =>
+                    router.push(`/shoots/${it.shootId}?shot=${it.shotId}`)
+                  }
+                  onQuickLook={
+                    mediaIndex !== undefined
+                      ? () => setLightboxIndex(mediaIndex)
+                      : undefined
+                  }
+                />
+              );
+            })}
 
             <div ref={sentinel} className="flex justify-center py-4">
               {loadingMore ? (
@@ -178,6 +215,13 @@ export default function QueuePage() {
           </>
         )}
       </div>
+
+      <ImageLightbox
+        images={lightboxImages}
+        index={lightboxIndex}
+        onIndexChange={setLightboxIndex}
+        onClose={() => setLightboxIndex(null)}
+      />
     </>
   );
 }
@@ -185,9 +229,12 @@ export default function QueuePage() {
 function QueueRow({
   item,
   onOpen,
+  onQuickLook,
 }: {
   item: QueueItem;
   onOpen: () => void;
+  /** Opens the in-queue lightbox; omitted when there's no viewable media yet. */
+  onQuickLook?: () => void;
 }) {
   const meta = statusMeta[item.status];
   const modelName =
@@ -283,6 +330,20 @@ function QueueRow({
           <Badge variant="outline" className={cn("gap-1", meta.className)}>
             <StatusIcon status={item.status} /> {meta.label}
           </Badge>
+        )}
+        {onQuickLook && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onQuickLook();
+            }}
+            title="Quick look"
+            aria-label="Quick look"
+            className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-7 items-center justify-center rounded-md transition-colors"
+          >
+            <Eye className="h-4 w-4" />
+          </button>
         )}
         <ChevronRight className="text-muted-foreground h-4 w-4" />
       </div>
