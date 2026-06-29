@@ -27,7 +27,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ConfirmDelete } from "@/components/confirm-delete";
-import { CopyPanel } from "@/components/campaign/copy-panel";
+import { CopyChatPanel } from "@/components/campaign/copy-chat-panel";
 import { InspirationPanel } from "@/components/campaign/inspiration-panel";
 import { ShotsPanel } from "@/components/campaign/shots-panel";
 import { CreativePanel } from "@/components/campaign/creative-panel";
@@ -107,11 +107,10 @@ export default function CampaignEditorPage() {
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 md:p-6 lg:grid-cols-2">
         {/* Left: copy + inspiration */}
         <div className="space-y-4">
-          <CopyPanel
+          <CopyChatPanel
             campaignId={campaignId}
             brief={campaign.brief}
             copy={campaign.copy}
-            copyVariants={campaign.copyVariants}
             personas={campaign.personas}
             research={campaign.research}
           />

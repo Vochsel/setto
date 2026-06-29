@@ -1,5 +1,4 @@
 import {
-  internalMutation,
   internalQuery,
   mutation,
   query,
@@ -11,7 +10,6 @@ import { getScope, assertOrg } from "./lib/auth";
 import {
   imageRef,
   adCopy,
-  copyVariant,
   campaignShotRef,
   campaignResearch,
   persona,
@@ -192,34 +190,22 @@ export const remove = mutation({
   },
 });
 
-/* ─────────────────────────── internal (actions) ─────────────────────────── */
-
-/** Persist GPT-generated copy suggestions (called by the copy action). */
-export const saveCopyVariants = internalMutation({
-  args: {
-    id: v.id("campaigns"),
-    variants: v.array(copyVariant),
-  },
-  handler: async (ctx, { id, variants }) => {
-    const c = await ctx.db.get(id);
-    if (!c) return;
-    await ctx.db.patch(id, { copyVariants: variants });
-  },
-});
-
-/** Persist the research brief + derived personas (called by research/copy). */
-export const saveResearch = internalMutation({
+/** Persist the research brief + derived personas (set by the copywriter chat's
+ * `researchAudience` tool). Org-scoped so the streaming route can call it. */
+export const setResearch = mutation({
   args: {
     id: v.id("campaigns"),
     research: campaignResearch,
     personas: v.array(persona),
   },
   handler: async (ctx, { id, research, personas }) => {
-    const c = await ctx.db.get(id);
-    if (!c) return;
+    const scope = await getScope(ctx);
+    assertOrg(await ctx.db.get(id), scope);
     await ctx.db.patch(id, { research, personas });
   },
 });
+
+/* ─────────────────────────── internal (actions) ─────────────────────────── */
 
 /** Context for the HTML ad-layout worker: copy, format, and picked shots. */
 export const adContext = internalQuery({

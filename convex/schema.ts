@@ -346,6 +346,40 @@ export default defineSchema({
     .index("by_campaign", ["campaignId"])
     .index("by_org", ["orgId"]),
 
+  // The growing, pinnable library of ad-copy variations for a campaign. Unlike
+  // the legacy `campaigns.copyVariants` array (overwritten on each run), these
+  // accumulate: every option the copywriter chat proposes is kept and can be
+  // pinned, applied to the working copy, or removed.
+  campaignCopyVariants: defineTable({
+    orgId: v.string(),
+    createdBy: v.string(),
+    campaignId: v.id("campaigns"),
+    headline: v.optional(v.string()),
+    tagline: v.optional(v.string()),
+    body: v.optional(v.string()),
+    cta: v.optional(v.string()),
+    // Which audience/angle this option was written for, plus any web sources the
+    // research leaned on.
+    personaName: v.optional(v.string()),
+    angle: v.optional(v.string()),
+    sources: v.optional(v.array(v.string())),
+    // User-pinned favorites float to the top of the library.
+    pinned: v.optional(v.boolean()),
+    createdAt: v.number(),
+  })
+    .index("by_campaign", ["campaignId"])
+    .index("by_campaign_pinned", ["campaignId", "pinned"]),
+
+  // The persisted copywriter chat thread for a campaign — one row per campaign,
+  // holding the AI SDK `UIMessage[]` verbatim so it round-trips through useChat.
+  // The route loads it each turn, appends, streams, and saves it back.
+  campaignCopyChats: defineTable({
+    orgId: v.string(),
+    campaignId: v.id("campaigns"),
+    messages: v.array(v.any()),
+    updatedAt: v.number(),
+  }).index("by_campaign", ["campaignId"]),
+
   // --- Generations --------------------------------------------------------
   generations: defineTable({
     orgId: v.string(),
