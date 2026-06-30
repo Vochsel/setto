@@ -120,6 +120,71 @@ export const mediaReviewFields = {
   favorite: v.optional(v.boolean()),
 };
 
+// ── Video / clips spec ──────────────────────────────────────────────────
+// Storage-side mirror of the pure model in `@setto/core/video` (VideoSpec et
+// al.). Keep these validators and that module in sync.
+
+/** Ken Burns (pan/zoom) move applied to an image clip; ignored for video. */
+export const videoEffect = v.object({
+  type: v.union(v.literal("none"), v.literal("kenburns")),
+  fromScale: v.optional(v.number()),
+  toScale: v.optional(v.number()),
+  fromX: v.optional(v.number()),
+  fromY: v.optional(v.number()),
+  toX: v.optional(v.number()),
+  toY: v.optional(v.number()),
+});
+
+/** How a clip enters from the previous one (sequence templates only). */
+export const videoTransition = v.object({
+  type: v.union(
+    v.literal("none"),
+    v.literal("fade"),
+    v.literal("dissolve"),
+    v.literal("slide"),
+    v.literal("wipe"),
+  ),
+  durationMs: v.number(),
+});
+
+/** A single clip on the timeline. `url` is a resolved, playable media URL. */
+export const videoClip = v.object({
+  id: v.string(),
+  sourceType: v.union(v.literal("image"), v.literal("video")),
+  url: v.string(),
+  posterUrl: v.optional(v.string()),
+  durationMs: v.number(),
+  trimStartMs: v.optional(v.number()),
+  effect: v.optional(videoEffect),
+  transition: v.optional(videoTransition),
+  layer: v.optional(v.number()),
+  caption: v.optional(v.string()),
+  // Provenance (trace a clip back to its source media).
+  generationId: v.optional(v.id("generations")),
+  videoId: v.optional(v.id("videos")),
+  shotId: v.optional(v.id("shots")),
+});
+
+/** Background audio bed for the whole composition. */
+export const videoAudio = v.object({
+  url: v.string(),
+  name: v.optional(v.string()),
+  trackId: v.optional(v.string()),
+  startMs: v.optional(v.number()),
+  volume: v.optional(v.number()),
+});
+
+/** The self-contained composition the renderer consumes (frozen per render). */
+export const videoSpec = v.object({
+  templateId: v.string(),
+  width: v.number(),
+  height: v.number(),
+  fps: v.number(),
+  background: v.optional(v.string()),
+  clips: v.array(videoClip),
+  audio: v.optional(videoAudio),
+});
+
 export default defineSchema({
   // --- Identity (synced from WorkOS) -------------------------------------
   users: defineTable({
@@ -505,6 +570,71 @@ export default defineSchema({
     .index("by_org", ["orgId"])
     .index("by_status", ["status"]),
 
+  // --- Video projects (the "clips" editor) --------------------------------
+  // A composed, retimable video: an ordered list of clips (each backed by a
+  // shot image or an i2v `videos` render), a template, audio bed, and output
+  // resolution/fps. Distinct from the `videos` table (single i2v renders),
+  // which supplies clip sources. The editable spec lives here; each export is a
+  // `videoRenders` row. Field shape mirrors `@setto/core/video`'s VideoSpec.
+  videoProjects: defineTable({
+    orgId: v.string(),
+    createdBy: v.string(),
+    name: v.string(),
+    // Optional origin shoot (entry points pass it so the project links back).
+    shootId: v.optional(v.id("shoots")),
+    // --- spec (flattened; see videoSpec) ---
+    templateId: v.string(),
+    width: v.number(),
+    height: v.number(),
+    fps: v.number(),
+    background: v.optional(v.string()),
+    clips: v.array(videoClip),
+    audio: v.optional(videoAudio),
+    // --- meta ---
+    posterUrl: v.optional(v.string()), // first clip's still, for cards
+    lastRenderId: v.optional(v.id("videoRenders")),
+    ...mediaReviewFields,
+  })
+    .index("by_org", ["orgId"])
+    .index("by_shoot", ["shootId"]),
+
+  // --- Video renders (export jobs) ----------------------------------------
+  // One row per export of a project to an mp4. Holds a frozen snapshot of the
+  // spec it rendered (so re-renders are reproducible and the row is
+  // self-contained), plus Remotion Lambda bookkeeping and the output URL.
+  // Mirrors the queue/poll pattern used by `generations`/`videos`.
+  videoRenders: defineTable({
+    orgId: v.string(),
+    createdBy: v.string(),
+    projectId: v.id("videoProjects"),
+    spec: videoSpec, // frozen snapshot of what was rendered
+    width: v.number(),
+    height: v.number(),
+    fps: v.number(),
+    durationMs: v.number(),
+    status: v.union(
+      v.literal("queued"),
+      v.literal("rendering"),
+      v.literal("succeeded"),
+      v.literal("failed"),
+    ),
+    progress: v.optional(v.number()), // 0..1
+    progressLabel: v.optional(v.string()),
+    outputUrl: v.optional(v.string()), // mp4 (S3/Lambda or Convex storage)
+    posterUrl: v.optional(v.string()),
+    storageId: v.optional(v.id("_storage")), // if mirrored into Convex storage
+    // Remotion Lambda bookkeeping (so we can poll/cleanup).
+    renderId: v.optional(v.string()),
+    bucketName: v.optional(v.string()),
+    renderRegion: v.optional(v.string()),
+    costUsd: v.optional(v.number()),
+    error: v.optional(v.string()),
+    ...mediaReviewFields,
+  })
+    .index("by_project", ["projectId"])
+    .index("by_org", ["orgId"])
+    .index("by_status", ["status"]),
+
   // --- Usage & audit log --------------------------------------------------
   // One row per image-generation attempt, anywhere in the product. Powers team
   // usage tracking (counts + estimated spend) and the audit trail.
@@ -521,6 +651,7 @@ export default defineSchema({
       v.literal("campaign_copy"), // GPT ad-copy generation
       v.literal("campaign_creative"), // ad-creative image generation
       v.literal("video"), // image-to-video render
+      v.literal("video_export"), // video-project mp4 render (Remotion)
     ),
     provider: v.string(),
     modelKey: v.string(),
@@ -531,6 +662,8 @@ export default defineSchema({
     // Context links (best-effort; depend on the source).
     generationId: v.optional(v.id("generations")),
     videoId: v.optional(v.id("videos")),
+    videoProjectId: v.optional(v.id("videoProjects")),
+    videoRenderId: v.optional(v.id("videoRenders")),
     shotId: v.optional(v.id("shots")),
     shootId: v.optional(v.id("shoots")),
     modelId: v.optional(v.id("models")),
