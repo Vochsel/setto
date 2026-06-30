@@ -99,6 +99,7 @@ export function ShotCard({
   const update = useMutation(api.shots.update);
   const remove = useMutation(api.shots.remove);
   const duplicateShot = useMutation(api.shots.duplicate);
+  const removeGen = useMutation(api.generations.remove);
   const removeVideo = useMutation(api.videos.remove);
   const generate = useAction(api.generate.generateShot);
   const settings = useQuery(api.settings.get, {});
@@ -591,12 +592,20 @@ export function ShotCard({
         index={lightboxIndex}
         onIndexChange={setLightboxIndex}
         onClose={() => setLightboxIndex(null)}
+        onDelete={(img) => {
+          if (img.mediaId) removeGen({ id: img.mediaId as Id<"generations"> });
+          setLightboxIndex(null);
+        }}
       />
       <ImageLightbox
         images={videoLightbox}
         index={videoLightboxIndex}
         onIndexChange={setVideoLightboxIndex}
         onClose={() => setVideoLightboxIndex(null)}
+        onDelete={(img) => {
+          if (img.mediaId) removeVideo({ id: img.mediaId as Id<"videos"> });
+          setVideoLightboxIndex(null);
+        }}
       />
     </Card>
   );
