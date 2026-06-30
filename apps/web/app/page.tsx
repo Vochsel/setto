@@ -2,6 +2,7 @@ import { withAuth } from "@workos-inc/authkit-nextjs";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { StudioDemo } from "@/components/landing/studio-demo";
 import {
   Camera,
   MapPin,
@@ -127,6 +128,28 @@ export default async function LandingPage() {
             >
               Sign in
             </Link>
+          </div>
+        </section>
+
+        {/* Interactive product demo — the real studio surface, clickable. */}
+        <section className="mx-auto w-full max-w-7xl px-6 pb-32">
+          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-[12px] font-normal uppercase tracking-[0.72px] text-[#9dabad]">
+                Try the studio
+              </p>
+              <h2 className="mt-5 max-w-2xl text-[clamp(2rem,4.5vw,3rem)] font-light leading-[1.1] tracking-tight">
+                Pick a look. Generate the shoot.
+              </h2>
+            </div>
+            <p className="max-w-sm text-[15px] leading-[1.56] text-[#a1a1aa]">
+              A live, clickable preview — choose a location, model and outfit,
+              fan out one image per variation, then animate any frame into
+              video.
+            </p>
+          </div>
+          <div className="mt-10">
+            <StudioDemo />
           </div>
         </section>
 

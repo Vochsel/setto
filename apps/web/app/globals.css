@@ -181,6 +181,29 @@
   }
 }
 
+/* ── Landing Studio demo animations ───────────────────────────────────
+   Shimmer for the "rendering" skeleton; slow camera-push used as a video
+   fallback when a look has no pre-rendered i2v clip. */
+@keyframes demo-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+@keyframes demo-pan {
+  0% {
+    transform: scale(1.04) translate(0, 0);
+  }
+  50% {
+    transform: scale(1.12) translate(-2%, -2%);
+  }
+  100% {
+    transform: scale(1.04) translate(0, 0);
+  }
+}
+
 /* Google Places Autocomplete dropdown must sit above dialogs/sheets. */
 .pac-container {
   z-index: 10000;
