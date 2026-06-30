@@ -397,15 +397,21 @@ export const generateShot = action({
 });
 
 /**
- * AI "wardrobe" pass over a camera capture: take the captured photo as the
- * scene and composite the model — wearing their product/outfit — into it,
- * producing a new generation in the same shoot. Routes to the picked model
- * (Nano Banana / GPT Image 2 / …) and runs in the background via `runOne`.
+ * Generate from a camera capture. The captured / uploaded photo is the real
+ * location/scene — it is NOT stored as a photo of its own; it's only fed to the
+ * chosen image model (Nano Banana 2 / GPT Image 2 / Nano Banana Pro) as the
+ * scene reference, alongside the model + product, exactly like a website shot
+ * generation. Produces one generation under the location's shot (created if
+ * needed) and runs in the background via `runOne`.
  */
-export const enhanceCapture = action({
+export const generateFromCapture = action({
   args: {
-    captureId: v.id("generations"),
-    modelKey: v.optional(v.string()),
+    storageId: v.id("_storage"),
+    modelKey: v.string(),
+    shotId: v.optional(v.id("shots")),
+    shootLocationId: v.optional(v.id("shootLocations")),
+    modelId: v.optional(v.id("models")),
+    outfitId: v.optional(v.id("outfits")),
   },
   // Explicit return type breaks the circular `internal`-API inference (this
   // action references the same `internal` namespace it lives in).
@@ -418,63 +424,99 @@ export const enhanceCapture = action({
     const userId = identity.subject;
     const orgId = (identity.org_id as string | undefined) ?? `user:${userId}`;
 
-    const refs = await ctx.runQuery(internal.generations.captureRefs, {
-      id: args.captureId,
+    const model = getImageModel(args.modelKey);
+    if (!model) throw new Error(`Unknown model: ${args.modelKey}`);
+
+    const sceneUrl = await ctx.storage.getUrl(args.storageId);
+    if (!sceneUrl) throw new Error("Captured image not found");
+
+    const shotId: Id<"shots"> = await ctx.runMutation(
+      internal.generations.ensureCaptureShot,
+      {
+        orgId,
+        shotId: args.shotId,
+        shootLocationId: args.shootLocationId,
+        modelId: args.modelId,
+        outfitId: args.outfitId,
+      },
+    );
+
+    const c = await ctx.runQuery(internal.generations.context, { shotId });
+    if (c.orgId !== orgId) throw new Error("Not found");
+
+    const assembled = buildPrompt({
+      shot: {
+        name: c.shot.name,
+        posePrompt: c.shot.posePrompt,
+        clothingPrompt: c.shot.clothingPrompt,
+        extraPrompt: c.shot.extraPrompt,
+        cameraFraming: c.shot.cameraFraming,
+      },
+      model: c.model,
+      outfit: c.outfit,
+      variation: null,
+      location: c.location,
+      style: c.style,
+      camera: c.camera,
+      lighting: c.lighting,
+      scheduledAt: c.scheduledAt,
+      timezone: c.timezone,
     });
-    if (refs.orgId !== orgId) throw new Error("Not found");
-    if (!refs.sceneUrl) throw new Error("Capture has no image");
 
-    const modelKey = args.modelKey ?? DEFAULT_MODEL_ID;
-    const model = getImageModel(modelKey);
-    if (!model) throw new Error(`Unknown model: ${modelKey}`);
-
-    const who = refs.modelName ?? "the model";
-    const wardrobe = refs.outfitName
-      ? `wearing the ${refs.outfitName}`
-      : "wearing their wardrobe outfit";
-    const prompt =
-      `Using the first attached photo as the scene, place ${who} ${wardrobe} ` +
-      `naturally into it. Preserve the location, background, lighting and camera ` +
-      `framing of that photo; integrate the person realistically at the correct ` +
-      `scale and perspective.\n\n${referenceGuidance(model)}`;
-
-    // Scene first (the captured photo), then the product, then the likeness.
+    // The captured photo is the REAL scene — send it first and steer the model
+    // to place the subject into it.
+    const outfitImgs = c.outfit?.imageUrls ?? [];
+    const modelImgs = c.model?.imageUrls ?? [];
+    const locationShots = [
+      ...(c.location?.streetViewUrls ?? []),
+      ...(c.location?.imageUrls ?? []),
+    ];
     const references = Array.from(
-      new Set(
-        [
-          refs.sceneUrl,
-          ...refs.outfitImageUrls.slice(0, 2),
-          ...refs.modelImageUrls.slice(0, 2),
-        ].filter(Boolean),
-      ),
-    ) as string[];
+      new Set([
+        sceneUrl,
+        ...outfitImgs.slice(0, 2),
+        ...modelImgs.slice(0, 2),
+        ...locationShots.slice(0, 1),
+      ]),
+    );
+    const sceneNote =
+      " The FIRST reference image is a real photo of the exact location/scene the " +
+      "shot was taken in — place the subject naturally into that setting, matching " +
+      "its perspective, lighting, framing and background.";
+    const identityNote = modelImgs.length
+      ? " The person reference is a neutral studio model sheet — use it only for the " +
+        "subject's facial identity and proportions; do not copy its plain clothing, " +
+        "pose, panel layout, or background."
+      : "";
+    const promptText = `${assembled.prompt}\n\n${referenceGuidance(model)}${sceneNote}${identityNote}`;
 
     const genId: Id<"generations"> = await ctx.runMutation(
       internal.generations.create,
       {
-      orgId,
-      createdBy: userId,
-      shotId: refs.shotId,
-      shootId: refs.shootId,
-      modelId: refs.modelId ?? undefined,
-      outfitId: refs.outfitId ?? undefined,
-      locationId: refs.locationId ?? undefined,
-      styleId: refs.styleId ?? undefined,
-      cameraId: refs.cameraId ?? undefined,
-      lightingId: refs.lightingId ?? undefined,
-      provider: model.provider,
-      modelKey,
-      modelLabel: model.label,
-      prompt,
+        orgId,
+        createdBy: userId,
+        shotId,
+        shootId: c.shootId,
+        modelId: c.modelId ?? undefined,
+        outfitId: c.outfitId ?? undefined,
+        locationId: c.locationId ?? undefined,
+        styleId: c.styleId ?? undefined,
+        cameraId: c.cameraId ?? undefined,
+        lightingId: c.lightingId ?? undefined,
+        provider: model.provider,
+        modelKey: args.modelKey,
+        modelLabel: model.label,
+        prompt: promptText,
+        negativePrompt: assembled.negativePrompt,
       },
     );
 
     await ctx.scheduler.runAfter(0, internal.generate.runOne, {
       genId,
-      modelKey,
-      prompt,
+      modelKey: args.modelKey,
+      prompt: promptText,
       referenceImageUrls: references,
-      aspectRatio: refs.aspectRatio ?? undefined,
+      aspectRatio: c.shot.aspectRatio ?? undefined,
     });
     return { generationId: genId };
   },

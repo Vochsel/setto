@@ -104,35 +104,28 @@ extension ConvexClient {
         return storageId
     }
 
-    /// Save a captured photo into a shoot as a succeeded generation.
+    /// Generate from a captured/uploaded photo: the photo is used only as the
+    /// scene reference for the chosen image model (it is not saved as a photo),
+    /// producing one generation under the location's shot — same pipeline as a
+    /// website shot generation.
     @discardableResult
-    func addCapture(
+    func generateFromCapture(
         storageId: String,
+        modelKey: String,
         shootLocationId: String? = nil,
         shotId: String? = nil,
         modelId: String? = nil,
-        outfitId: String? = nil,
-        caption: String? = nil
-    ) async throws -> String {
-        var args: [String: Any] = ["storageId": storageId]
+        outfitId: String? = nil
+    ) async throws -> Empty {
+        var args: [String: Any] = [
+            "storageId": storageId, "modelKey": modelKey,
+        ]
         if let shootLocationId { args["shootLocationId"] = shootLocationId }
         if let shotId { args["shotId"] = shotId }
         if let modelId { args["modelId"] = modelId }
         if let outfitId { args["outfitId"] = outfitId }
-        if let caption, !caption.isEmpty { args["caption"] = caption }
-        return try await call(
-            "generations:addCapture", .mutation, args: args, as: String.self)
-    }
-
-    /// Kick off the background AI "wardrobe" pass over a capture, compositing
-    /// the model + product into the captured scene with the chosen image model.
-    @discardableResult
-    func enhanceCapture(
-        captureId: String, modelKey: String
-    ) async throws -> Empty {
-        try await run(
-            "generate:enhanceCapture", .action,
-            args: ["captureId": captureId, "modelKey": modelKey])
+        return try await run(
+            "generate:generateFromCapture", .action, args: args)
     }
 
     /// Set or clear a media item's rating (1–5, or nil to clear).

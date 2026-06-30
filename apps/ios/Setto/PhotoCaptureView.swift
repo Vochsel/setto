@@ -2,28 +2,28 @@ import PhotosUI
 import SwiftUI
 import UIKit
 
-/// An optional AI pass that composites the model (in their product) into a
-/// captured photo, run in the background after the photo is saved.
-enum EnhanceModel: String, CaseIterable, Identifiable {
-    case off = ""
-    case nanoBanana = "google/gemini-2.5-flash-image"
+/// The image model the capture is generated with. Required — the captured photo
+/// is always passed through an AI generation (never stored as-is).
+enum CaptureModel: String, CaseIterable, Identifiable {
+    case nanoBanana2 = "fal-ai/nano-banana-2/edit"
     case gptImage2 = "openai/gpt-image-2"
+    case nanoBananaPro = "google/gemini-3-pro-image-preview"
 
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .off: return "Off"
-        case .nanoBanana: return "Nano Banana"
+        case .nanoBanana2: return "Nano Banana 2"
         case .gptImage2: return "GPT Image 2"
+        case .nanoBananaPro: return "Nano Banana Pro"
         }
     }
 }
 
-/// "Photo mode": pick a location within a shoot, the model and product the photo
-/// is of, then capture (or upload) a real photo. It's saved into the shoot's
-/// image outputs (overriding that location's AI shots) via
-/// `generations:addCapture`, then — optionally — handed to an image model to
-/// composite the model wearing their product into the scene.
+/// "Photo mode": pick a location within a shoot, the model and product, then
+/// capture (or upload) a real photo. The photo is NOT stored as an image — it's
+/// used only as the scene reference for an AI generation (the chosen image
+/// model), which runs through the same pipeline as a website shot and lands in
+/// the shoot's outputs via `generate:generateFromCapture`.
 struct PhotoCaptureView: View {
     @EnvironmentObject var auth: AuthStore
     @Environment(\.dismiss) private var dismiss
@@ -38,7 +38,7 @@ struct PhotoCaptureView: View {
     @State private var locationId: String?
     @State private var modelId: String?
     @State private var outfitId: String?
-    @State private var enhance: EnhanceModel = .off
+    @State private var aiModel: CaptureModel = .nanoBanana2
     @State private var pickerItem: PhotosPickerItem?
 
     @State private var loading = true
@@ -137,18 +137,16 @@ struct PhotoCaptureView: View {
             }
 
             Section {
-                Picker("AI wardrobe pass", selection: $enhance) {
-                    ForEach(EnhanceModel.allCases) { m in
+                Picker("AI model", selection: $aiModel) {
+                    ForEach(CaptureModel.allCases) { m in
                         Text(m.label).tag(m)
                     }
                 }
             } header: {
-                Text("Enhance")
+                Text("AI model")
             } footer: {
                 Text(
-                    enhance == .off
-                        ? "Save the photo as-is."
-                        : "After saving, \(enhance.label) composites the model — wearing the product — into the photo, in the background."
+                    "Your photo is the scene — \(aiModel.label) composites the model in their product into it, like a website shot. The photo itself isn't stored."
                 )
             }
 
@@ -165,7 +163,7 @@ struct PhotoCaptureView: View {
                     if saving {
                         HStack {
                             ProgressView()
-                            Text("Saving…")
+                            Text("Generating…")
                         }
                         .frame(maxWidth: .infinity)
                     } else {
@@ -238,18 +236,15 @@ struct PhotoCaptureView: View {
             do {
                 let client = ConvexClient(
                     baseURL: Config.convexURL, token: auth.validToken())
+                // Upload the photo only to hand it to the model as the scene
+                // reference — it's never saved as a generation of its own.
                 let storageId = try await client.uploadImage(data)
-                let captureId = try await client.addCapture(
+                try await client.generateFromCapture(
                     storageId: storageId,
+                    modelKey: aiModel.rawValue,
                     shootLocationId: locationId,
                     modelId: modelId,
                     outfitId: outfitId)
-                // Kick off the optional AI wardrobe pass (best-effort — the real
-                // photo is already saved either way).
-                if enhance != .off {
-                    try? await client.enhanceCapture(
-                        captureId: captureId, modelKey: enhance.rawValue)
-                }
                 onSaved()
                 dismiss()
             } catch {
