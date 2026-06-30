@@ -1,117 +1,70 @@
 /**
- * `setto-mcp` — a Model Context Protocol server exposing the same product
- * surface as the CLI, over the same shared @setto/core auth + call layer.
+ * `setto-mcp` — a local (stdio) Model Context Protocol server exposing the same
+ * product surface as the CLI, over the same shared @setto/core layer.
  *
- * It registers two general tools (`describe`, `call`) plus one typed tool per
- * public Convex function. Auth is shared with the CLI: it reads the credentials
- * written by `setto login` (it can't open a browser itself), so run that first.
+ * The tool list and dispatch live in @setto/core (`tools.ts`) so this stdio
+ * server and the remote HTTP server in the web app stay perfectly in sync. Auth
+ * is shared with the CLI: it reads the credentials written by `setto login` (it
+ * can't open a browser itself), so run that first.
+ *
+ * To connect Claude.ai or ChatGPT *online*, you want the remote server instead
+ * — see apps/web/app/api/mcp and the README "Remote MCP" section.
  */
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  type CallToolResult,
 } from "@modelcontextprotocol/sdk/types.js";
 import {
-  manifest,
-  byDomain,
-  domains,
-  findFn,
-  signature,
   call,
   getConfig,
+  listTools,
+  callTool,
+  SERVER_NAME,
+  SERVER_VERSION,
 } from "@setto/core";
-import { argsJsonSchema } from "./jsonschema";
-
-const SEP = "__";
-const toToolName = (path: string) => path.replace(":", SEP);
-const toPath = (name: string) => name.replace(SEP, ":");
 
 const server = new Server(
-  { name: "setto", version: "0.1.0" },
+  { name: SERVER_NAME, version: SERVER_VERSION },
   { capabilities: { tools: {} } },
 );
 
-const GENERAL_TOOLS = [
-  {
-    name: "describe",
-    description:
-      "List the setto product surface (every function, its type and argument schema). Optional { domain } filter, e.g. 'campaigns'.",
-    inputSchema: {
-      type: "object",
-      properties: { domain: { type: "string", description: "e.g. campaigns" } },
-    },
-  },
-  {
-    name: "call",
-    description:
-      "Call any setto function by path, e.g. { path: 'campaigns:list', args: {} }. Use `describe` to find paths and argument shapes.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        path: { type: "string", description: "function path, e.g. campaigns:list" },
-        args: { type: "object", description: "arguments object" },
-      },
-      required: ["path"],
-    },
-  },
-];
-
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: [
-    ...GENERAL_TOOLS,
-    ...manifest.map((fn) => ({
-      name: toToolName(fn.path),
-      description: `${fn.type} — ${signature(fn)}`,
-      inputSchema: argsJsonSchema(fn.args),
-    })),
-  ],
+  tools: listTools(),
 }));
-
-function text(data: unknown) {
-  return {
-    content: [
-      {
-        type: "text" as const,
-        text: typeof data === "string" ? data : JSON.stringify(data, null, 2),
-      },
-    ],
-  };
-}
-
-function errorText(message: string) {
-  return {
-    content: [{ type: "text" as const, text: message }],
-    isError: true,
-  };
-}
 
 server.setRequestHandler(CallToolRequestSchema, async (req) => {
   const { name } = req.params;
   const args = (req.params.arguments ?? {}) as Record<string, unknown>;
   try {
-    if (name === "describe") {
-      const domain = typeof args.domain === "string" ? args.domain : undefined;
-      return text(
-        domain ? byDomain(domain) : { domains: domains(), functions: manifest },
-      );
-    }
-    if (name === "call") {
-      const path = String(args.path ?? "");
-      const callArgs = (args.args ?? {}) as Record<string, unknown>;
-      return text(await call(path, callArgs, { interactive: false }));
-    }
-    const path = toPath(name);
-    if (!findFn(path)) return errorText(`Unknown tool: ${name}`);
-    return text(await call(path, args, { interactive: false }));
+    // The stdio server runs as the user logged in via `setto login`; the
+    // shared `call` re-auths from the stored credentials as needed.
+    const result = await callTool(
+      name,
+      args,
+      (path, callArgs) => call(path, callArgs, { interactive: false }),
+      { webUrl: getConfig().webUrl },
+    );
+    return result as CallToolResult;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     if (/Not authenticated/.test(msg)) {
-      return errorText(
-        `${msg}\nThe MCP server shares the CLI's credentials — run \`setto login\` in a terminal first.`,
-      );
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `${msg}\nThe MCP server shares the CLI's credentials — run \`setto login\` in a terminal first.`,
+          },
+        ],
+        isError: true,
+      };
     }
-    return errorText(`Error calling ${name}: ${msg}`);
+    return {
+      content: [{ type: "text" as const, text: `Error calling ${name}: ${msg}` }],
+      isError: true,
+    };
   }
 });
 

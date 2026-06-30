@@ -91,6 +91,77 @@ pnpm dev         # terminal 2 — Next.js
 
 Open http://localhost:3000.
 
+## Driving setto from agents (CLI & MCP)
+
+The whole product surface is exposed to scripts and AI agents through three
+front-ends that share one auth + call layer (`@setto/core`), so they always stay
+in sync with the backend:
+
+- **`@setto/cli`** — `setto <domain> <fn>` (JSON output). Run `setto login` once,
+  then e.g. `setto shoots list` or `setto describe`.
+- **`@setto/mcp`** — a **local (stdio)** MCP server for desktop agents (Claude
+  Desktop, Claude Code, Cursor). It reuses the CLI's credentials, so run
+  `setto login` first, then point your client at the built `dist/index.js`.
+- **Remote MCP** — a **hosted** MCP server at `POST /api/mcp` in the web app, for
+  **Claude.ai and ChatGPT online** connectors. This is the one to use if you want
+  to connect from the browser apps rather than a desktop client.
+
+### Local (stdio) MCP
+
+```bash
+pnpm install
+pnpm --filter @setto/cli build && node apps/cli/dist/index.js login   # one-time
+pnpm --filter @setto/mcp build
+```
+
+Then register it in your client (e.g. `.mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "setto": { "command": "node", "args": ["<repo>/apps/mcp/dist/index.js"] }
+  }
+}
+```
+
+### Remote MCP (Claude.ai & ChatGPT online)
+
+Claude.ai and ChatGPT connectors are **OAuth clients** that talk to a public
+HTTPS endpoint, so this requires the web app to be **deployed** (not localhost).
+The endpoint:
+
+- speaks MCP's **Streamable HTTP** transport at `POST /api/mcp` (stateless);
+- exposes the full setto tool surface **plus `search` + `fetch`** (the two tools
+  ChatGPT Deep Research expects);
+- authenticates each request with a **WorkOS access token** — the same JWT Convex
+  validates — so org-scoping and permissions match the web app exactly;
+- advertises its OAuth authorization server (your **WorkOS AuthKit** domain) via
+  `GET /.well-known/oauth-protected-resource` (RFC 9728), and returns a
+  `401` + `WWW-Authenticate` challenge when called without a valid token.
+
+**Setup**
+
+1. Deploy the web app over HTTPS (e.g. `https://app.example.com`).
+2. Set `MCP_AUTHORIZATION_SERVER` to your WorkOS AuthKit domain (see
+   `.env.example`) and make sure `WORKOS_CLIENT_ID` / `WORKOS_JWT_CLIENT_ID` are
+   set so tokens can be validated.
+3. In the **WorkOS dashboard**, enable **Dynamic Client Registration** for that
+   AuthKit environment so connectors can self-register, and add your deployed
+   origin as an allowed redirect/origin.
+
+**Connect**
+
+- **Claude.ai** → Settings → Connectors → *Add custom connector* → enter
+  `https://app.example.com/api/mcp`. Claude discovers the OAuth metadata, signs
+  you in through WorkOS, and the setto tools appear.
+- **ChatGPT** → Settings → Connectors (Developer Mode) or the Deep Research
+  connector picker → add the same URL. `search`/`fetch` power Deep Research; the
+  typed per-function tools power Developer-Mode tool calls.
+
+> Auth model: the MCP endpoint is an OAuth **resource server**; WorkOS AuthKit is
+> the **authorization server**. No new user store — connectors authenticate the
+> same WorkOS accounts/orgs your team already uses.
+
 ## Notes
 
 - The app gracefully degrades without keys: missing `NEXT_PUBLIC_CONVEX_URL`
