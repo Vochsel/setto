@@ -23,6 +23,23 @@ export interface ImageModel {
   falEndpoint?: string;
   falImageParam?: "image_urls" | "image_url";
   falDefaultParams?: Record<string, unknown>;
+  /**
+   * How this fal endpoint controls output shape:
+   *  - "aspect_ratio"     → an `aspect_ratio` string (FLUX classic, Gemini)
+   *  - "image_size_enum"  → fal's named `image_size` enum (FLUX.2, Qwen)
+   *  - "image_size_dims"  → an explicit `{width,height}` (Seedream — its enum
+   *                          portrait sizes fall below its min-area limit)
+   * Defaults to "aspect_ratio".
+   */
+  falSize?: "aspect_ratio" | "image_size_enum" | "image_size_dims";
+  /**
+   * Aspect ratios this fal endpoint accepts (only for `falSize:"aspect_ratio"`).
+   * A request outside the list is snapped to the closest supported one so e.g.
+   * 4:5 doesn't error on FLUX. Omit when any ratio is accepted (e.g. Gemini).
+   */
+  falAspectRatios?: string[];
+  /** Cap on how many reference images to send (some editors take only a few). */
+  falMaxImages?: number;
 
   // openai
   openaiModel?: string;
@@ -103,67 +120,63 @@ export const IMAGE_MODELS: ImageModel[] = [
     openaiQuality: "medium",
   },
   // ── fal ──────────────────────────────────────────────────────────
+  // Only multi-image *editors* live here: our pipeline conditions on several
+  // reference photos (outfit + location + model), so text-to-image or
+  // single-image endpoints (old FLUX ultra / Imagen / Ideogram / Recraft /
+  // FLUX dev) ignored our references and produced poor results. These four
+  // follow an instruction prompt across many references like Nano Banana does.
   {
-    id: "fal-ai/nano-banana/edit",
+    id: "fal-ai/nano-banana-2/edit",
     provider: "fal",
-    label: "Nano Banana — via fal",
-    description: "Gemini Flash Image through fal.",
+    label: "Nano Banana 2 — via fal",
+    description:
+      "Gemini 3.1 Flash Image through fal. Excellent multi-reference editing and prompt coherence — the fal route to Nano Banana.",
     supportsImagePrompt: true,
-    pricePerImage: 0.039,
-    falEndpoint: "fal-ai/nano-banana/edit",
+    pricePerImage: 0.08,
+    falEndpoint: "fal-ai/nano-banana-2/edit",
     falImageParam: "image_urls",
     falDefaultParams: { num_images: 1 },
+    falSize: "aspect_ratio", // accepts the full ratio set, no snapping needed
   },
   {
-    id: "fal-ai/flux-pro/v1.1-ultra",
+    id: "fal-ai/bytedance/seedream/v4/edit",
     provider: "fal",
-    label: "FLUX1.1 [pro] ultra — via fal",
-    description: "Top-tier FLUX photorealism (text-to-image).",
-    supportsImagePrompt: false,
-    pricePerImage: 0.06,
-    falEndpoint: "fal-ai/flux-pro/v1.1-ultra",
-    falDefaultParams: { aspect_ratio: "3:4", num_images: 1, safety_tolerance: "5" },
-  },
-  {
-    id: "fal-ai/flux/dev/image-to-image",
-    provider: "fal",
-    label: "FLUX [dev] image-to-image — via fal",
-    description: "FLUX dev conditioned on a reference image.",
+    label: "Seedream 4 — via fal",
+    description:
+      "ByteDance Seedream 4. Top-tier multi-reference editing (up to 10 images) with strong instruction following — a great non-Gemini alternative.",
     supportsImagePrompt: true,
-    pricePerImage: 0.025,
-    falEndpoint: "fal-ai/flux/dev/image-to-image",
-    falImageParam: "image_url",
-    falDefaultParams: { strength: 0.85, num_images: 1 },
-  },
-  {
-    id: "fal-ai/imagen4/preview",
-    provider: "fal",
-    label: "Imagen 4 — via fal",
-    description: "Google Imagen 4 (text-to-image).",
-    supportsImagePrompt: false,
     pricePerImage: 0.04,
-    falEndpoint: "fal-ai/imagen4/preview",
-    falDefaultParams: { aspect_ratio: "3:4", num_images: 1 },
+    falEndpoint: "fal-ai/bytedance/seedream/v4/edit",
+    falImageParam: "image_urls",
+    falDefaultParams: { num_images: 1, max_images: 1 },
+    falSize: "image_size_dims", // enum portrait sizes fall below its min area
   },
   {
-    id: "fal-ai/ideogram/v3",
+    id: "fal-ai/flux-2-pro/edit",
     provider: "fal",
-    label: "Ideogram v3 — via fal",
-    description: "Great composition and typography.",
-    supportsImagePrompt: false,
-    pricePerImage: 0.08,
-    falEndpoint: "fal-ai/ideogram/v3",
-    falDefaultParams: { rendering_speed: "BALANCED", num_images: 1 },
+    label: "FLUX.2 [pro] edit — via fal",
+    description:
+      "Black Forest Labs FLUX.2 [pro]. Multi-reference editing (up to 9 images) with sharp photorealism and strong prompt adherence.",
+    supportsImagePrompt: true,
+    pricePerImage: 0.045,
+    falEndpoint: "fal-ai/flux-2-pro/edit",
+    falImageParam: "image_urls",
+    falDefaultParams: {},
+    falSize: "image_size_enum",
   },
   {
-    id: "fal-ai/recraft-v3",
+    id: "fal-ai/qwen-image-edit-plus",
     provider: "fal",
-    label: "Recraft v3 — via fal",
-    description: "Versatile photo and design styles.",
-    supportsImagePrompt: false,
+    label: "Qwen Image Edit Plus — via fal",
+    description:
+      "Alibaba Qwen-Image-Edit. Multi-image editing with excellent prompt and text fidelity; cheapest of the editors.",
+    supportsImagePrompt: true,
     pricePerImage: 0.04,
-    falEndpoint: "fal-ai/recraft-v3",
-    falDefaultParams: { image_size: "portrait_4_3" },
+    falEndpoint: "fal-ai/qwen-image-edit-plus",
+    falImageParam: "image_urls",
+    falDefaultParams: { num_images: 1 },
+    falSize: "image_size_enum",
+    falMaxImages: 3,
   },
 ];
 
@@ -198,7 +211,11 @@ export function formatPrice(usd: number | undefined): string {
  * get a stricter "reproduce" instruction.
  */
 export function referenceGuidance(model: ImageModel): string {
-  if (model.provider === "google") {
+  // Multi-image editors (Gemini + the fal editors) tend to literally
+  // edit/return an input photo, so steer them to compose fresh and treat the
+  // location as inspiration. OpenAI is more controllable, so it gets the
+  // stricter "reproduce" instruction.
+  if (model.provider === "google" || model.provider === "fal") {
     return (
       "Use the reference images as guidance only: match the subject's likeness " +
       "and reproduce the outfit, and treat the location photo purely as " +
@@ -210,6 +227,95 @@ export function referenceGuidance(model: ImageModel): string {
     "Reference images: reproduce the outfit shown, place the subject in the " +
     "real location shown, and keep the subject's likeness consistent."
   );
+}
+
+/** Numeric value of an "w:h" ratio, or NaN if unparseable. */
+function aspectValue(ratio: string): number {
+  const [w, h] = ratio.split(":").map(Number);
+  return w && h ? w / h : NaN;
+}
+
+/**
+ * Snap a requested aspect ratio to the closest one in `supported` (by numeric
+ * ratio). Returns the request unchanged when it's already supported or can't be
+ * parsed. Keeps a model from erroring on a ratio it doesn't offer.
+ */
+export function snapAspect(requested: string, supported: string[]): string {
+  if (supported.includes(requested)) return requested;
+  const target = aspectValue(requested);
+  if (Number.isNaN(target)) return requested;
+  let best = requested;
+  let bestDelta = Infinity;
+  for (const s of supported) {
+    const delta = Math.abs(aspectValue(s) - target);
+    if (delta < bestDelta) {
+      bestDelta = delta;
+      best = s;
+    }
+  }
+  return best;
+}
+
+/** fal's named image_size enum, keyed by numeric ratio (w/h) for snapping. */
+const FAL_IMAGE_SIZE_ENUM: Record<string, number> = {
+  square_hd: 1,
+  portrait_4_3: 3 / 4,
+  portrait_16_9: 9 / 16,
+  landscape_4_3: 4 / 3,
+  landscape_16_9: 16 / 9,
+};
+
+/** Map an "w:h" ratio to the nearest fal `image_size` enum value. */
+function aspectToImageSizeEnum(ratio: string): string {
+  const v = aspectValue(ratio);
+  if (Number.isNaN(v)) return "square_hd";
+  let best = "square_hd";
+  let bestDelta = Infinity;
+  for (const [name, rv] of Object.entries(FAL_IMAGE_SIZE_ENUM)) {
+    const delta = Math.abs(rv - v);
+    if (delta < bestDelta) {
+      bestDelta = delta;
+      best = name;
+    }
+  }
+  return best;
+}
+
+/**
+ * Explicit {width,height} for an "w:h" ratio, longer side `long`, rounded to a
+ * multiple of 16. Used for endpoints (Seedream) whose enum portrait sizes fall
+ * below their minimum area.
+ */
+function aspectToDims(
+  ratio: string,
+  long = 2048,
+): { width: number; height: number } {
+  const v = aspectValue(ratio);
+  if (Number.isNaN(v) || v === 1) return { width: long, height: long };
+  const r16 = (n: number) => Math.max(512, Math.round(n / 16) * 16);
+  return v > 1
+    ? { width: long, height: r16(long / v) }
+    : { width: r16(long * v), height: long };
+}
+
+/** The output-shape param(s) for a fal model given a requested aspect ratio. */
+function falSizeInput(
+  model: ImageModel,
+  aspectRatio: string,
+): Record<string, unknown> {
+  switch (model.falSize) {
+    case "image_size_enum":
+      return { image_size: aspectToImageSizeEnum(aspectRatio) };
+    case "image_size_dims":
+      return { image_size: aspectToDims(aspectRatio) };
+    case "aspect_ratio":
+    default:
+      return {
+        aspect_ratio: model.falAspectRatios
+          ? snapAspect(aspectRatio, model.falAspectRatios)
+          : aspectRatio,
+      };
+  }
 }
 
 /** Build the request body a fal endpoint expects. */
@@ -227,11 +333,12 @@ export function buildFalInput(
     ...(model.falDefaultParams ?? {}),
   };
   if (typeof args.seed === "number") input.seed = args.seed;
-  // Pin the output shape when requested (e.g. the fixed-size model sheet).
-  if (args.aspectRatio && !("image_size" in input)) {
-    input.aspect_ratio = args.aspectRatio;
+  // Pin the output shape when requested, unless a default already sets it.
+  if (args.aspectRatio && !("image_size" in input) && !("aspect_ratio" in input)) {
+    Object.assign(input, falSizeInput(model, args.aspectRatio));
   }
-  const refs = args.referenceImageUrls?.filter(Boolean) ?? [];
+  let refs = args.referenceImageUrls?.filter(Boolean) ?? [];
+  if (model.falMaxImages) refs = refs.slice(0, model.falMaxImages);
   if (model.supportsImagePrompt && refs.length && model.falImageParam) {
     if (model.falImageParam === "image_urls") input.image_urls = refs;
     else input.image_url = refs[0];
