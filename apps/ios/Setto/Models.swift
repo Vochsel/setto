@@ -15,13 +15,96 @@ struct Campaign: Identifiable, Decodable {
     }
 }
 
+/// A resolved reference image. The backend's `resolveImages` returns these as
+/// `{ url, caption?, source? }` objects (NOT bare strings).
+struct ImageRef: Decodable, Hashable {
+    let url: String
+    let caption: String?
+    let source: String?
+}
+
 struct ModelDoc: Identifiable, Decodable {
     let id: String
     let name: String?
+    let imageUrls: [ImageRef]?
+    let headshotUrl: String?
+
+    /// Best small reference image for the model (its headshot, else any image).
+    var thumbURL: URL? {
+        URL(string: headshotUrl ?? imageUrls?.first?.url ?? "")
+    }
 
     enum CodingKeys: String, CodingKey {
         case id = "_id"
-        case name
+        case name, imageUrls, headshotUrl
+    }
+}
+
+/// A product/outfit from the library, used to tag a captured photo.
+struct OutfitDoc: Identifiable, Decodable {
+    let id: String
+    let name: String
+    let categoryName: String?
+    let imageUrls: [ImageRef]?
+
+    var thumbURL: URL? { URL(string: imageUrls?.first?.url ?? "") }
+
+    enum CodingKeys: String, CodingKey {
+        case id = "_id"
+        case name, categoryName, imageUrls
+    }
+}
+
+/// A shoot card (from `shoots:list`) with the light counts the list renders.
+struct Shoot: Identifiable, Decodable {
+    let id: String
+    let name: String
+    let status: String
+    let description: String?
+    let locationCount: Int?
+    let shotCount: Int?
+    let recentImages: [String]?
+
+    var coverURL: URL? { URL(string: recentImages?.first ?? "") }
+
+    enum CodingKeys: String, CodingKey {
+        case id = "_id"
+        case name, status, description, locationCount, shotCount, recentImages
+    }
+}
+
+/// A location within a shoot (from `shootLocations:listByShoot`) — what a camera
+/// capture is attached to, plus the models present there.
+struct ShootLocationDoc: Identifiable, Decodable {
+    let id: String  // the shootLocation id
+    let location: LocationInfo?
+    let models: [PresentModel]
+
+    var name: String { location?.name ?? "Location" }
+    var thumbURL: URL? {
+        URL(
+            string: location?.imageUrls?.first?.url
+                ?? location?.streetViewUrls?.first?.url ?? "")
+    }
+
+    struct LocationInfo: Decodable {
+        let name: String
+        let imageUrls: [ImageRef]?
+        let streetViewUrls: [ImageRef]?
+    }
+
+    struct PresentModel: Identifiable, Decodable {
+        let id: String
+        let name: String?
+        enum CodingKeys: String, CodingKey {
+            case id = "_id"
+            case name
+        }
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id = "_id"
+        case location, models
     }
 }
 
@@ -37,6 +120,8 @@ struct MediaItem: Identifiable, Decodable, Equatable {
     var favorite: Bool
     let modelLabel: String?
     let prompt: String?
+    let modelId: String?  // present on `review:feed` rows, for local filtering
+    let shootId: String?
 
     var isVideo: Bool { kind == "video" }
     /// What a tile shows: the image, or a video's poster frame.
@@ -45,7 +130,7 @@ struct MediaItem: Identifiable, Decodable, Equatable {
     enum CodingKeys: String, CodingKey {
         case id = "_id"
         case kind, url, posterUrl, rating, reviewStatus, favorite, modelLabel,
-            prompt
+            prompt, modelId, shootId
     }
 }
 

@@ -73,7 +73,7 @@ final class AuthStore: NSObject, ObservableObject,
                 }
             }
             s.presentationContextProvider = self
-            s.prefersEphemeralWebSession = false
+            s.prefersEphemeralWebBrowserSession = false
             self.session = s
             s.start()
         }

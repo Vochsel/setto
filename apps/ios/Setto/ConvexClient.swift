@@ -58,4 +58,102 @@ struct ConvexClient {
             withJSONObject: value, options: [.fragmentsAllowed])
         return try JSONDecoder().decode(T.self, from: valueData)
     }
+
+    /// Call a function purely for its side effect (result discarded).
+    @discardableResult
+    func run(
+        _ path: String,
+        _ type: FnType = .mutation,
+        args: [String: Any] = [:]
+    ) async throws -> Empty {
+        try await call(path, type, args: args, as: Empty.self)
+    }
+}
+
+/// Decodes any JSON object we don't care about the shape of.
+struct Empty: Decodable {}
+
+/// Acknowledgement from `review:toggleFavorite` (`{ favorite }`).
+struct FavoriteAck: Decodable { let favorite: Bool }
+
+// MARK: - Media: upload + review writes
+
+extension ConvexClient {
+    /// Upload raw image bytes to Convex storage and return the new storageId.
+    /// Mirrors the web app: mint a short-lived URL, POST the file, read the id.
+    func uploadImage(
+        _ data: Data, contentType: String = "image/jpeg"
+    ) async throws -> String {
+        guard token != nil else { throw ConvexError.notAuthenticated }
+        let uploadURL = try await call(
+            "files:generateUploadUrl", .mutation, as: String.self)
+        guard let url = URL(string: uploadURL) else {
+            throw ConvexError.server("Bad upload URL")
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue(contentType, forHTTPHeaderField: "Content-Type")
+        let (body, _) = try await URLSession.shared.upload(
+            for: request, from: data)
+        let json =
+            (try? JSONSerialization.jsonObject(with: body)) as? [String: Any]
+            ?? [:]
+        guard let storageId = json["storageId"] as? String else {
+            throw ConvexError.server("Upload failed")
+        }
+        return storageId
+    }
+
+    /// Save a captured photo into a shoot as a succeeded generation.
+    @discardableResult
+    func addCapture(
+        storageId: String,
+        shootLocationId: String? = nil,
+        shotId: String? = nil,
+        modelId: String? = nil,
+        outfitId: String? = nil,
+        caption: String? = nil
+    ) async throws -> String {
+        var args: [String: Any] = ["storageId": storageId]
+        if let shootLocationId { args["shootLocationId"] = shootLocationId }
+        if let shotId { args["shotId"] = shotId }
+        if let modelId { args["modelId"] = modelId }
+        if let outfitId { args["outfitId"] = outfitId }
+        if let caption, !caption.isEmpty { args["caption"] = caption }
+        return try await call(
+            "generations:addCapture", .mutation, args: args, as: String.self)
+    }
+
+    /// Kick off the background AI "wardrobe" pass over a capture, compositing
+    /// the model + product into the captured scene with the chosen image model.
+    @discardableResult
+    func enhanceCapture(
+        captureId: String, modelKey: String
+    ) async throws -> Empty {
+        try await run(
+            "generate:enhanceCapture", .action,
+            args: ["captureId": captureId, "modelKey": modelKey])
+    }
+
+    /// Set or clear a media item's rating (1–5, or nil to clear).
+    func setRating(_ id: String, _ rating: Int?) async throws {
+        try await run(
+            "review:setReview",
+            args: ["id": id, "rating": rating ?? NSNull()])
+    }
+
+    /// Set or clear a media item's approval status.
+    func setStatus(_ id: String, _ status: ReviewStatus?) async throws {
+        try await run(
+            "review:setReview",
+            args: ["id": id, "reviewStatus": status?.rawValue ?? NSNull()])
+    }
+
+    /// Flip the favorite flag; returns the new value.
+    func toggleFavorite(_ id: String) async throws -> Bool {
+        let ack = try await call(
+            "review:toggleFavorite", .mutation,
+            args: ["id": id], as: FavoriteAck.self)
+        return ack.favorite
+    }
 }

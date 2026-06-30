@@ -397,6 +397,90 @@ export const generateShot = action({
 });
 
 /**
+ * AI "wardrobe" pass over a camera capture: take the captured photo as the
+ * scene and composite the model — wearing their product/outfit — into it,
+ * producing a new generation in the same shoot. Routes to the picked model
+ * (Nano Banana / GPT Image 2 / …) and runs in the background via `runOne`.
+ */
+export const enhanceCapture = action({
+  args: {
+    captureId: v.id("generations"),
+    modelKey: v.optional(v.string()),
+  },
+  // Explicit return type breaks the circular `internal`-API inference (this
+  // action references the same `internal` namespace it lives in).
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ generationId: Id<"generations"> }> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const userId = identity.subject;
+    const orgId = (identity.org_id as string | undefined) ?? `user:${userId}`;
+
+    const refs = await ctx.runQuery(internal.generations.captureRefs, {
+      id: args.captureId,
+    });
+    if (refs.orgId !== orgId) throw new Error("Not found");
+    if (!refs.sceneUrl) throw new Error("Capture has no image");
+
+    const modelKey = args.modelKey ?? DEFAULT_MODEL_ID;
+    const model = getImageModel(modelKey);
+    if (!model) throw new Error(`Unknown model: ${modelKey}`);
+
+    const who = refs.modelName ?? "the model";
+    const wardrobe = refs.outfitName
+      ? `wearing the ${refs.outfitName}`
+      : "wearing their wardrobe outfit";
+    const prompt =
+      `Using the first attached photo as the scene, place ${who} ${wardrobe} ` +
+      `naturally into it. Preserve the location, background, lighting and camera ` +
+      `framing of that photo; integrate the person realistically at the correct ` +
+      `scale and perspective.\n\n${referenceGuidance(model)}`;
+
+    // Scene first (the captured photo), then the product, then the likeness.
+    const references = Array.from(
+      new Set(
+        [
+          refs.sceneUrl,
+          ...refs.outfitImageUrls.slice(0, 2),
+          ...refs.modelImageUrls.slice(0, 2),
+        ].filter(Boolean),
+      ),
+    ) as string[];
+
+    const genId: Id<"generations"> = await ctx.runMutation(
+      internal.generations.create,
+      {
+      orgId,
+      createdBy: userId,
+      shotId: refs.shotId,
+      shootId: refs.shootId,
+      modelId: refs.modelId ?? undefined,
+      outfitId: refs.outfitId ?? undefined,
+      locationId: refs.locationId ?? undefined,
+      styleId: refs.styleId ?? undefined,
+      cameraId: refs.cameraId ?? undefined,
+      lightingId: refs.lightingId ?? undefined,
+      provider: model.provider,
+      modelKey,
+      modelLabel: model.label,
+      prompt,
+      },
+    );
+
+    await ctx.scheduler.runAfter(0, internal.generate.runOne, {
+      genId,
+      modelKey,
+      prompt,
+      referenceImageUrls: references,
+      aspectRatio: refs.aspectRatio ?? undefined,
+    });
+    return { generationId: genId };
+  },
+});
+
+/**
  * Execute a single queued generation against its provider and store the
  * result. Scheduled (one per variation) by `generateShot` so generations run
  * concurrently and never block the request.

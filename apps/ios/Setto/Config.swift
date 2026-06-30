@@ -8,12 +8,12 @@ enum Config {
         string: ProcessInfo.processInfo.environment["SETTO_CONVEX_URL"]
             ?? "https://formal-warthog-79.convex.cloud")!
 
-    /// The web app that signs the user in and redirects the token back.
-    /// Change this to your real domain (or http://localhost:3000 for dev on a
-    /// simulator).
+    /// The web app that signs the user in and redirects the token back. This is
+    /// the live site (or http://localhost:3000 for dev on a simulator); override
+    /// at runtime with SETTO_WEB_URL.
     static let webURL = URL(
         string: ProcessInfo.processInfo.environment["SETTO_WEB_URL"]
-            ?? "https://app.setto.dev")!
+            ?? "https://setto.vochsel.com")!
 
     /// Must match a CFBundleURLScheme in Info.plist and the scheme the web
     /// bridge is allowed to redirect to.

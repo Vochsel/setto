@@ -6,10 +6,14 @@ struct RootView: View {
     var body: some View {
         if auth.isAuthenticated {
             TabView {
+                GalleryView()
+                    .tabItem { Label("Gallery", systemImage: "square.grid.2x2") }
+                ShootsView()
+                    .tabItem {
+                        Label("Shoots", systemImage: "camera.on.rectangle")
+                    }
                 FavoritesView()
                     .tabItem { Label("Favorites", systemImage: "heart") }
-                CampaignsView()
-                    .tabItem { Label("Campaigns", systemImage: "megaphone") }
                 ModelsView()
                     .tabItem { Label("Models", systemImage: "person.crop.square") }
                 AccountView()
