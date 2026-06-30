@@ -29,9 +29,10 @@ import {
 } from "@/convex/lib/videoModels";
 import type { Id } from "@/convex/_generated/dataModel";
 
-/** Sensible starting motion prompt — natural, ambient movement. */
+/** Sensible starting motion prompt — a subtle "keep-alive" / live-photo feel:
+ * the subject stays put, only gentle ambient movement, calm background. */
 const DEFAULT_MOTION_PROMPT =
-  "natural video footage of ambient life, keep subject in frame and same expression and pose";
+  "Subtle keep-alive motion, like a live photo. Keep the subject in frame with the same pose and expression. Only gentle, minimal movement — a light breeze stirring the hair and clothing, a faint natural sway, and a very slow, subtle camera push-in. Keep the background calm and steady with very little motion.";
 
 /**
  * Popover to animate a finished image into a video: pick a fal i2v model, a
