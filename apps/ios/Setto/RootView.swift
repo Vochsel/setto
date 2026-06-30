@@ -19,9 +19,30 @@ struct RootView: View {
                 AccountView()
                     .tabItem { Label("Account", systemImage: "person.circle") }
             }
+        } else if auth.needsResume || auth.resuming {
+            ResumingView()
         } else {
             LoginView()
         }
+    }
+}
+
+/// Shown on launch when a session is remembered but its token expired — resumes
+/// silently (WorkOS refreshes server-side) rather than asking to sign in again.
+struct ResumingView: View {
+    @EnvironmentObject var auth: AuthStore
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 44))
+                .foregroundStyle(.tint)
+            ProgressView()
+            Text("Resuming your session…")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+        .task { await auth.resumeIfNeeded() }
     }
 }
 
