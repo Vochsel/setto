@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@fal-ai/client": "^1.10.1",
+    "@remotion/lambda": "^4.0.0",
     "@setto/core": "workspace:*",
     "convex": "^1.42.0"
   },

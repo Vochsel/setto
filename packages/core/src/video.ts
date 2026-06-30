@@ -81,8 +81,14 @@ export interface VideoAudio {
   volume?: number;
 }
 
-/** The full, self-contained composition the renderer consumes. */
-export interface VideoSpec {
+/**
+ * The full, self-contained composition the renderer consumes.
+ *
+ * Declared as a `type` (not an `interface`) on purpose: Remotion's
+ * `<Composition>` constrains its props to `Record<string, unknown>`, and only
+ * type-aliased object types satisfy that index signature.
+ */
+export type VideoSpec = {
   templateId: string;
   width: number;
   height: number;
@@ -90,7 +96,7 @@ export interface VideoSpec {
   background?: string;
   clips: VideoClip[];
   audio?: VideoAudio;
-}
+};
 
 // ── Templates ─────────────────────────────────────────────────────────────
 

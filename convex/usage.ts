@@ -14,6 +14,7 @@ const kindV = v.union(
   v.literal("campaign_copy"),
   v.literal("campaign_creative"),
   v.literal("video"),
+  v.literal("video_export"),
 );
 const statusV = v.union(v.literal("succeeded"), v.literal("failed"));
 
@@ -189,6 +190,43 @@ export const recordForVideo = internalMutation({
       shotId: g.shotId,
       shootId: g.shootId,
       modelId: g.modelId, // snapshotted person-model, for per-model audit
+      error,
+    });
+  },
+});
+
+/**
+ * Log a video-project mp4 export (Remotion Lambda render) from its
+ * `videoRenders` row. Cost is the actual Lambda cost reported back on success,
+ * else 0. Links the render + project + originating shoot for the audit trail.
+ */
+export const recordForVideoExport = internalMutation({
+  args: {
+    renderId: v.id("videoRenders"),
+    status: statusV,
+    costUsd: v.optional(v.number()),
+    error: v.optional(v.string()),
+  },
+  handler: async (ctx, { renderId, status, costUsd, error }) => {
+    const r = await ctx.db.get(renderId);
+    if (!r) return;
+    const project = await ctx.db.get(r.projectId);
+    const { userName, userEmail } = await resolveUser(ctx, r.createdBy);
+    await ctx.db.insert("usageEvents", {
+      orgId: r.orgId,
+      userId: r.createdBy,
+      userName,
+      userEmail,
+      kind: "video_export",
+      provider: "remotion",
+      modelKey: "remotion-lambda",
+      modelLabel: "Remotion Lambda",
+      status,
+      cost: status === "succeeded" ? (costUsd ?? 0) : 0,
+      durationSeconds: r.durationMs / 1000,
+      videoRenderId: renderId,
+      videoProjectId: r.projectId,
+      shootId: project?.shootId,
       error,
     });
   },

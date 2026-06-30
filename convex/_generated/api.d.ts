@@ -29,6 +29,7 @@ import type * as models from "../models.js";
 import type * as outfitCategories from "../outfitCategories.js";
 import type * as outfits from "../outfits.js";
 import type * as presets from "../presets.js";
+import type * as renderVideo from "../renderVideo.js";
 import type * as review from "../review.js";
 import type * as settings from "../settings.js";
 import type * as shootLocations from "../shootLocations.js";
@@ -37,6 +38,8 @@ import type * as shots from "../shots.js";
 import type * as streetview from "../streetview.js";
 import type * as usage from "../usage.js";
 import type * as users from "../users.js";
+import type * as videoProjects from "../videoProjects.js";
+import type * as videoRenders from "../videoRenders.js";
 import type * as videos from "../videos.js";
 
 import type {
@@ -67,6 +70,7 @@ declare const fullApi: ApiFromModules<{
   outfitCategories: typeof outfitCategories;
   outfits: typeof outfits;
   presets: typeof presets;
+  renderVideo: typeof renderVideo;
   review: typeof review;
   settings: typeof settings;
   shootLocations: typeof shootLocations;
@@ -75,6 +79,8 @@ declare const fullApi: ApiFromModules<{
   streetview: typeof streetview;
   usage: typeof usage;
   users: typeof users;
+  videoProjects: typeof videoProjects;
+  videoRenders: typeof videoRenders;
   videos: typeof videos;
 }>;
 

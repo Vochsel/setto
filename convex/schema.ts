@@ -159,10 +159,13 @@ export const videoClip = v.object({
   transition: v.optional(videoTransition),
   layer: v.optional(v.number()),
   caption: v.optional(v.string()),
-  // Provenance (trace a clip back to its source media).
-  generationId: v.optional(v.id("generations")),
-  videoId: v.optional(v.id("videos")),
-  shotId: v.optional(v.id("shots")),
+  // Provenance — informational snapshot links back to the source media. Plain
+  // strings (not v.id) so this validator matches the pure `@setto/core/video`
+  // VideoClip type exactly; cast to Id<...> at the few call sites that look them
+  // up. Clips are denormalized (urls already resolved), so no FK is needed.
+  generationId: v.optional(v.string()),
+  videoId: v.optional(v.string()),
+  shotId: v.optional(v.string()),
 });
 
 /** Background audio bed for the whole composition. */

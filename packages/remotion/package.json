@@ -1,0 +1,33 @@
+{
+  "name": "@setto/remotion",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./Timeline": "./src/Timeline.tsx"
+  },
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "deploy": "tsx scripts/deploy.ts",
+    "render": "remotion lambda render"
+  },
+  "dependencies": {
+    "@remotion/transitions": "^4.0.0",
+    "@setto/core": "workspace:*",
+    "remotion": "^4.0.0",
+    "react": "^19",
+    "react-dom": "^19"
+  },
+  "devDependencies": {
+    "@remotion/cli": "^4.0.0",
+    "@remotion/lambda": "^4.0.0",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "tsx": "^4.0.0",
+    "typescript": "^5"
+  }
+}
