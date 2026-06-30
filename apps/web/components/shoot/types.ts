@@ -95,6 +95,8 @@ export interface ShootLocationDoc {
     lng?: number;
     streetViewUrls?: { url: string; caption?: string }[];
     imageUrls?: { url: string }[];
+    streetViewRadiusEnabled?: boolean;
+    streetViewRadiusMeters?: number;
   } | null;
   models: { _id: Id<"models">; name: string; imageUrls?: { url: string }[] }[];
 }

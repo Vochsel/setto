@@ -49,6 +49,8 @@ export const create = mutation({
     googlePlaceId: v.optional(v.string()),
     images: v.optional(v.array(imageRef)),
     streetViewRefs: v.optional(v.array(imageRef)),
+    streetViewRadiusEnabled: v.optional(v.boolean()),
+    streetViewRadiusMeters: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const scope = await getScope(ctx);
@@ -72,6 +74,8 @@ export const update = mutation({
     googlePlaceId: v.optional(v.string()),
     images: v.optional(v.array(imageRef)),
     streetViewRefs: v.optional(v.array(imageRef)),
+    streetViewRadiusEnabled: v.optional(v.boolean()),
+    streetViewRadiusMeters: v.optional(v.number()),
   },
   handler: async (ctx, { id, ...patch }) => {
     const scope = await getScope(ctx);

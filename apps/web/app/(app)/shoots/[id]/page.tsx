@@ -36,6 +36,10 @@ import { ShootMap } from "@/components/shoot/shoot-map";
 import { AddLocation } from "@/components/shoot/add-location";
 import { AddNearbyLocation } from "@/components/shoot/add-nearby-location";
 import { LocationPanel } from "@/components/shoot/location-panel";
+import {
+  StreetViewRadiusControl,
+  DEFAULT_STREETVIEW_RADIUS_M,
+} from "@/components/streetview-radius-control";
 import { formatDateTime, shootStatusMeta, type ShootStatus } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -55,6 +59,7 @@ export default function ShootEditorPage() {
   const shoot = useQuery(api.shoots.get, { id: shootId });
   const shootLocations = useQuery(api.shootLocations.listByShoot, { shootId });
   const shots = useQuery(api.shots.listByShoot, { shootId });
+  const allLocations = useQuery(api.locations.list, {});
   const models = useQuery(api.models.list, {});
   const outfits = useQuery(api.outfits.list, {});
   const styles = useQuery(api.presets.list, { type: "photography_style" });
@@ -168,6 +173,20 @@ export default function ShootEditorPage() {
   const shotCounts: Record<string, number> = Object.fromEntries(
     locs.map((l) => [l._id, shotsByLocation[l._id]?.length ?? 0]),
   );
+  // Move / duplicate targets: the shoot's own locations, plus the library.
+  const shootLocationTargets = locs.map((l) => ({
+    shootLocationId: l._id,
+    locationId: l.locationId,
+    name: l.location?.name ?? "Location",
+  }));
+  const libraryLocationTargets = (allLocations ?? []).map((l) => ({
+    locationId: l._id,
+    name: l.name,
+  }));
+  // Shoot-wide Street View radius used as the per-location fallback.
+  const shootRadiusMeters = shoot.streetViewRadiusEnabled
+    ? (shoot.streetViewRadiusMeters ?? DEFAULT_STREETVIEW_RADIUS_M)
+    : undefined;
   const status = shootStatusMeta[shoot.status];
 
   return (
@@ -281,6 +300,10 @@ export default function ShootEditorPage() {
               scheduledAt={shoot.scheduledAt}
               onRemoved={() => setSelectedLocId(undefined)}
               highlightShotId={targetShotId ?? undefined}
+              shootId={shootId}
+              shootLocationTargets={shootLocationTargets}
+              libraryLocations={libraryLocationTargets}
+              shootRadiusMeters={shootRadiusMeters}
             />
           ) : (
             <EmptyState
@@ -304,11 +327,15 @@ function ShootSettings({
     name: string;
     description?: string;
     scheduledAt?: number;
+    streetViewRadiusEnabled?: boolean;
+    streetViewRadiusMeters?: number;
   };
   onSave: (patch: {
     name?: string;
     description?: string;
     scheduledAt?: number;
+    streetViewRadiusEnabled?: boolean;
+    streetViewRadiusMeters?: number;
   }) => Promise<unknown>;
   onDelete: () => void | Promise<void>;
 }) {
@@ -320,6 +347,12 @@ function ShootSettings({
       ? format(new Date(shoot.scheduledAt), "yyyy-MM-dd'T'HH:mm")
       : "",
   );
+  const [radiusEnabled, setRadiusEnabled] = useState(
+    shoot.streetViewRadiusEnabled ?? false,
+  );
+  const [radiusMeters, setRadiusMeters] = useState(
+    shoot.streetViewRadiusMeters ?? DEFAULT_STREETVIEW_RADIUS_M,
+  );
   const [saving, setSaving] = useState(false);
 
   async function save() {
@@ -329,6 +362,8 @@ function ShootSettings({
         name: name.trim() || shoot.name,
         description: description.trim() || undefined,
         scheduledAt: when ? new Date(when).getTime() : undefined,
+        streetViewRadiusEnabled: radiusEnabled,
+        streetViewRadiusMeters: radiusMeters,
       });
       toast.success("Shoot updated");
       setOpen(false);
@@ -374,6 +409,16 @@ function ShootSettings({
               onChange={(e) => setDescription(e.target.value)}
             />
           </div>
+          <StreetViewRadiusControl
+            enabled={radiusEnabled}
+            radiusMeters={radiusMeters}
+            onChange={(en, m) => {
+              setRadiusEnabled(en);
+              setRadiusMeters(m);
+            }}
+            title="Street View radius (shoot default)"
+            description="When on, locations in this shoot pull frames from nearby spots within the radius — unless a location overrides it."
+          />
         </div>
         <DialogFooter className="sm:justify-between">
           <ConfirmDelete

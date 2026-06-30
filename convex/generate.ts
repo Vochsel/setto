@@ -10,6 +10,7 @@ import {
   buildFalInput,
   referenceGuidance,
   DEFAULT_MODEL_ID,
+  DEFAULT_VARIATION_MODEL_ID,
   type ImageModel,
 } from "./lib/imageModels";
 
@@ -375,6 +376,92 @@ export const generateShot = action({
         prompt: promptText,
         referenceImageUrls: references,
         aspectRatio: c.shot.aspectRatio ?? undefined,
+      });
+    }
+    return { generationIds };
+  },
+});
+
+/**
+ * The instruction that turns a finished frame into fresh, realistic variations
+ * of itself (image-to-image). It deliberately keeps the subject, wardrobe and
+ * setting while varying pose / expression / framing / light, so the result
+ * reads as another frame from the same shoot rather than an unrelated image.
+ */
+function buildVariationPrompt(userPrompt?: string): string {
+  const base =
+    "Create a new, realistic variation of the attached photograph. Keep the " +
+    "same person and their likeness, the same wardrobe, the same location and " +
+    "the same overall photographic style, but naturally vary the pose, " +
+    "expression, camera framing and lighting so it reads as a different frame " +
+    "from the same photoshoot. Photorealistic, natural skin texture, sharp " +
+    "focus, no text, watermark or added graphics.";
+  const extra = (userPrompt ?? "").trim();
+  return extra ? `${base}\n\nAdditional direction: ${extra}` : base;
+}
+
+/**
+ * Generate one or more realistic variations of an existing finished image
+ * (image-to-image), conditioned on that image as the reference. Defaults to a
+ * cheap editor model and an optional extra prompt. New rows attach to the same
+ * shot (with the source's frozen recipe snapshot) so they appear alongside the
+ * original and attribute correctly in galleries. Returns immediately; each
+ * variation is produced by the shared `runOne` worker.
+ */
+export const generateVariations = action({
+  args: {
+    generationId: v.id("generations"),
+    prompt: v.optional(v.string()),
+    modelKey: v.optional(v.string()),
+    count: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const userId = identity.subject;
+    const orgId = (identity.org_id as string | undefined) ?? `user:${userId}`;
+
+    const src = await ctx.runQuery(internal.generations.variationSource, {
+      generationId: args.generationId,
+    });
+    if (src.orgId !== orgId) throw new Error("Not found");
+    if (!src.imageUrl) throw new Error("Source image is not available yet");
+
+    const modelKey = args.modelKey ?? DEFAULT_VARIATION_MODEL_ID;
+    const model = getImageModel(modelKey);
+    if (!model) throw new Error(`Unknown model: ${modelKey}`);
+
+    const count = Math.min(Math.max(args.count ?? 1, 1), 4);
+    const promptText = buildVariationPrompt(args.prompt);
+
+    const generationIds: string[] = [];
+    for (let i = 0; i < count; i++) {
+      const genId = await ctx.runMutation(internal.generations.create, {
+        orgId,
+        createdBy: userId,
+        shotId: src.shotId,
+        shootId: src.shootId,
+        // Carry the source frame's frozen recipe so per-model / per-location
+        // galleries attribute the variation exactly like the original.
+        modelId: src.modelId ?? undefined,
+        outfitId: src.outfitId ?? undefined,
+        locationId: src.locationId ?? undefined,
+        styleId: src.styleId ?? undefined,
+        cameraId: src.cameraId ?? undefined,
+        lightingId: src.lightingId ?? undefined,
+        provider: model.provider,
+        modelKey,
+        modelLabel: model.label,
+        prompt: promptText,
+      });
+      generationIds.push(genId);
+      await ctx.scheduler.runAfter(0, internal.generate.runOne, {
+        genId,
+        modelKey,
+        prompt: promptText,
+        // The source image IS the reference (image-to-image / edit).
+        referenceImageUrls: [src.imageUrl],
+        aspectRatio: src.aspectRatio ?? undefined,
       });
     }
     return { generationIds };
