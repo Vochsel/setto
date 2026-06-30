@@ -410,6 +410,88 @@ export const listByOutfit = query({
   },
 });
 
+/**
+ * Add a real, camera-captured photo to a shoot as a succeeded generation — the
+ * write behind the iOS "Photo mode". The capture stands in for (overrides) an
+ * AI render under a location's shot, tagged with the chosen model + product so
+ * it attributes correctly in the per-model / per-location galleries.
+ *
+ * Target a `shotId` directly, or a `shootLocationId` — in which case we attach
+ * to that location's first shot, creating one if the location has none yet.
+ * `modelId` / `outfitId` override the shot's recipe for this capture; omit them
+ * to inherit the shot's current model / outfit.
+ */
+export const addCapture = mutation({
+  args: {
+    storageId: v.id("_storage"),
+    shotId: v.optional(v.id("shots")),
+    shootLocationId: v.optional(v.id("shootLocations")),
+    modelId: v.optional(v.id("models")),
+    outfitId: v.optional(v.id("outfits")),
+    caption: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const scope = await getScope(ctx);
+
+    // Resolve the shot we attach to (create one for a bare location if needed).
+    let shot: Doc<"shots">;
+    if (args.shotId) {
+      shot = assertOrg(await ctx.db.get(args.shotId), scope);
+    } else if (args.shootLocationId) {
+      const sl = assertOrg(await ctx.db.get(args.shootLocationId), scope);
+      const existing = await ctx.db
+        .query("shots")
+        .withIndex("by_shoot_location", (q) =>
+          q.eq("shootLocationId", sl._id),
+        )
+        .collect();
+      existing.sort((a, b) => a.order - b.order);
+      if (existing.length) {
+        shot = existing[0];
+      } else {
+        const id = await ctx.db.insert("shots", {
+          orgId: scope.orgId,
+          shootId: sl.shootId,
+          shootLocationId: sl._id,
+          order: 0,
+          name: "Camera",
+          modelId: args.modelId ?? sl.modelIds?.[0],
+          selectedVariationIds: [],
+        });
+        shot = (await ctx.db.get(id))!;
+      }
+    } else {
+      throw new Error("Provide a shotId or a shootLocationId");
+    }
+
+    const sl = await ctx.db.get(shot.shootLocationId);
+    const modelId = args.modelId ?? shot.modelId;
+    const outfitId = args.outfitId ?? shot.outfitId;
+    const model = modelId ? await ctx.db.get(modelId) : null;
+
+    return await ctx.db.insert("generations", {
+      orgId: scope.orgId,
+      createdBy: scope.userId,
+      shotId: shot._id,
+      shootId: shot.shootId,
+      // Freeze the recipe snapshot so galleries attribute the capture.
+      modelId,
+      outfitId,
+      locationId: sl?.locationId,
+      styleId: shot.styleId,
+      cameraId: shot.cameraId,
+      lightingId: shot.lightingId,
+      provider: "camera",
+      modelKey: "camera/native",
+      modelLabel: model?.name,
+      prompt: args.caption?.trim() || "Camera capture",
+      status: "succeeded",
+      storageId: args.storageId,
+      favorite: false,
+    });
+  },
+});
+
 export const remove = mutation({
   args: { id: v.id("generations") },
   handler: async (ctx, { id }) => {

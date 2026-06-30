@@ -27,6 +27,9 @@ targets:
         CFBundleDisplayName: Setto
         UILaunchScreen: {}
         ITSAppUsesNonExemptEncryption: false
+        # Photo Mode captures real photos into a shoot with the native camera.
+        NSCameraUsageDescription: >-
+          Setto uses the camera to capture photos directly into a shoot.
         # Custom URL scheme used by the WorkOS web-login callback.
         CFBundleURLTypes:
           - CFBundleURLName: app.setto.ios
