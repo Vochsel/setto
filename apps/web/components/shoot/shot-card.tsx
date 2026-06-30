@@ -99,7 +99,6 @@ export function ShotCard({
   const update = useMutation(api.shots.update);
   const remove = useMutation(api.shots.remove);
   const duplicateShot = useMutation(api.shots.duplicate);
-  const removeVideo = useMutation(api.videos.remove);
   const generate = useAction(api.generate.generateShot);
   const settings = useQuery(api.settings.get, {});
   const setDefaultModel = useMutation(api.settings.setDefaultImageModel);
@@ -575,7 +574,6 @@ export function ShotCard({
               <VideoTile
                 key={vd._id}
                 video={vd}
-                onDelete={() => removeVideo({ id: vd._id })}
                 onOpen={() => {
                   const i = succeededVideos.findIndex((s) => s._id === vd._id);
                   if (i !== -1) setVideoLightboxIndex(i);
@@ -705,11 +703,9 @@ function ProgressOverlay({
 /** A single video render tile: poster + play, progress, or error. */
 function VideoTile({
   video,
-  onDelete,
   onOpen,
 }: {
   video: VideoDoc;
-  onDelete: () => void;
   onOpen: () => void;
 }) {
   const succeeded = video.status === "succeeded" && video.videoUrl;
@@ -784,13 +780,6 @@ function VideoTile({
           />
         </>
       )}
-      <button
-        onClick={onDelete}
-        className="absolute right-1 top-1 z-10 rounded bg-black/60 p-0.5 text-white opacity-0 transition-opacity group-hover:opacity-100"
-        aria-label="Delete video"
-      >
-        <Trash2 className="h-3 w-3" />
-      </button>
     </div>
   );
 }
