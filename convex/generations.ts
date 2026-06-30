@@ -135,6 +135,39 @@ export const context = internalQuery({
   },
 });
 
+/**
+ * Resolve a source generation into everything needed to spin off realistic
+ * variations of it: the org (for the auth check), the shot/shoot it belongs to,
+ * the frozen recipe snapshot (so variations inherit per-model / per-location
+ * attribution), the shot's aspect ratio, and the resolved source image URL
+ * (the image-to-image reference). Internal-only.
+ */
+export const variationSource = internalQuery({
+  args: { generationId: v.id("generations") },
+  handler: async (ctx, { generationId }) => {
+    const g = await ctx.db.get(generationId);
+    if (!g) throw new Error("Generation not found");
+    let imageUrl = g.imageUrl;
+    if (!imageUrl && g.storageId) {
+      imageUrl = (await ctx.storage.getUrl(g.storageId)) ?? undefined;
+    }
+    const shot = await ctx.db.get(g.shotId);
+    return {
+      orgId: g.orgId,
+      shotId: g.shotId,
+      shootId: g.shootId,
+      modelId: g.modelId ?? null,
+      outfitId: g.outfitId ?? null,
+      locationId: g.locationId ?? null,
+      styleId: g.styleId ?? null,
+      cameraId: g.cameraId ?? null,
+      lightingId: g.lightingId ?? null,
+      aspectRatio: shot?.aspectRatio ?? null,
+      imageUrl: imageUrl ?? null,
+    };
+  },
+});
+
 export const create = internalMutation({
   args: {
     orgId: v.string(),

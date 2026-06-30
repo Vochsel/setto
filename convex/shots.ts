@@ -100,26 +100,73 @@ export const update = mutation({
   },
 });
 
-/** Copy a shot (settings only, not its generations) into the same location. */
+/**
+ * Copy a shot (settings only, not its generations). Defaults to the same
+ * location; pass `shootLocationId` to copy it into a different location of the
+ * SAME shoot (the target must belong to this shoot).
+ */
 export const duplicate = mutation({
-  args: { id: v.id("shots") },
-  handler: async (ctx, { id }) => {
+  args: {
+    id: v.id("shots"),
+    shootLocationId: v.optional(v.id("shootLocations")),
+  },
+  handler: async (ctx, { id, shootLocationId }) => {
     const scope = await getScope(ctx);
     const shot = assertOrg(await ctx.db.get(id), scope);
+    const targetSlId = shootLocationId ?? shot.shootLocationId;
+    if (targetSlId !== shot.shootLocationId) {
+      const target = assertOrg(await ctx.db.get(targetSlId), scope);
+      if (target.shootId !== shot.shootId) {
+        throw new Error("Target location is in a different shoot");
+      }
+    }
     const siblings = await ctx.db
       .query("shots")
       .withIndex("by_shoot_location", (q) =>
-        q.eq("shootLocationId", shot.shootLocationId),
+        q.eq("shootLocationId", targetSlId),
       )
       .collect();
     const order = Math.max(-1, ...siblings.map((s) => s.order)) + 1;
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { _id, _creationTime, name, ...rest } = shot;
+    const {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      _id,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      _creationTime,
+      name,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      shootLocationId: _oldSl,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      order: _oldOrder,
+      ...rest
+    } = shot;
     return await ctx.db.insert("shots", {
       ...rest,
+      shootLocationId: targetSlId,
       order,
       name: name ? `${name} (copy)` : undefined,
     });
+  },
+});
+
+/** Move a shot to a different location within the same shoot. */
+export const move = mutation({
+  args: { id: v.id("shots"), shootLocationId: v.id("shootLocations") },
+  handler: async (ctx, { id, shootLocationId }) => {
+    const scope = await getScope(ctx);
+    const shot = assertOrg(await ctx.db.get(id), scope);
+    if (shootLocationId === shot.shootLocationId) return; // already here
+    const target = assertOrg(await ctx.db.get(shootLocationId), scope);
+    if (target.shootId !== shot.shootId) {
+      throw new Error("Target location is in a different shoot");
+    }
+    const siblings = await ctx.db
+      .query("shots")
+      .withIndex("by_shoot_location", (q) =>
+        q.eq("shootLocationId", shootLocationId),
+      )
+      .collect();
+    const order = Math.max(-1, ...siblings.map((s) => s.order)) + 1;
+    await ctx.db.patch(id, { shootLocationId, order });
   },
 });
 

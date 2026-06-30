@@ -56,6 +56,12 @@ import {
   type ImageProvider,
 } from "@/convex/lib/imageModels";
 import { AnimatePopover } from "@/components/animate-popover";
+import { VariationsPopover } from "@/components/variations-popover";
+import {
+  MoveShotMenu,
+  type ShootLocationTarget,
+  type LibraryLocationTarget,
+} from "@/components/shoot/move-shot-menu";
 import { FavoriteButton, ReviewBadges } from "@/components/review-controls";
 import { ASPECT_RATIOS } from "@/lib/format";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -86,6 +92,9 @@ export function ShotCard({
   castModelIds,
   scheduledAt,
   highlight,
+  shootId,
+  shootLocations,
+  libraryLocations,
 }: {
   shot: ShotDoc;
   library: LibraryData;
@@ -95,6 +104,12 @@ export function ShotCard({
   scheduledAt?: number;
   /** Deep-link target — scroll into view and ring this shot. */
   highlight?: boolean;
+  /** The shoot this shot belongs to (for move / duplicate targets). */
+  shootId?: Id<"shoots">;
+  /** Other locations in the shoot, as move / duplicate targets. */
+  shootLocations?: ShootLocationTarget[];
+  /** Library locations not yet in the shoot (added on use as a "new" target). */
+  libraryLocations?: LibraryLocationTarget[];
 }) {
   const update = useMutation(api.shots.update);
   const remove = useMutation(api.shots.remove);
@@ -286,6 +301,15 @@ export function ShotCard({
         >
           <Copy className="h-3.5 w-3.5" />
         </Button>
+        {shootId && shootLocations && (
+          <MoveShotMenu
+            shotId={shot._id}
+            shootId={shootId}
+            currentShootLocationId={shot.shootLocationId}
+            shootLocations={shootLocations}
+            libraryLocations={libraryLocations ?? []}
+          />
+        )}
         <ConfirmDelete
           title="Delete this shot?"
           onConfirm={async () => {
@@ -647,19 +671,32 @@ function GenerationTile({
         <ProgressOverlay label={gen.progressLabel} progress={gen.progress} />
       )}
 
-      {/* Animate this image into a video (one or many). */}
+      {/* Spin off realistic variations, or animate into a video. */}
       {succeeded && (
-        <AnimatePopover
-          generationId={gen._id}
-          trigger={
-            <button
-              className="absolute bottom-1 left-1 z-10 flex items-center gap-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white opacity-0 transition-opacity group-hover:opacity-100"
-              aria-label="Animate into video"
-            >
-              <Film className="h-3 w-3" /> Animate
-            </button>
-          }
-        />
+        <div className="absolute bottom-1 left-1 z-10 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          <VariationsPopover
+            generationId={gen._id}
+            trigger={
+              <button
+                className="flex items-center gap-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white"
+                aria-label="Generate variations"
+              >
+                <Sparkles className="h-3 w-3" /> Vary
+              </button>
+            }
+          />
+          <AnimatePopover
+            generationId={gen._id}
+            trigger={
+              <button
+                className="flex items-center gap-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white"
+                aria-label="Animate into video"
+              >
+                <Film className="h-3 w-3" /> Animate
+              </button>
+            }
+          />
+        </div>
       )}
 
       {succeeded && (

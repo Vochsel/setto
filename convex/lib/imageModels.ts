@@ -188,8 +188,35 @@ export const PROVIDER_LABEL: Record<ImageProvider, string> = {
 
 export const DEFAULT_MODEL_ID = "google/gemini-2.5-flash-image";
 
+/**
+ * Default model for "generate variations" off an existing photo — a cheap,
+ * realistic image-to-image editor. Nano Banana honours the source frame well
+ * while still producing a fresh take, at ~$0.04 an image.
+ */
+export const DEFAULT_VARIATION_MODEL_ID = "google/gemini-2.5-flash-image";
+
+/**
+ * The cheap, image-to-image / edit-capable models offered in the variations
+ * picker (all support image prompts and cost ≤ ~$0.045 an image). Ordered
+ * cheapest-first so the most economical option leads.
+ */
+export const VARIATION_MODEL_IDS = [
+  "google/gemini-2.5-flash-image",
+  "fal-ai/bytedance/seedream/v4/edit",
+  "fal-ai/qwen-image-edit-plus",
+  "openai/gpt-image-1-mini",
+  "fal-ai/flux-2-pro/edit",
+];
+
 export function getImageModel(id: string): ImageModel | undefined {
   return IMAGE_MODELS.find((m) => m.id === id);
+}
+
+/** The image models offered for variations, in `VARIATION_MODEL_IDS` order. */
+export function variationModels(): ImageModel[] {
+  return VARIATION_MODEL_IDS.map((id) => getImageModel(id)).filter(
+    (m): m is ImageModel => Boolean(m),
+  );
 }
 
 /** Estimated USD cost for one image from this model (0 if unknown). */

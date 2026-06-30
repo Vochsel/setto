@@ -168,6 +168,13 @@ export default defineSchema({
     // Captured real-world references used to ground the backdrop.
     streetViewRefs: v.optional(v.array(imageRef)),
     images: v.optional(v.array(imageRef)),
+    // Street View "nearby" expansion. When enabled, a capture also samples
+    // random points within `streetViewRadiusMeters` of the pin and pulls frames
+    // there too, so the backdrop reference pool includes nearby spots — the
+    // generator (which picks a random location frame per image) then varies the
+    // setting with real surroundings instead of always the exact same corner.
+    streetViewRadiusEnabled: v.optional(v.boolean()),
+    streetViewRadiusMeters: v.optional(v.number()),
     archived: v.optional(v.boolean()),
   }).index("by_org", ["orgId"]),
 
@@ -228,6 +235,10 @@ export default defineSchema({
     scheduledAt: v.optional(v.number()), // unix ms — date & time
     timezone: v.optional(v.string()),
     coverImage: v.optional(imageRef),
+    // Shoot-wide default for Street View "nearby" expansion (see `locations`).
+    // Used when a location in this shoot has no expansion setting of its own.
+    streetViewRadiusEnabled: v.optional(v.boolean()),
+    streetViewRadiusMeters: v.optional(v.number()),
   })
     .index("by_org", ["orgId"])
     .index("by_org_status", ["orgId", "status"]),

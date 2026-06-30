@@ -1,15 +1,32 @@
 "use client";
 
-import { useMutation } from "convex/react";
+import { useState } from "react";
+import { useAction, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
-import { Plus, MapPin, Box, Trash2, Camera } from "lucide-react";
+import {
+  Plus,
+  MapPin,
+  Box,
+  Trash2,
+  Camera,
+  RefreshCw,
+  Loader2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmDelete } from "@/components/confirm-delete";
 import { EmptyState } from "@/components/empty-state";
 import { ModelMultiSelect } from "@/components/shoot/model-multiselect";
 import { ShotCard } from "@/components/shoot/shot-card";
+import {
+  StreetViewRadiusControl,
+  DEFAULT_STREETVIEW_RADIUS_M,
+} from "@/components/streetview-radius-control";
+import type {
+  ShootLocationTarget,
+  LibraryLocationTarget,
+} from "@/components/shoot/move-shot-menu";
 import { StagingDialog } from "@/components/shoot/staging/staging-dialog";
 import type { StageState } from "@/components/shoot/staging/types";
 import type {
@@ -26,6 +43,10 @@ export function LocationPanel({
   scheduledAt,
   onRemoved,
   highlightShotId,
+  shootId,
+  shootLocationTargets,
+  libraryLocations,
+  shootRadiusMeters,
 }: {
   shootLocation: ShootLocationDoc;
   shots: ShotDoc[];
@@ -34,14 +55,51 @@ export function LocationPanel({
   onRemoved: () => void;
   /** Deep-link target shot to scroll to / highlight. */
   highlightShotId?: string;
+  /** The shoot id (for move / duplicate of shots between locations). */
+  shootId?: Id<"shoots">;
+  /** All of the shoot's locations, as move / duplicate targets. */
+  shootLocationTargets?: ShootLocationTarget[];
+  /** Library locations not yet in the shoot ("new" move / duplicate targets). */
+  libraryLocations?: LibraryLocationTarget[];
+  /** Shoot-wide Street View radius (metres) when the shoot has expansion on —
+   * the fallback used for a location that has no setting of its own. */
+  shootRadiusMeters?: number;
 }) {
   const setModels = useMutation(api.shootLocations.setModels);
   const removeLoc = useMutation(api.shootLocations.remove);
   const createShot = useMutation(api.shots.create);
+  const updateLocation = useMutation(api.locations.update);
+  const capture = useAction(api.streetview.capture);
+  const [capturing, setCapturing] = useState(false);
 
   const loc = shootLocation.location;
   const presentModels =
     shootLocation.models.length > 0 ? shootLocation.models : library.models;
+
+  // Effective radius: the location's own setting wins, else the shoot-wide one.
+  const locEnabled = loc?.streetViewRadiusEnabled ?? false;
+  const locRadius = loc?.streetViewRadiusMeters ?? DEFAULT_STREETVIEW_RADIUS_M;
+  const effectiveRadius = locEnabled
+    ? locRadius
+    : (shootRadiusMeters ?? 0);
+
+  async function recapture() {
+    if (!loc) return;
+    setCapturing(true);
+    try {
+      const r = await capture({
+        locationId: loc._id,
+        radiusMeters: effectiveRadius,
+      });
+      toast.success(
+        r.added ? `Captured ${r.added} Street View frames` : "No new frames",
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Capture failed");
+    } finally {
+      setCapturing(false);
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -92,9 +150,45 @@ export function LocationPanel({
           </div>
         ) : (
           <p className="text-muted-foreground bg-muted/40 rounded-md p-2 text-xs">
-            No Street View references yet — open this location in the Locations
-            library to capture some.
+            No Street View references yet — capture some below to ground the
+            backdrop.
           </p>
+        )}
+
+        {loc && (
+          <div className="space-y-2">
+            <StreetViewRadiusControl
+              enabled={locEnabled}
+              radiusMeters={locRadius}
+              onChange={(en, m) =>
+                updateLocation({
+                  id: loc._id,
+                  streetViewRadiusEnabled: en,
+                  streetViewRadiusMeters: m,
+                }).catch(() => toast.error("Could not save"))
+              }
+              description={
+                shootRadiusMeters && !locEnabled
+                  ? `Off — using the shoot-wide ${shootRadiusMeters} m radius. Turn on to override for this location.`
+                  : "Also pull frames from random nearby spots within the radius."
+              }
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={recapture}
+              disabled={capturing}
+            >
+              {capturing ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3.5 w-3.5" />
+              )}
+              {effectiveRadius > 0
+                ? `Recapture + nearby (${effectiveRadius} m)`
+                : "Recapture Street View"}
+            </Button>
+          </div>
         )}
 
         <div className="flex flex-wrap items-center gap-2">
@@ -162,6 +256,9 @@ export function LocationPanel({
               castModelIds={shootLocation.modelIds}
               scheduledAt={scheduledAt}
               highlight={shot._id === highlightShotId}
+              shootId={shootId}
+              shootLocations={shootLocationTargets}
+              libraryLocations={libraryLocations}
             />
           ))}
         </div>

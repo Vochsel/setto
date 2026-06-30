@@ -10,6 +10,7 @@ import {
   Copy,
   Film,
   Trash2,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -19,6 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { AnimatePopover } from "@/components/animate-popover";
+import { VariationsPopover } from "@/components/variations-popover";
 import {
   ReviewControls,
   type ReviewStatus,
@@ -203,6 +205,23 @@ export function ImageLightbox({
           <div className="flex items-center gap-1.5">
             {current?.url && (
               <>
+                {!isVideo && current.generationId && (
+                  <VariationsPopover
+                    generationId={current.generationId as Id<"generations">}
+                    align="end"
+                    trigger={
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={CTRL}
+                        title="Generate variations"
+                      >
+                        <Sparkles className="h-4 w-4" />
+                      </Button>
+                    }
+                  />
+                )}
                 {!isVideo && current.generationId && (
                   <AnimatePopover
                     generationId={current.generationId as Id<"generations">}

@@ -36,6 +36,10 @@ import {
 } from "@/components/map/map-provider";
 import { PlaceSearch, type PickedPlace } from "@/components/map/place-search";
 import {
+  StreetViewRadiusControl,
+  DEFAULT_STREETVIEW_RADIUS_M,
+} from "@/components/streetview-radius-control";
+import {
   cleanImageRefs,
   withDisplayUrls,
   type ImageRef,
@@ -55,6 +59,8 @@ interface LocationDoc {
   imageUrls?: { url: string }[];
   streetViewRefs?: ImageRef[];
   streetViewUrls?: { url: string; caption?: string }[];
+  streetViewRadiusEnabled?: boolean;
+  streetViewRadiusMeters?: number;
 }
 
 function PanTo({ target }: { target: PickedPlace | null }) {
@@ -164,6 +170,12 @@ export function LocationEditor({
         }
       : null,
   );
+  const [radiusEnabled, setRadiusEnabled] = useState(
+    location.streetViewRadiusEnabled ?? false,
+  );
+  const [radiusMeters, setRadiusMeters] = useState(
+    location.streetViewRadiusMeters ?? DEFAULT_STREETVIEW_RADIUS_M,
+  );
 
   // Resolved Street View frames, aligned 1:1 with the raw refs so a delete can
   // remove the matching ref by index.
@@ -188,6 +200,8 @@ export function LocationEditor({
       lng: place?.lng,
       googlePlaceId: place?.placeId,
       images: cleanImageRefs(images),
+      streetViewRadiusEnabled: radiusEnabled,
+      streetViewRadiusMeters: radiusMeters,
     });
   }
 
@@ -209,7 +223,10 @@ export function LocationEditor({
     try {
       // Save first so Street View is captured at the (possibly moved) pin.
       await persist();
-      const r = await capture({ locationId: location._id as Id<"locations"> });
+      const r = await capture({
+        locationId: location._id as Id<"locations">,
+        radiusMeters: radiusEnabled ? radiusMeters : 0,
+      });
       toast.success(
         r.added ? `Captured ${r.added} Street View frames` : "No new frames",
       );
@@ -288,6 +305,15 @@ export function LocationEditor({
               placeholder="describe the look you want the backdrop to evoke…"
             />
           </div>
+
+          <StreetViewRadiusControl
+            enabled={radiusEnabled}
+            radiusMeters={radiusMeters}
+            onChange={(en, m) => {
+              setRadiusEnabled(en);
+              setRadiusMeters(m);
+            }}
+          />
 
           <div className="grid gap-2">
             <div className="flex items-center justify-between">

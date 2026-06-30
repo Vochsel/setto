@@ -99,6 +99,8 @@ export const update = mutation({
     status: v.optional(statusValidator),
     scheduledAt: v.optional(v.number()),
     timezone: v.optional(v.string()),
+    streetViewRadiusEnabled: v.optional(v.boolean()),
+    streetViewRadiusMeters: v.optional(v.number()),
   },
   handler: async (ctx, { id, ...patch }) => {
     const scope = await getScope(ctx);
