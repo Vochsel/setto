@@ -209,16 +209,31 @@ async function generateAndStore(
 const MODEL_IMAGE_ASPECT = "4:5";
 
 /** A clean, neutral studio headshot — the model's primary face reference and
- * card thumbnail. Neutral grey clothing keeps wardrobe out of the reference. */
-function modelHeadshotPrompt(descriptor: string, hasRefs: boolean): string {
+ * card thumbnail. Neutral grey clothing keeps wardrobe out of the reference.
+ * `refMode` controls how the reference images (if any) are used:
+ *  - "none": no references — render purely from the text description.
+ *  - "identity": reproduce the exact same person shown (re-rendering a headshot).
+ *  - "resemblance": invent a brand-new person who merely *resembles* the
+ *    reference — same overall look, but a distinct individual (the "from a
+ *    reference image" creation mode). */
+function modelHeadshotPrompt(
+  descriptor: string,
+  refMode: "none" | "identity" | "resemblance",
+): string {
   return (
     "Photorealistic studio headshot portrait — head and shoulders, centred, " +
     "facing the camera with a clear, unobstructed face and a relaxed neutral " +
     "expression. " +
-    (hasRefs
+    (refMode === "identity"
       ? "The exact same person shown in the reference images — identical face, " +
         "hair and skin tone. "
-      : "") +
+      : refMode === "resemblance"
+        ? "A brand-new, fictional person who closely resembles the look of the " +
+          "reference image — the same approximate age, build, hair colour and " +
+          "style, skin tone and overall facial character — but a distinct " +
+          "individual, NOT an exact copy or recognisable likeness of the person " +
+          "shown. "
+        : "") +
     (descriptor ? `${descriptor}. ` : "") +
     "Plain heather-grey crew-neck T-shirt, seamless light-grey background, soft " +
     "even lighting, natural skin texture, sharp focus, no text or watermark."
@@ -642,22 +657,30 @@ export const runOneCreative = internalAction({
 });
 
 /**
- * Generate a single model reference image and store it. With no references it
- * produces a fresh portrait from the text description; with references it
- * produces a resemblance-preserving variation in a randomized scene. The image
  * Generate a single model reference image and store it (NOT attached to any
  * model — the caller curates it in the editor). `kind` selects the prompt:
- *  - "headshot": a clean neutral studio headshot (from the description, or a
- *    same-person headshot when a reference is supplied) — the card thumbnail.
+ *  - "headshot": a clean neutral studio headshot — the card thumbnail. Rendered
+ *    from the text description, or conditioned on a reference image. When a
+ *    reference is supplied, `resemblance` chooses how it's used: false (default)
+ *    reproduces the exact same person (re-rendering an existing headshot); true
+ *    invents a brand-new person who merely *resembles* the reference (the
+ *    "upload a reference image" creation mode).
  *  - "sheet": the standardized neutral model reference sheet (face + head
  *    angles + T-pose front/side) seeded from the headshot for identity.
  * Both are produced at the fixed model-image aspect so the library is uniform.
+ *
+ * References may be passed as ready URLs (`referenceImageUrls`) and/or as
+ * Convex storage ids (`referenceStorageIds`) — the latter are resolved to URLs
+ * here, so a just-uploaded image (which has no signed URL client-side yet) can
+ * still seed the generation.
  */
 export const generateModelImage = action({
   args: {
     kind: v.optional(v.union(v.literal("headshot"), v.literal("sheet"))),
     prompt: v.optional(v.string()),
     referenceImageUrls: v.optional(v.array(v.string())),
+    referenceStorageIds: v.optional(v.array(v.id("_storage"))),
+    resemblance: v.optional(v.boolean()),
     modelKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -691,14 +714,30 @@ export const generateModelImage = action({
       throw new Error(missingKeyMessage(model.provider));
     }
 
-    const refs = (args.referenceImageUrls ?? []).filter(Boolean);
+    // Resolve any storage ids to signed URLs and merge with ready URLs, so a
+    // freshly-uploaded reference (storageId only) still conditions the result.
+    const resolvedFromStorage: string[] = [];
+    for (const sid of args.referenceStorageIds ?? []) {
+      const url = await ctx.storage.getUrl(sid);
+      if (url) resolvedFromStorage.push(url);
+    }
+    const refs = [
+      ...(args.referenceImageUrls ?? []),
+      ...resolvedFromStorage,
+    ].filter(Boolean);
     const base = (args.prompt ?? "").trim();
 
     let prompt: string;
     if (kind === "sheet") {
       prompt = `${modelSheetPrompt(base)} ${referenceGuidance(model)}`;
     } else {
-      prompt = modelHeadshotPrompt(base, refs.length > 0);
+      const refMode =
+        refs.length === 0
+          ? "none"
+          : args.resemblance
+            ? "resemblance"
+            : "identity";
+      prompt = modelHeadshotPrompt(base, refMode);
       if (refs.length) prompt += ` ${referenceGuidance(model)}`;
     }
 
