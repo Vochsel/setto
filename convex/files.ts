@@ -1,5 +1,6 @@
-import { mutation } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { QueryCtx } from "./_generated/server";
+import { v } from "convex/values";
 import { getScope } from "./lib/auth";
 
 export type StoredImage = {
@@ -15,6 +16,15 @@ export const generateUploadUrl = mutation({
   handler: async (ctx) => {
     await getScope(ctx); // must be authed
     return await ctx.storage.generateUploadUrl();
+  },
+});
+
+/** Resolve a stored file (e.g. an uploaded audio track) to a playable URL. */
+export const getUrl = query({
+  args: { storageId: v.id("_storage") },
+  handler: async (ctx, { storageId }) => {
+    await getScope(ctx); // must be authed
+    return await ctx.storage.getUrl(storageId);
   },
 });
 

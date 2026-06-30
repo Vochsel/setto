@@ -36,6 +36,7 @@ import { ShootMap } from "@/components/shoot/shoot-map";
 import { AddLocation } from "@/components/shoot/add-location";
 import { AddNearbyLocation } from "@/components/shoot/add-nearby-location";
 import { LocationPanel } from "@/components/shoot/location-panel";
+import { MakeVideoButton } from "@/components/video/make-video-button";
 import {
   StreetViewRadiusControl,
   DEFAULT_STREETVIEW_RADIUS_M,
@@ -214,6 +215,7 @@ export default function ShootEditorPage() {
             ))}
           </SelectContent>
         </Select>
+        <MakeVideoButton shootId={shootId} size="sm" />
         <ShootSettings
           shoot={shoot}
           onSave={(patch) => updateShoot({ id: shootId, ...patch })}

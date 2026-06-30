@@ -6,6 +6,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Pencil, Users, ArrowLeft, Wand2 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
+import { MakeVideoButton } from "@/components/video/make-video-button";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ModelEditor } from "@/components/model-editor";
@@ -71,6 +72,12 @@ export default function ModelDetailPage() {
                 <Wand2 className="h-4 w-4" /> Standardize
               </Button>
             }
+          />
+        )}
+        {images && images.length > 0 && (
+          <MakeVideoButton
+            generationIds={images.map((g) => g._id)}
+            size="sm"
           />
         )}
         <ModelEditor
