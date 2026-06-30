@@ -124,6 +124,17 @@ extension ConvexClient {
             "generations:addCapture", .mutation, args: args, as: String.self)
     }
 
+    /// Kick off the background AI "wardrobe" pass over a capture, compositing
+    /// the model + product into the captured scene with the chosen image model.
+    @discardableResult
+    func enhanceCapture(
+        captureId: String, modelKey: String
+    ) async throws -> Empty {
+        try await run(
+            "generate:enhanceCapture", .action,
+            args: ["captureId": captureId, "modelKey": modelKey])
+    }
+
     /// Set or clear a media item's rating (1–5, or nil to clear).
     func setRating(_ id: String, _ rating: Int?) async throws {
         try await run(

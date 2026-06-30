@@ -9,6 +9,7 @@ import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import type { Doc } from "./_generated/dataModel";
 import { getScope, assertOrg } from "./lib/auth";
+import { resolveImages } from "./files";
 
 /** Shape succeeded generations into display photos (newest first, URLs resolved). */
 async function shapeSucceeded(ctx: QueryCtx, gens: Doc<"generations">[]) {
@@ -489,6 +490,46 @@ export const addCapture = mutation({
       storageId: args.storageId,
       favorite: false,
     });
+  },
+});
+
+/**
+ * Reference inputs for the AI "wardrobe" pass over a captured photo — the
+ * captured scene plus the resolved model & product images. Internal; read by
+ * `generate.enhanceCapture`.
+ */
+export const captureRefs = internalQuery({
+  args: { id: v.id("generations") },
+  handler: async (ctx, { id }) => {
+    const gen = await ctx.db.get(id);
+    if (!gen) throw new Error("Capture not found");
+    let sceneUrl = gen.imageUrl;
+    if (!sceneUrl && gen.storageId) {
+      sceneUrl = (await ctx.storage.getUrl(gen.storageId)) ?? undefined;
+    }
+    const model = gen.modelId ? await ctx.db.get(gen.modelId) : null;
+    const outfit = gen.outfitId ? await ctx.db.get(gen.outfitId) : null;
+    const shot = await ctx.db.get(gen.shotId);
+    return {
+      orgId: gen.orgId,
+      createdBy: gen.createdBy,
+      shotId: gen.shotId,
+      shootId: gen.shootId,
+      modelId: gen.modelId,
+      outfitId: gen.outfitId,
+      locationId: gen.locationId,
+      styleId: gen.styleId,
+      cameraId: gen.cameraId,
+      lightingId: gen.lightingId,
+      sceneUrl,
+      modelName: model?.name,
+      outfitName: outfit?.name,
+      modelImageUrls: (await resolveImages(ctx, model?.images)).map((i) => i.url),
+      outfitImageUrls: (await resolveImages(ctx, outfit?.images)).map(
+        (i) => i.url,
+      ),
+      aspectRatio: shot?.aspectRatio,
+    };
   },
 });
 

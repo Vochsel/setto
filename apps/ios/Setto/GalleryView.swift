@@ -12,6 +12,7 @@ struct GalleryView: View {
     @State private var kind: FeedKind = .all
     @State private var favOnly = false
     @State private var swipeStart: SwipeAnchor?
+    @State private var headerHidden = false
 
     private var filtered: [MediaItem] {
         items.filter { item in
@@ -45,16 +46,15 @@ struct GalleryView: View {
                 }
             }
             .navigationTitle("Gallery")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
+            .toolbar(headerHidden ? .hidden : .visible, for: .navigationBar)
+            .overlay(alignment: .bottomTrailing) {
+                if !filtered.isEmpty {
+                    FloatingButton(systemImage: "play.fill") {
                         if let first = filtered.first {
                             swipeStart = SwipeAnchor(id: first.id)
                         }
-                    } label: {
-                        Image(systemName: "play.rectangle.fill")
                     }
-                    .disabled(filtered.isEmpty)
+                    .padding(20)
                 }
             }
             .refreshable { await load() }
@@ -67,9 +67,10 @@ struct GalleryView: View {
     }
 
     private var content: some View {
-        VStack(spacing: 0) {
-            filterBar
-            ScrollView {
+        // Filter bar lives inside the scroll so it scrolls away with the header.
+        AutoHidingScroll(headerHidden: $headerHidden) {
+            VStack(spacing: 0) {
+                filterBar
                 MasonryGrid(items: filtered) { item in
                     swipeStart = SwipeAnchor(id: item.id)
                 }

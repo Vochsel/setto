@@ -30,6 +30,12 @@ targets:
         # Photo Mode captures real photos into a shoot with the native camera.
         NSCameraUsageDescription: >-
           Setto uses the camera to capture photos directly into a shoot.
+        # Photo Mode can also pull a reference photo from your library.
+        NSPhotoLibraryUsageDescription: >-
+          Setto uses your photo library to add reference photos to a shoot.
+        # Saving images & videos from the reel back to your device.
+        NSPhotoLibraryAddUsageDescription: >-
+          Setto saves images and videos you download to your photo library.
         # Custom URL scheme used by the WorkOS web-login callback.
         CFBundleURLTypes:
           - CFBundleURLName: app.setto.ios

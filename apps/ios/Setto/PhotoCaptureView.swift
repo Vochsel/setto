@@ -1,10 +1,29 @@
+import PhotosUI
 import SwiftUI
 import UIKit
 
+/// An optional AI pass that composites the model (in their product) into a
+/// captured photo, run in the background after the photo is saved.
+enum EnhanceModel: String, CaseIterable, Identifiable {
+    case off = ""
+    case nanoBanana = "google/gemini-2.5-flash-image"
+    case gptImage2 = "openai/gpt-image-2"
+
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .off: return "Off"
+        case .nanoBanana: return "Nano Banana"
+        case .gptImage2: return "GPT Image 2"
+        }
+    }
+}
+
 /// "Photo mode": pick a location within a shoot, the model and product the photo
-/// is of, then capture a real photo with the native camera. The capture is
-/// uploaded and saved into the shoot's image outputs (overriding that location's
-/// AI shots), tagged with the chosen model + product via `generations:addCapture`.
+/// is of, then capture (or upload) a real photo. It's saved into the shoot's
+/// image outputs (overriding that location's AI shots) via
+/// `generations:addCapture`, then — optionally — handed to an image model to
+/// composite the model wearing their product into the scene.
 struct PhotoCaptureView: View {
     @EnvironmentObject var auth: AuthStore
     @Environment(\.dismiss) private var dismiss
@@ -19,6 +38,8 @@ struct PhotoCaptureView: View {
     @State private var locationId: String?
     @State private var modelId: String?
     @State private var outfitId: String?
+    @State private var enhance: EnhanceModel = .off
+    @State private var pickerItem: PhotosPickerItem?
 
     @State private var loading = true
     @State private var showCamera = false
@@ -115,6 +136,22 @@ struct PhotoCaptureView: View {
                 }
             }
 
+            Section {
+                Picker("AI wardrobe pass", selection: $enhance) {
+                    ForEach(EnhanceModel.allCases) { m in
+                        Text(m.label).tag(m)
+                    }
+                }
+            } header: {
+                Text("Enhance")
+            } footer: {
+                Text(
+                    enhance == .off
+                        ? "Save the photo as-is."
+                        : "After saving, \(enhance.label) composites the model — wearing the product — into the photo, in the background."
+                )
+            }
+
             if let error {
                 Section {
                     Text(error).foregroundStyle(.red).font(.footnote)
@@ -137,6 +174,23 @@ struct PhotoCaptureView: View {
                     }
                 }
                 .disabled(saving || locationId == nil)
+
+                PhotosPicker(selection: $pickerItem, matching: .images) {
+                    Label("Upload from Camera Roll", systemImage: "photo.on.rectangle")
+                        .frame(maxWidth: .infinity)
+                }
+                .disabled(saving || locationId == nil)
+            }
+        }
+        .onChange(of: pickerItem) { _, item in
+            guard let item else { return }
+            Task {
+                if let data = try? await item.loadTransferable(type: Data.self),
+                    let image = UIImage(data: data)
+                {
+                    save(image)
+                }
+                pickerItem = nil
             }
         }
     }
@@ -185,11 +239,17 @@ struct PhotoCaptureView: View {
                 let client = ConvexClient(
                     baseURL: Config.convexURL, token: auth.validToken())
                 let storageId = try await client.uploadImage(data)
-                _ = try await client.addCapture(
+                let captureId = try await client.addCapture(
                     storageId: storageId,
                     shootLocationId: locationId,
                     modelId: modelId,
                     outfitId: outfitId)
+                // Kick off the optional AI wardrobe pass (best-effort — the real
+                // photo is already saved either way).
+                if enhance != .off {
+                    try? await client.enhanceCapture(
+                        captureId: captureId, modelKey: enhance.rawValue)
+                }
                 onSaved()
                 dismiss()
             } catch {

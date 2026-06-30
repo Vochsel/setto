@@ -96,6 +96,7 @@ private struct ShootRow: View {
 /// reel, plus a Camera button that opens Photo Mode for this shoot.
 struct ShootDetailView: View {
     @EnvironmentObject var auth: AuthStore
+    @Environment(\.dismiss) private var dismiss
     let shoot: Shoot
 
     @State private var items: [MediaItem] = []
@@ -103,6 +104,7 @@ struct ShootDetailView: View {
     @State private var loading = false
     @State private var swipeStart: SwipeAnchor?
     @State private var showCamera = false
+    @State private var headerHidden = false
 
     var body: some View {
         Group {
@@ -120,43 +122,48 @@ struct ShootDetailView: View {
                     description: Text(
                         "Tap the camera to add the first photo to this shoot."))
             } else {
-                ScrollView {
+                AutoHidingScroll(headerHidden: $headerHidden) {
                     MasonryGrid(items: items) { item in
                         swipeStart = SwipeAnchor(id: item.id)
                     }
                 }
             }
         }
-        // A reliable, always-visible entry into Photo Mode (a bottomBar toolbar
-        // is unreliable inside a TabView, which is why it wasn't reachable).
+        // Floating actions stay put as the header hides (Photo Mode + Play).
         .overlay(alignment: .bottomTrailing) {
-            Button {
-                showCamera = true
-            } label: {
-                Image(systemName: "camera.fill")
-                    .font(.title2)
-                    .foregroundStyle(.white)
-                    .frame(width: 60, height: 60)
-                    .background(Color.accentColor, in: Circle())
-                    .shadow(radius: 6, y: 3)
+            VStack(spacing: 14) {
+                if !items.isEmpty {
+                    FloatingButton(
+                        systemImage: "play.fill", tint: .black.opacity(0.6),
+                        size: 48
+                    ) {
+                        if let first = items.first {
+                            swipeStart = SwipeAnchor(id: first.id)
+                        }
+                    }
+                }
+                FloatingButton(systemImage: "camera.fill", size: 60) {
+                    showCamera = true
+                }
+                .accessibilityLabel("Photo Mode")
             }
             .padding(20)
-            .accessibilityLabel("Photo Mode")
+        }
+        // A floating back button while the nav header is hidden on scroll.
+        .overlay(alignment: .topLeading) {
+            if headerHidden {
+                FloatingButton(
+                    systemImage: "chevron.left", tint: .black.opacity(0.5),
+                    size: 40
+                ) { dismiss() }
+                .padding(.leading, 16)
+                .padding(.top, 4)
+                .transition(.opacity)
+            }
         }
         .navigationTitle(shoot.name)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    if let first = items.first {
-                        swipeStart = SwipeAnchor(id: first.id)
-                    }
-                } label: {
-                    Image(systemName: "play.rectangle.fill")
-                }
-                .disabled(items.isEmpty)
-            }
-        }
+        .toolbar(headerHidden ? .hidden : .visible, for: .navigationBar)
         .refreshable { await load() }
         .task { await load() }
         .fullScreenCover(item: $swipeStart) { anchor in

@@ -80,12 +80,14 @@ private struct ModelRow: View {
 /// TikTok reel. Backed by `review:feed` filtered to this model.
 struct ModelDetailView: View {
     @EnvironmentObject var auth: AuthStore
+    @Environment(\.dismiss) private var dismiss
     let model: ModelDoc
 
     @State private var items: [MediaItem] = []
     @State private var error: String?
     @State private var loading = false
     @State private var swipeStart: SwipeAnchor?
+    @State private var headerHidden = false
 
     var body: some View {
         Group {
@@ -102,27 +104,37 @@ struct ModelDetailView: View {
                     systemImage: "photo.on.rectangle",
                     description: Text("This model has no media yet."))
             } else {
-                ScrollView {
+                AutoHidingScroll(headerHidden: $headerHidden) {
                     MasonryGrid(items: items) { item in
                         swipeStart = SwipeAnchor(id: item.id)
                     }
                 }
             }
         }
-        .navigationTitle(model.name ?? "Model")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
+        .overlay(alignment: .bottomTrailing) {
+            if !items.isEmpty {
+                FloatingButton(systemImage: "play.fill") {
                     if let first = items.first {
                         swipeStart = SwipeAnchor(id: first.id)
                     }
-                } label: {
-                    Image(systemName: "play.rectangle.fill")
                 }
-                .disabled(items.isEmpty)
+                .padding(20)
             }
         }
+        .overlay(alignment: .topLeading) {
+            if headerHidden {
+                FloatingButton(
+                    systemImage: "chevron.left", tint: .black.opacity(0.5),
+                    size: 40
+                ) { dismiss() }
+                .padding(.leading, 16)
+                .padding(.top, 4)
+                .transition(.opacity)
+            }
+        }
+        .navigationTitle(model.name ?? "Model")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(headerHidden ? .hidden : .visible, for: .navigationBar)
         .refreshable { await load() }
         .task { await load() }
         .fullScreenCover(item: $swipeStart) { anchor in

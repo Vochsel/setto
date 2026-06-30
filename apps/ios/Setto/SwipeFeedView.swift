@@ -23,22 +23,9 @@ struct SwipeFeedView: View {
     @State private var dismissOffset: CGFloat = 0
 
     var body: some View {
-        ZStack(alignment: .leading) {
-            Color.black.ignoresSafeArea()
-            reel
-                .offset(x: dismissOffset)
-                .scaleEffect(1 - min(dismissOffset / 2400, 0.05), anchor: .center)
-            edgeSwipeCatcher
-        }
-        .statusBarHidden()
-        .onAppear {
-            currentId = startId ?? items.first?.id
-            prefetchAhead()
-        }
-        .onChange(of: currentId) { _, _ in prefetchAhead() }
-    }
-
-    private var reel: some View {
+        // NOTE: the dismiss offset is applied with `.offset` (layout-neutral) and
+        // never with `.scaleEffect` — scaling a paging ScrollView breaks its
+        // scroll/paging gesture, which had killed the vertical swipe.
         ScrollView(.vertical) {
             LazyVStack(spacing: 0) {
                 ForEach($items) { $item in
@@ -67,6 +54,17 @@ struct SwipeFeedView: View {
             .padding(.leading, 20)
             .padding(.top, 8)
         }
+        // Slide the whole reel with the back-swipe; a static black backdrop
+        // (applied after the offset, so it stays put) fills the revealed gap.
+        .offset(x: dismissOffset)
+        .background(Color.black.ignoresSafeArea())
+        .overlay(alignment: .leading) { edgeSwipeCatcher }
+        .statusBarHidden()
+        .onAppear {
+            currentId = startId ?? items.first?.id
+            prefetchAhead()
+        }
+        .onChange(of: currentId) { _, _ in prefetchAhead() }
     }
 
     /// A thin strip on the left edge that turns a rightward back-swipe into an
@@ -131,7 +129,7 @@ private struct MediaPage: View {
     @State private var rotation: Angle = .zero
     @State private var offset: CGSize = .zero
     @State private var anchor: UnitPoint = .center
-    @State private var pinching = false
+    @State private var saveState: MediaSaveState = .idle
 
     private var client: ConvexClient {
         ConvexClient(baseURL: Config.convexURL, token: auth.validToken())
@@ -161,20 +159,22 @@ private struct MediaPage: View {
             DragGesture(minimumDistance: 0))
         return combined
             .onChanged { value in
-                if let magnify = value.first?.first {
+                let magnify = value.first?.first
+                let rotate = value.first?.second
+                if let magnify {
                     scale = magnify.magnification
                     anchor = magnify.startAnchor
-                    pinching = true
                 }
-                if let rotate = value.first?.second {
+                if let rotate {
                     rotation = rotate.rotation
                 }
-                if pinching, let drag = value.second {
+                // Pan with the pinch — but only while a pinch/rotate is engaged,
+                // so a plain one-finger swipe still pages the feed.
+                if (magnify != nil || rotate != nil), let drag = value.second {
                     offset = drag.translation
                 }
             }
             .onEnded { _ in
-                pinching = false
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.72)) {
                     scale = 1
                     rotation = .zero
@@ -257,20 +257,31 @@ private struct MediaPage: View {
         }
     }
 
-    /// The right-hand action stack (favorite + approval status).
+    /// The right-hand action stack: favorite, download, share, approval status.
     private var reviewRail: some View {
-        VStack(spacing: 22) {
+        VStack(spacing: 20) {
             Button(action: toggleFavorite) {
-                VStack(spacing: 4) {
-                    Image(
-                        systemName: item.favorite ? "heart.fill" : "heart"
-                    )
-                    .font(.system(size: 34))
-                    .foregroundStyle(item.favorite ? .red : .white)
-                    Text("Save").font(.caption2).foregroundStyle(.white)
-                }
+                railIcon(
+                    item.favorite ? "heart.fill" : "heart", "Like",
+                    color: item.favorite ? .red : .white, size: 32)
             }
             .buttonStyle(.plain)
+
+            Button(action: download) {
+                railIcon(
+                    saveIcon, saveLabel, color: saveColor, size: 28,
+                    busy: saveState == .saving)
+            }
+            .buttonStyle(.plain)
+            .disabled(saveState == .saving)
+
+            if let url = URL(string: item.url) {
+                ShareLink(item: url) {
+                    railIcon(
+                        "square.and.arrow.up", "Share", color: .white, size: 28)
+                }
+                .buttonStyle(.plain)
+            }
 
             Menu {
                 ForEach(ReviewStatus.allCases) { status in
@@ -288,15 +299,45 @@ private struct MediaPage: View {
                     }
                 }
             } label: {
-                VStack(spacing: 4) {
-                    Image(systemName: statusSymbol)
-                        .font(.system(size: 30))
-                        .foregroundStyle(statusColor)
-                    Text("Review").font(.caption2).foregroundStyle(.white)
-                }
+                railIcon(statusSymbol, "Review", color: statusColor, size: 28)
             }
         }
     }
+
+    /// One labelled glyph in the rail; shows a spinner while busy.
+    private func railIcon(
+        _ system: String, _ label: String, color: Color, size: CGFloat,
+        busy: Bool = false
+    ) -> some View {
+        VStack(spacing: 4) {
+            ZStack {
+                Image(systemName: system)
+                    .font(.system(size: size))
+                    .foregroundStyle(color)
+                    .opacity(busy ? 0 : 1)
+                if busy { ProgressView().tint(.white) }
+            }
+            .frame(height: size)
+            Text(label).font(.caption2).foregroundStyle(.white)
+        }
+    }
+
+    private var saveIcon: String {
+        switch saveState {
+        case .saved: return "checkmark.circle.fill"
+        case .failed: return "exclamationmark.circle"
+        default: return "arrow.down.circle"
+        }
+    }
+    private var saveLabel: String {
+        switch saveState {
+        case .saving: return "Saving"
+        case .saved: return "Saved"
+        case .failed: return "Retry"
+        default: return "Save"
+        }
+    }
+    private var saveColor: Color { saveState == .saved ? .green : .white }
 
     private var statusSymbol: String {
         item.reviewStatus.flatMap { ReviewStatus(rawValue: $0)?.symbol }
@@ -330,6 +371,23 @@ private struct MediaPage: View {
         Task {
             do { try await client.setRating(item.id, rating) }
             catch { item.rating = previous }
+        }
+    }
+
+    /// Save the full-res image or video to the device's photo library.
+    private func download() {
+        guard saveState != .saving, let url = URL(string: item.url) else {
+            return
+        }
+        saveState = .saving
+        Task {
+            do {
+                try await PhotoLibrary.save(mediaURL: url, isVideo: item.isVideo)
+                saveState = .saved
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            } catch {
+                saveState = .failed
+            }
         }
     }
 

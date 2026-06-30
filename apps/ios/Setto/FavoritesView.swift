@@ -9,6 +9,7 @@ struct FavoritesView: View {
     @State private var error: String?
     @State private var loading = false
     @State private var swipeStart: SwipeAnchor?
+    @State private var headerHidden = false
 
     /// Drop items unfavorited inside the swipe reel without needing a reload.
     private var favorites: [MediaItem] { items.filter { $0.favorite } }
@@ -31,7 +32,7 @@ struct FavoritesView: View {
                             "Tap the heart on any image or video and it’ll collect here."
                         ))
                 } else {
-                    ScrollView {
+                    AutoHidingScroll(headerHidden: $headerHidden) {
                         MasonryGrid(items: favorites) { item in
                             swipeStart = SwipeAnchor(id: item.id)
                         }
@@ -39,16 +40,15 @@ struct FavoritesView: View {
                 }
             }
             .navigationTitle("Favorites")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
+            .toolbar(headerHidden ? .hidden : .visible, for: .navigationBar)
+            .overlay(alignment: .bottomTrailing) {
+                if !favorites.isEmpty {
+                    FloatingButton(systemImage: "play.fill") {
                         if let first = favorites.first {
                             swipeStart = SwipeAnchor(id: first.id)
                         }
-                    } label: {
-                        Image(systemName: "play.rectangle.fill")
                     }
-                    .disabled(favorites.isEmpty)
+                    .padding(20)
                 }
             }
             .refreshable { await load() }
