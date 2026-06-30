@@ -20,7 +20,10 @@ targets:
         CURRENT_PROJECT_VERSION: "1"
         TARGETED_DEVICE_FAMILY: "1,2"
         SWIFT_VERSION: "5.9"
-        DEVELOPMENT_TEAM: "" # set your Apple Developer team to run on device
+        # Apple Developer team — Xcode manages signing certs/profiles for archive
+        # + TestFlight automatically under this team.
+        DEVELOPMENT_TEAM: "Y6W96HFVDU"
+        CODE_SIGN_STYLE: Automatic
     info:
       path: Setto/Info.plist
       properties:
