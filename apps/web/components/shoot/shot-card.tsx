@@ -99,7 +99,6 @@ export function ShotCard({
   const update = useMutation(api.shots.update);
   const remove = useMutation(api.shots.remove);
   const duplicateShot = useMutation(api.shots.duplicate);
-  const removeGen = useMutation(api.generations.remove);
   const removeVideo = useMutation(api.videos.remove);
   const generate = useAction(api.generate.generateShot);
   const settings = useQuery(api.settings.get, {});
@@ -554,7 +553,6 @@ export function ShotCard({
             <GenerationTile
               key={g._id}
               gen={g}
-              onDelete={() => removeGen({ id: g._id })}
               onOpen={() => {
                 const i = succeeded.findIndex((s) => s._id === g._id);
                 if (i !== -1) setLightboxIndex(i);
@@ -606,11 +604,9 @@ export function ShotCard({
 
 function GenerationTile({
   gen,
-  onDelete,
   onOpen,
 }: {
   gen: GenerationDoc;
-  onDelete: () => void;
   onOpen: () => void;
 }) {
   const succeeded = gen.status === "succeeded" && gen.imageUrl;
@@ -676,14 +672,6 @@ function GenerationTile({
           />
         </>
       )}
-
-      <button
-        onClick={onDelete}
-        className="absolute right-1 top-1 z-10 rounded bg-black/60 p-0.5 text-white opacity-0 transition-opacity group-hover:opacity-100"
-        aria-label="Delete generation"
-      >
-        <Trash2 className="h-3 w-3" />
-      </button>
     </div>
   );
 }
