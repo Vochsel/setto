@@ -177,6 +177,7 @@ private struct MediaPage: View {
     let anchor: UnitPoint
 
     @State private var saveState: MediaSaveState = .idle
+    @State private var likeTrigger = 0
 
     private var client: ConvexClient {
         ConvexClient(baseURL: Config.convexURL, token: auth.validToken())
@@ -190,10 +191,27 @@ private struct MediaPage: View {
                 .scaleEffect(scale, anchor: anchor)
                 .rotationEffect(rotation, anchor: anchor)
                 .offset(offset)
+                // Double-tap anywhere on the media to like (TikTok-style).
+                .onTapGesture(count: 2) { likeWithBurst() }
+            LikeBurst(trigger: likeTrigger)
+                .allowsHitTesting(false)
             overlay
         }
         .clipped()
         .contentShape(Rectangle())
+    }
+
+    /// A double-tap likes (never un-likes — that's the heart button's job) and
+    /// pops a heart, like TikTok.
+    private func likeWithBurst() {
+        likeTrigger += 1
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        guard !item.favorite else { return }
+        item.favorite = true
+        Task {
+            do { item.favorite = try await client.toggleFavorite(item.id) }
+            catch { item.favorite = false }
+        }
     }
 
     @ViewBuilder private var media: some View {
@@ -411,6 +429,36 @@ private struct MediaPage: View {
             do { try await client.setStatus(item.id, status) }
             catch { item.reviewStatus = previous }
         }
+    }
+}
+
+// MARK: - Like burst
+
+/// The big white heart that pops on a double-tap and fades out. Re-fires each
+/// time `trigger` changes.
+private struct LikeBurst: View {
+    let trigger: Int
+    @State private var scale: CGFloat = 0.4
+    @State private var opacity: Double = 0
+
+    var body: some View {
+        Image(systemName: "heart.fill")
+            .font(.system(size: 120))
+            .foregroundStyle(.white)
+            .shadow(color: .black.opacity(0.35), radius: 12)
+            .scaleEffect(scale)
+            .opacity(opacity)
+            .onChange(of: trigger) { _, newValue in
+                guard newValue > 0 else { return }
+                scale = 0.4
+                opacity = 1
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.55)) {
+                    scale = 1.0
+                }
+                withAnimation(.easeOut(duration: 0.35).delay(0.35)) {
+                    opacity = 0
+                }
+            }
     }
 }
 
