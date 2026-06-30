@@ -72,6 +72,16 @@ export const IMAGE_MODELS: ImageModel[] = [
     pricePerImage: 0.039,
     googleModel: "gemini-2.5-flash-image",
   },
+  {
+    id: "google/gemini-3.1-flash-lite-image",
+    provider: "google",
+    label: "Nano Banana 2 Lite — Gemini Flash Lite Image",
+    description:
+      "Google's fastest, most efficient image model. Lowest cost and lightning-fast — great for high-volume generation while keeping character consistency.",
+    supportsImagePrompt: true,
+    pricePerImage: 0.034,
+    googleModel: "gemini-3.1-flash-lite-image",
+  },
   // ── OpenAI (direct) ──────────────────────────────────────────────
   {
     id: "openai/gpt-image-2",
