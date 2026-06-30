@@ -27,7 +27,10 @@ final class AuthStore: NSObject, ObservableObject,
     ASWebAuthenticationPresentationContextProviding
 {
     @Published private(set) var user: SettoUser?
+    /// True while silently resuming a remembered session on launch.
+    @Published private(set) var resuming = false
     private var session: ASWebAuthenticationSession?
+    private var didTryResume = false
 
     private let tokenKey = "accessToken"
     private let expiryKey = "expiresAt"
@@ -39,6 +42,26 @@ final class AuthStore: NSObject, ObservableObject,
     }
 
     var isAuthenticated: Bool { user != nil && validToken() != nil }
+
+    /// We remember who was signed in, but their access token has expired — the
+    /// app should resume the session rather than ask for credentials again.
+    var needsResume: Bool { user != nil && validToken() == nil }
+
+    /// Resume a remembered session on launch by re-running the web bridge once.
+    /// WorkOS refreshes the access token server-side from its still-valid
+    /// session, so this completes without a login form while that session is
+    /// alive; if it's gone (or the user backs out), fall back to sign-in.
+    func resumeIfNeeded() async {
+        guard needsResume, !didTryResume, !resuming else { return }
+        didTryResume = true
+        resuming = true
+        defer { resuming = false }
+        do {
+            try await login()
+        } catch {
+            logout()
+        }
+    }
 
     /// A non-expired access token, or nil if the user must (re)authenticate.
     func validToken() -> String? {
