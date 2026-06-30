@@ -19,37 +19,37 @@ export interface TextModel {
 
 export const TEXT_MODELS: TextModel[] = [
   {
-    id: "openai/gpt-4o",
+    id: "openai/gpt-5",
     provider: "openai",
-    label: "GPT-4o",
-    description: "Balanced, high-quality copywriting with strong instruction following.",
-    openaiModel: "gpt-4o",
-    pricePerCall: 0.01,
+    label: "GPT-5",
+    description: "Flagship — highest-quality, on-brand copywriting.",
+    openaiModel: "gpt-5",
+    pricePerCall: 0.02,
   },
   {
-    id: "openai/gpt-4o-mini",
+    id: "openai/gpt-5-mini",
     provider: "openai",
-    label: "GPT-4o mini",
+    label: "GPT-5 mini",
     description: "Fast and cheap — great for quick copy iterations.",
-    openaiModel: "gpt-4o-mini",
-    pricePerCall: 0.002,
+    openaiModel: "gpt-5-mini",
+    pricePerCall: 0.004,
   },
   {
-    id: "openai/gpt-4.1",
+    id: "openai/gpt-5-chat",
     provider: "openai",
-    label: "GPT-4.1",
-    description: "Sharper long-form reasoning for nuanced brand voice.",
-    openaiModel: "gpt-4.1",
-    pricePerCall: 0.012,
+    label: "GPT-5 Chat",
+    description: "Conversational tuning — punchy, creative lines.",
+    openaiModel: "gpt-5-chat-latest",
+    pricePerCall: 0.02,
   },
 ];
 
 /**
  * The default text model. Overridable per-deployment with the OPENAI_TEXT_MODEL
- * env var (set the provider model name, e.g. "gpt-5", and we'll match or fall
- * back to a synthetic registry entry).
+ * env var — set the exact OpenAI model name (e.g. "gpt-5-mini"); if it isn't in
+ * the registry above we still send it and fall back to this entry's pricing.
  */
-export const DEFAULT_TEXT_MODEL_ID = "openai/gpt-4o";
+export const DEFAULT_TEXT_MODEL_ID = "openai/gpt-5";
 
 export function getTextModel(id: string): TextModel | undefined {
   return TEXT_MODELS.find((m) => m.id === id);

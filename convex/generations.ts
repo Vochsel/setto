@@ -29,6 +29,9 @@ async function shapeSucceeded(ctx: QueryCtx, gens: Doc<"generations">[]) {
         shotId: g.shotId,
         modelLabel: g.modelLabel,
         prompt: g.prompt,
+        rating: g.rating,
+        reviewStatus: g.reviewStatus,
+        favorite: g.favorite,
       };
     }),
   );
@@ -85,6 +88,7 @@ export const context = internalQuery({
         extraPrompt: shot.extraPrompt,
         cameraFraming: shot.cameraFraming ?? null,
         selectedVariationIds: shot.selectedVariationIds ?? [],
+        aspectRatio: shot.aspectRatio ?? null,
       },
       model: model
         ? {
@@ -244,6 +248,9 @@ export const queueFeed = query({
           error: g.error,
           shootId: g.shootId as string,
           shotId: g.shotId as string,
+          rating: g.rating,
+          reviewStatus: g.reviewStatus,
+          favorite: g.favorite,
         };
       }),
     );
@@ -276,7 +283,11 @@ export const listByOrg = query({
           shootId: g.shootId,
           shotId: g.shotId,
           prompt: g.prompt,
+          modelId: g.modelId,
           modelLabel: g.modelLabel,
+          rating: g.rating,
+          reviewStatus: g.reviewStatus,
+          favorite: g.favorite,
         };
       }),
     );
@@ -358,6 +369,43 @@ export const listByLocation = query({
     return shapeSucceeded(
       ctx,
       gens.filter((g) => effectiveLocationId(g) === locationId),
+    );
+  },
+});
+
+/**
+ * All succeeded photos featuring a given outfit (product).
+ *
+ * Mirrors `listByModel`: prefers each generation's frozen `outfitId` snapshot
+ * and only falls back to resolving the shot's current outfit for legacy rows
+ * that predate snapshots.
+ */
+export const listByOutfit = query({
+  args: { outfitId: v.id("outfits") },
+  handler: async (ctx, { outfitId }) => {
+    const scope = await getScope(ctx);
+    assertOrg(await ctx.db.get(outfitId), scope);
+    const gens = await ctx.db
+      .query("generations")
+      .withIndex("by_org", (q) => q.eq("orgId", scope.orgId))
+      .collect();
+
+    const legacyShotIds = new Set(
+      gens.filter((g) => g.outfitId === undefined).map((g) => g.shotId),
+    );
+    const shotOutfit = new Map<string, string | undefined>();
+    await Promise.all(
+      [...legacyShotIds].map(async (sid) => {
+        const shot = await ctx.db.get(sid);
+        shotOutfit.set(sid, shot?.outfitId);
+      }),
+    );
+
+    const effectiveOutfitId = (g: Doc<"generations">) =>
+      g.outfitId ?? shotOutfit.get(g.shotId);
+    return shapeSucceeded(
+      ctx,
+      gens.filter((g) => effectiveOutfitId(g) === outfitId),
     );
   },
 });

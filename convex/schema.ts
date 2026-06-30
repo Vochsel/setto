@@ -42,6 +42,40 @@ export const copyVariant = v.object({
   tagline: v.optional(v.string()),
   body: v.optional(v.string()),
   cta: v.optional(v.string()),
+  // Which persona/angle agent produced this variant, and any web sources it
+  // leaned on (when research used live web search).
+  personaId: v.optional(v.string()),
+  personaName: v.optional(v.string()),
+  sources: v.optional(v.array(v.string())),
+});
+
+/** A target-audience persona derived by the research/strategist step. */
+export const persona = v.object({
+  id: v.string(), // nanoid, stable within the campaign
+  name: v.string(),
+  descriptor: v.optional(v.string()), // who they are, one line
+  motivation: v.optional(v.string()), // what they want
+  pains: v.optional(v.string()), // what frustrates them
+  angle: v.optional(v.string()), // the messaging angle that lands for them
+});
+
+/**
+ * Output of the research/strategist step: positioning, audience insights, an
+ * art-direction brief (doubles as automatic inspiration) and any web sources.
+ */
+export const campaignResearch = v.object({
+  positioning: v.optional(v.string()),
+  insights: v.optional(v.array(v.string())),
+  visualDirection: v.optional(
+    v.object({
+      palette: v.optional(v.string()),
+      mood: v.optional(v.string()),
+      layoutCues: v.optional(v.string()),
+    }),
+  ),
+  sources: v.optional(v.array(v.string())),
+  usedWeb: v.optional(v.boolean()),
+  generatedAt: v.optional(v.number()),
 });
 
 /** A shot (generation) picked from a shoot to feature in the campaign. */
@@ -49,6 +83,42 @@ export const campaignShotRef = v.object({
   generationId: v.id("generations"),
   shootId: v.optional(v.id("shoots")),
 });
+
+/**
+ * A media slot in a composed HTML/Tailwind ad. The AI layout declares slots by
+ * id; the user binds a piece of media (a picked shot, a generated creative, or
+ * a video) to each. `kind` controls whether it renders as <img> or <video>.
+ */
+export const adSlot = v.object({
+  id: v.string(), // matches a {{slot:ID}} placeholder in the html
+  label: v.optional(v.string()),
+  kind: v.union(v.literal("image"), v.literal("video")),
+  mediaUrl: v.optional(v.string()),
+  posterUrl: v.optional(v.string()), // for video slots
+  source: v.optional(v.string()), // "shot" | "creative" | "video"
+  sourceId: v.optional(v.string()),
+});
+
+/**
+ * Review state shared by rateable media (images, videos, campaign creatives).
+ * Distinct from each table's generation `status` (queued/…/succeeded).
+ */
+export const reviewStatusV = v.union(
+  v.literal("approved"),
+  v.literal("rejected"),
+  v.literal("needs_changes"),
+);
+
+/**
+ * The three review fields added to every rateable media table. `rating` is 1–5;
+ * all optional (unset = unrated / unreviewed / not favorited). Spread into a
+ * `defineTable({ ... })`.
+ */
+export const mediaReviewFields = {
+  rating: v.optional(v.number()),
+  reviewStatus: v.optional(reviewStatusV),
+  favorite: v.optional(v.boolean()),
+};
 
 export default defineSchema({
   // --- Identity (synced from WorkOS) -------------------------------------
@@ -197,6 +267,8 @@ export default defineSchema({
     styleId: v.optional(v.id("presets")), // photography_style
     cameraId: v.optional(v.id("presets")), // camera_setup
     lightingId: v.optional(v.id("presets")), // lighting
+    // Output aspect ratio (e.g. "4:5", "16:9"). Unset => provider default.
+    aspectRatio: v.optional(v.string()),
     // Camera framing exported from the 3D staging step.
     cameraFraming: v.optional(v.any()),
   })
@@ -223,6 +295,11 @@ export default defineSchema({
     copy: v.optional(adCopy),
     // GPT-generated copy suggestions kept around so they survive a reload.
     copyVariants: v.optional(v.array(copyVariant)),
+    // Research/strategist output + the audience personas it derived. Personas
+    // drive the per-persona copy agents; research.visualDirection is the
+    // automatic art-direction "inspiration".
+    research: v.optional(campaignResearch),
+    personas: v.optional(v.array(persona)),
     // Uploaded inspiration ad designs — used as style/layout references.
     inspirationRefs: v.optional(v.array(imageRef)),
     // Shots chosen from shoots to feature as the hero imagery.
@@ -230,6 +307,10 @@ export default defineSchema({
     // Target aspect ratio for the creative ("1:1" | "4:5" | "9:16" | "16:9").
     aspectRatio: v.optional(v.string()),
     coverImage: v.optional(imageRef),
+    // When false/unset, the image model generates CLEAN media (no baked text) —
+    // copy + CTA are added as real text in the HTML ad composer. When true, the
+    // legacy behavior of baking the copy into the pixels is used.
+    bakeCopyIntoImage: v.optional(v.boolean()),
   })
     .index("by_org", ["orgId"])
     .index("by_org_status", ["orgId", "status"]),
@@ -255,9 +336,74 @@ export default defineSchema({
     seed: v.optional(v.number()),
     falRequestId: v.optional(v.string()),
     error: v.optional(v.string()),
+    // Review: 1–5 rating, approve/reject/needs-changes, favorite.
+    ...mediaReviewFields,
   })
     .index("by_campaign", ["campaignId"])
     .index("by_org", ["orgId"]),
+
+  // A composed HTML/Tailwind ad: an AI-generated layout that overlays real,
+  // editable copy + CTA on swappable media slots (images or videos). Unlike
+  // campaignCreatives (a single baked image), this is markup rendered in an
+  // iframe and rasterized to PNG on download.
+  campaignAds: defineTable({
+    orgId: v.string(),
+    createdBy: v.string(),
+    campaignId: v.id("campaigns"),
+    status: v.union(
+      v.literal("queued"),
+      v.literal("generating"),
+      v.literal("succeeded"),
+      v.literal("failed"),
+    ),
+    aspectRatio: v.optional(v.string()),
+    model: v.optional(v.string()), // text model id used to author the layout
+    modelLabel: v.optional(v.string()),
+    instructions: v.optional(v.string()), // extra art-direction from the user
+    // The generated document: Tailwind-class HTML with {{slot:ID}} placeholders.
+    html: v.optional(v.string()),
+    // Media slots declared by the layout + their current bindings.
+    slots: v.optional(v.array(adSlot)),
+    // The copy the layout was authored against (so it's self-contained).
+    copySnapshot: v.optional(adCopy),
+    error: v.optional(v.string()),
+  })
+    .index("by_campaign", ["campaignId"])
+    .index("by_org", ["orgId"]),
+
+  // The growing, pinnable library of ad-copy variations for a campaign. Unlike
+  // the legacy `campaigns.copyVariants` array (overwritten on each run), these
+  // accumulate: every option the copywriter chat proposes is kept and can be
+  // pinned, applied to the working copy, or removed.
+  campaignCopyVariants: defineTable({
+    orgId: v.string(),
+    createdBy: v.string(),
+    campaignId: v.id("campaigns"),
+    headline: v.optional(v.string()),
+    tagline: v.optional(v.string()),
+    body: v.optional(v.string()),
+    cta: v.optional(v.string()),
+    // Which audience/angle this option was written for, plus any web sources the
+    // research leaned on.
+    personaName: v.optional(v.string()),
+    angle: v.optional(v.string()),
+    sources: v.optional(v.array(v.string())),
+    // User-pinned favorites float to the top of the library.
+    pinned: v.optional(v.boolean()),
+    createdAt: v.number(),
+  })
+    .index("by_campaign", ["campaignId"])
+    .index("by_campaign_pinned", ["campaignId", "pinned"]),
+
+  // The persisted copywriter chat thread for a campaign — one row per campaign,
+  // holding the AI SDK `UIMessage[]` verbatim so it round-trips through useChat.
+  // The route loads it each turn, appends, streams, and saves it back.
+  campaignCopyChats: defineTable({
+    orgId: v.string(),
+    campaignId: v.id("campaigns"),
+    messages: v.array(v.any()),
+    updatedAt: v.number(),
+  }).index("by_campaign", ["campaignId"]),
 
   // --- Generations --------------------------------------------------------
   generations: defineTable({
@@ -297,6 +443,8 @@ export default defineSchema({
     params: v.optional(v.any()),
     falRequestId: v.optional(v.string()),
     error: v.optional(v.string()),
+    // Review: 1–5 rating, approve/reject/needs-changes, favorite.
+    ...mediaReviewFields,
   })
     .index("by_shot", ["shotId"])
     .index("by_shoot", ["shootId"])
@@ -337,6 +485,8 @@ export default defineSchema({
     params: v.optional(v.any()),
     falRequestId: v.optional(v.string()),
     error: v.optional(v.string()),
+    // Review: 1–5 rating, approve/reject/needs-changes, favorite.
+    ...mediaReviewFields,
   })
     .index("by_generation", ["generationId"])
     .index("by_shot", ["shotId"])

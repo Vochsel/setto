@@ -1,5 +1,4 @@
 import {
-  internalMutation,
   internalQuery,
   mutation,
   query,
@@ -8,7 +7,13 @@ import {
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { getScope, assertOrg } from "./lib/auth";
-import { imageRef, adCopy, copyVariant, campaignShotRef } from "./schema";
+import {
+  imageRef,
+  adCopy,
+  campaignShotRef,
+  campaignResearch,
+  persona,
+} from "./schema";
 import { resolveImages } from "./files";
 
 const statusValidator = v.union(
@@ -132,6 +137,7 @@ export const update = mutation({
     inspirationRefs: v.optional(v.array(imageRef)),
     selectedShots: v.optional(v.array(campaignShotRef)),
     coverImage: v.optional(imageRef),
+    bakeCopyIntoImage: v.optional(v.boolean()),
   },
   handler: async (ctx, { id, ...patch }) => {
     const scope = await getScope(ctx);
@@ -184,18 +190,37 @@ export const remove = mutation({
   },
 });
 
-/* ─────────────────────────── internal (actions) ─────────────────────────── */
-
-/** Persist GPT-generated copy suggestions (called by the copy action). */
-export const saveCopyVariants = internalMutation({
+/** Persist the research brief + derived personas (set by the copywriter chat's
+ * `researchAudience` tool). Org-scoped so the streaming route can call it. */
+export const setResearch = mutation({
   args: {
     id: v.id("campaigns"),
-    variants: v.array(copyVariant),
+    research: campaignResearch,
+    personas: v.array(persona),
   },
-  handler: async (ctx, { id, variants }) => {
+  handler: async (ctx, { id, research, personas }) => {
+    const scope = await getScope(ctx);
+    assertOrg(await ctx.db.get(id), scope);
+    await ctx.db.patch(id, { research, personas });
+  },
+});
+
+/* ─────────────────────────── internal (actions) ─────────────────────────── */
+
+/** Context for the HTML ad-layout worker: copy, format, and picked shots. */
+export const adContext = internalQuery({
+  args: { id: v.id("campaigns") },
+  handler: async (ctx, { id }) => {
     const c = await ctx.db.get(id);
-    if (!c) return;
-    await ctx.db.patch(id, { copyVariants: variants });
+    if (!c) throw new Error("Campaign not found");
+    return {
+      orgId: c.orgId,
+      name: c.name,
+      brief: c.brief ?? null,
+      copy: c.copy ?? null,
+      aspectRatio: c.aspectRatio ?? null,
+      shots: await resolveSelectedShots(ctx, c.selectedShots), // {generationId, shootId?, url}
+    };
   },
 });
 
@@ -211,6 +236,7 @@ export const creativeContext = internalQuery({
       brief: c.brief ?? null,
       copy: c.copy ?? null,
       aspectRatio: c.aspectRatio ?? null,
+      bakeCopyIntoImage: c.bakeCopyIntoImage ?? false,
       inspirationUrls: (await resolveImages(ctx, c.inspirationRefs)).map(
         (i) => i.url,
       ),

@@ -23,13 +23,28 @@ async function fetchAsBase64(
   return { data: buf.toString("base64"), mimeType };
 }
 
+/**
+ * Map an app aspect ratio ("w:h") to the nearest gpt-image-1 size. OpenAI only
+ * offers square / portrait / landscape, so every portrait ratio maps to the
+ * portrait canvas and every landscape ratio to the landscape one. Returns
+ * undefined for an unknown/unset ratio (keep the model default).
+ */
+function openaiSizeForAspect(aspectRatio?: string): string | undefined {
+  if (!aspectRatio) return undefined;
+  const [w, h] = aspectRatio.split(":").map(Number);
+  if (!w || !h) return undefined;
+  if (w === h) return "1024x1024";
+  return w > h ? "1536x1024" : "1024x1536";
+}
+
 /** OpenAI gpt-image-1. Uses /edits when references are supplied, else /generations. Returns base64 PNG. */
 async function callOpenAI(
   model: ImageModel,
   apiKey: string,
-  args: { prompt: string; referenceImageUrls: string[] },
+  args: { prompt: string; referenceImageUrls: string[]; aspectRatio?: string },
 ): Promise<{ b64: string; mime: string }> {
-  const size = model.openaiSize ?? "1024x1536";
+  const size =
+    openaiSizeForAspect(args.aspectRatio) ?? model.openaiSize ?? "1024x1536";
   const quality = model.openaiQuality ?? "high";
   const useRefs = model.supportsImagePrompt && args.referenceImageUrls.length > 0;
 
@@ -374,6 +389,7 @@ export const generateShot = action({
         modelKey,
         prompt: promptText,
         referenceImageUrls: references,
+        aspectRatio: c.shot.aspectRatio ?? undefined,
       });
     }
     return { generationIds };
@@ -391,6 +407,7 @@ export const runOne = internalAction({
     modelKey: v.string(),
     prompt: v.string(),
     referenceImageUrls: v.array(v.string()),
+    aspectRatio: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const model = getImageModel(args.modelKey);
@@ -431,6 +448,7 @@ export const runOne = internalAction({
         const input = buildFalInput(model, {
           prompt: args.prompt,
           referenceImageUrls: args.referenceImageUrls,
+          aspectRatio: args.aspectRatio,
         });
         // Stream coarse progress to the row as the fal queue advances (sync
         // callback, so fire-and-forget the patch, only on status transitions).
@@ -478,10 +496,12 @@ export const runOne = internalAction({
             ? await callOpenAI(model, apiKey, {
                 prompt: args.prompt,
                 referenceImageUrls: args.referenceImageUrls,
+                aspectRatio: args.aspectRatio,
               })
             : await callGoogle(model, apiKey, {
                 prompt: args.prompt,
                 referenceImageUrls: args.referenceImageUrls,
+                aspectRatio: args.aspectRatio,
               });
         const blob = new Blob([Buffer.from(out.b64, "base64")], {
           type: out.mime,
@@ -551,6 +571,7 @@ export const generateCreative = action({
       aspectRatio: c.aspectRatio,
       shotCount: c.shotUrls.length,
       inspirationCount: c.inspirationUrls.length,
+      bakeCopy: c.bakeCopyIntoImage,
     });
 
     // Hero shots first (the subject), then inspiration (the look). Capped so we

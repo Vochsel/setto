@@ -1,4 +1,4 @@
-import { internalMutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import type { MutationCtx } from "./_generated/server";
 import { getScope } from "./lib/auth";
@@ -53,6 +53,40 @@ export const record = internalMutation({
       userName,
       userEmail,
       cost: a.status === "succeeded" ? estimate(a.modelKey) : 0,
+    });
+  },
+});
+
+/**
+ * Public, org-scoped variant of `record` for the campaign copywriter chat,
+ * which runs in a Next.js route (not a Convex action) and so can't call the
+ * internal mutation. Cost comes from the text-model registry.
+ */
+export const logCopy = mutation({
+  args: {
+    modelKey: v.string(),
+    modelLabel: v.optional(v.string()),
+    provider: v.optional(v.string()),
+    status: statusV,
+    campaignId: v.optional(v.id("campaigns")),
+    error: v.optional(v.string()),
+  },
+  handler: async (ctx, a) => {
+    const scope = await getScope(ctx);
+    const { userName, userEmail } = await resolveUser(ctx, scope.userId);
+    await ctx.db.insert("usageEvents", {
+      orgId: scope.orgId,
+      userId: scope.userId,
+      userName,
+      userEmail,
+      kind: "campaign_copy",
+      provider: a.provider ?? "openai",
+      modelKey: a.modelKey,
+      modelLabel: a.modelLabel,
+      status: a.status,
+      campaignId: a.campaignId,
+      cost: a.status === "succeeded" ? estimateTextCost(a.modelKey) : 0,
+      error: a.error,
     });
   },
 });
