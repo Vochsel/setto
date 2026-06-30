@@ -1,9 +1,6 @@
 "use client";
 
 import { Compass } from "lucide-react";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 
 /** Default radius (metres) shown when expansion is first switched on. */
@@ -17,6 +14,9 @@ const STEP = 25;
  * capture also samples random points within `radiusMeters` of the pin so the
  * backdrop reference pool spans the surrounding area. Stateless — the parent
  * owns the values and persists `onChange`.
+ *
+ * Uses a plain button + native range input (not the radix Switch/Slider) so it
+ * stays reliably interactive.
  */
 export function StreetViewRadiusControl({
   enabled,
@@ -38,26 +38,41 @@ export function StreetViewRadiusControl({
     <div className={cn("rounded-lg border p-3", className)}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 space-y-0.5">
-          <Label className="flex items-center gap-1.5 text-sm font-medium">
+          <div className="flex items-center gap-1.5 text-sm font-medium">
             <Compass className="h-3.5 w-3.5" /> {title}
-          </Label>
+          </div>
           <p className="text-muted-foreground text-xs">{description}</p>
         </div>
-        <Switch
-          checked={enabled}
-          onCheckedChange={(c) => onChange(c, radius)}
+        <button
+          type="button"
+          role="switch"
+          aria-checked={enabled}
           aria-label={title}
-        />
+          onClick={() => onChange(!enabled, radius)}
+          className={cn(
+            "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border border-transparent transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+            enabled ? "bg-primary" : "bg-input dark:bg-input/80",
+          )}
+        >
+          <span
+            className={cn(
+              "inline-block size-4 rounded-full bg-background shadow-sm transition-transform",
+              enabled ? "translate-x-[18px]" : "translate-x-0.5",
+            )}
+          />
+        </button>
       </div>
       {enabled && (
         <div className="mt-3 flex items-center gap-3">
-          <Slider
+          <input
+            type="range"
             min={STREETVIEW_RADIUS_MIN}
             max={STREETVIEW_RADIUS_MAX}
             step={STEP}
-            value={[radius]}
-            onValueChange={([v]) => onChange(true, v)}
-            className="flex-1"
+            value={radius}
+            onChange={(e) => onChange(true, Number(e.target.value))}
+            aria-label="Street View radius (metres)"
+            className="accent-primary h-1.5 flex-1 cursor-pointer"
           />
           <span className="text-muted-foreground w-16 shrink-0 text-right text-xs tabular-nums">
             {radius} m
