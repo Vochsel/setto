@@ -17,10 +17,18 @@ struct SwipeFeedView: View {
     var startId: String?
 
     @State private var currentId: String?
-    /// Urls we've already warmed so we don't refetch them.
-    @State private var prefetched: Set<String> = []
+    /// Warms upcoming media off the main actor — NOT @State, so it never
+    /// re-renders the ScrollView mid-scroll (which fought the paging).
+    @State private var prefetcher = MediaPrefetcher()
     /// Live translation while back-swiping the reel away from the left edge.
     @State private var dismissOffset: CGFloat = 0
+
+    // The active page's live "peek" transform (driven by the UIKit pinch
+    // recognizer so it never steals the vertical paging swipe).
+    @State private var peekScale: CGFloat = 1
+    @State private var peekRotation: Angle = .zero
+    @State private var peekOffset: CGSize = .zero
+    @State private var peekAnchor: UnitPoint = .center
 
     var body: some View {
         // NOTE: the dismiss offset is applied with `.offset` (layout-neutral) and
@@ -29,13 +37,41 @@ struct SwipeFeedView: View {
         ScrollView(.vertical) {
             LazyVStack(spacing: 0) {
                 ForEach($items) { $item in
-                    MediaPage(item: $item, isActive: currentId == item.id)
-                        .environmentObject(auth)
-                        .containerRelativeFrame([.horizontal, .vertical])
-                        .id(item.id)
+                    let active = currentId == item.id
+                    MediaPage(
+                        item: $item,
+                        isActive: active,
+                        scale: active ? peekScale : 1,
+                        rotation: active ? peekRotation : .zero,
+                        offset: active ? peekOffset : .zero,
+                        anchor: peekAnchor
+                    )
+                    .environmentObject(auth)
+                    .containerRelativeFrame([.horizontal, .vertical])
+                    .id(item.id)
                 }
             }
             .scrollTargetLayout()
+            // Attaches the pinch/rotate recognizers to this ScrollView.
+            .background(
+                PeekGestureAttacher(
+                    onChange: { scale, rotation, translation, anchor in
+                        peekScale = scale
+                        peekRotation = .radians(Double(rotation))
+                        peekOffset = translation
+                        peekAnchor = UnitPoint(x: anchor.x, y: anchor.y)
+                    },
+                    onEnded: {
+                        withAnimation(
+                            .spring(response: 0.35, dampingFraction: 0.72)
+                        ) {
+                            peekScale = 1
+                            peekRotation = .zero
+                            peekOffset = .zero
+                        }
+                    }
+                )
+            )
         }
         .scrollTargetBehavior(.paging)
         .scrollPosition(id: $currentId)
@@ -105,8 +141,18 @@ struct SwipeFeedView: View {
         else { return }
         let upper = min(idx + 4, items.count)
         guard idx + 1 < upper else { return }
-        for item in items[(idx + 1)..<upper] where !prefetched.contains(item.id) {
-            prefetched.insert(item.id)
+        prefetcher.warm(Array(items[(idx + 1)..<upper]))
+    }
+}
+
+/// Warms upcoming media into the shared URL cache off the main actor. A plain
+/// class (not @State-observed) so warming never re-renders the reel.
+final class MediaPrefetcher {
+    private var seen = Set<String>()
+
+    func warm(_ items: [MediaItem]) {
+        for item in items where !seen.contains(item.id) {
+            seen.insert(item.id)
             // For videos warm the poster frame; for images the image itself.
             let raw = item.isVideo ? (item.posterUrl ?? item.url) : item.url
             guard let url = URL(string: raw) else { continue }
@@ -123,12 +169,13 @@ private struct MediaPage: View {
     @Binding var item: MediaItem
     let isActive: Bool
 
-    // Live "peek" transform driven by a two-finger pinch (zoom + rotate + pan),
-    // anchored at where the pinch began. Springs back to identity on release.
-    @State private var scale: CGFloat = 1
-    @State private var rotation: Angle = .zero
-    @State private var offset: CGSize = .zero
-    @State private var anchor: UnitPoint = .center
+    // Live "peek" transform, owned by SwipeFeedView and driven by the UIKit
+    // pinch recognizer (so it never steals the vertical paging swipe).
+    let scale: CGFloat
+    let rotation: Angle
+    let offset: CGSize
+    let anchor: UnitPoint
+
     @State private var saveState: MediaSaveState = .idle
 
     private var client: ConvexClient {
@@ -143,44 +190,10 @@ private struct MediaPage: View {
                 .scaleEffect(scale, anchor: anchor)
                 .rotationEffect(rotation, anchor: anchor)
                 .offset(offset)
-                .contentShape(Rectangle())
-                .simultaneousGesture(peekGesture)
             overlay
         }
         .clipped()
         .contentShape(Rectangle())
-    }
-
-    /// Combined magnify + rotate + drag. Pan only engages once a pinch is active
-    /// so a one-finger swipe still pages the feed. On end, spring back.
-    private var peekGesture: some Gesture {
-        let combined = SimultaneousGesture(
-            SimultaneousGesture(MagnifyGesture(), RotateGesture()),
-            DragGesture(minimumDistance: 0))
-        return combined
-            .onChanged { value in
-                let magnify = value.first?.first
-                let rotate = value.first?.second
-                if let magnify {
-                    scale = magnify.magnification
-                    anchor = magnify.startAnchor
-                }
-                if let rotate {
-                    rotation = rotate.rotation
-                }
-                // Pan with the pinch — but only while a pinch/rotate is engaged,
-                // so a plain one-finger swipe still pages the feed.
-                if (magnify != nil || rotate != nil), let drag = value.second {
-                    offset = drag.translation
-                }
-            }
-            .onEnded { _ in
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.72)) {
-                    scale = 1
-                    rotation = .zero
-                    offset = .zero
-                }
-            }
     }
 
     @ViewBuilder private var media: some View {
