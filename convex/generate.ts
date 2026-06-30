@@ -892,7 +892,10 @@ export const generateModelImage = action({
     kind: v.optional(v.union(v.literal("headshot"), v.literal("sheet"))),
     prompt: v.optional(v.string()),
     referenceImageUrls: v.optional(v.array(v.string())),
-    referenceStorageIds: v.optional(v.array(v.id("_storage"))),
+    // Accept storage ids as plain strings (not v.id) so a stale / cross-
+    // deployment id doesn't fail argument validation before the handler runs —
+    // we resolve them leniently below and just skip any that don't belong here.
+    referenceStorageIds: v.optional(v.array(v.string())),
     resemblance: v.optional(v.boolean()),
     modelKey: v.optional(v.string()),
   },
@@ -931,8 +934,13 @@ export const generateModelImage = action({
     // freshly-uploaded reference (storageId only) still conditions the result.
     const resolvedFromStorage: string[] = [];
     for (const sid of args.referenceStorageIds ?? []) {
-      const url = await ctx.storage.getUrl(sid);
-      if (url) resolvedFromStorage.push(url);
+      try {
+        const url = await ctx.storage.getUrl(sid as Id<"_storage">);
+        if (url) resolvedFromStorage.push(url);
+      } catch {
+        // Skip ids that aren't valid storage ids for this deployment (e.g. a
+        // stale dev id used against prod) rather than crashing the request.
+      }
     }
     const refs = [
       ...(args.referenceImageUrls ?? []),
