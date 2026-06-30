@@ -54,23 +54,6 @@ export const VIDEO_MODELS: VideoModel[] = [
     durationParam: "duration",
   },
   {
-    id: "fal-ai/ltxv-13b-098-distilled/image-to-video",
-    provider: "fal",
-    label: "LTXV 13B (Distilled)",
-    description:
-      "The cheapest, fastest option — distilled LTX-Video. Best for quick, low-cost drafts at 480p.",
-    falEndpoint: "fal-ai/ltxv-13b-098-distilled/image-to-video",
-    falImageParam: "image_url",
-    pricePerSecond: 0.02,
-    durations: [5, 8],
-    defaultDuration: 5,
-    // Frame-based: num_frames = round(seconds × 24fps), at 480p to stay cheap.
-    framesParam: "num_frames",
-    frameRateParam: "frame_rate",
-    fps: 24,
-    falDefaultParams: { resolution: "480p" },
-  },
-  {
     id: "fal-ai/pixverse/v4.5/image-to-video",
     provider: "fal",
     label: "PixVerse v4.5",

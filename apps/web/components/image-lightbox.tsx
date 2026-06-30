@@ -9,6 +9,7 @@ import {
   Download,
   Copy,
   Film,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -153,11 +154,14 @@ export function ImageLightbox({
   index,
   onIndexChange,
   onClose,
+  onDelete,
 }: {
   images: LightboxImage[];
   index: number | null;
   onIndexChange: (i: number) => void;
   onClose: () => void;
+  /** When set, shows a delete control that removes the current item. */
+  onDelete?: (image: LightboxImage, index: number) => void;
 }) {
   const open = index !== null;
   const current = open ? images[index] : undefined;
@@ -250,6 +254,18 @@ export function ImageLightbox({
                   </a>
                 </Button>
               </>
+            )}
+            {onDelete && open && current && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className={cn(CTRL, "hover:bg-red-500/30 hover:text-red-100")}
+                onClick={() => onDelete(current, index)}
+                title="Delete"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
             )}
             <Button
               type="button"
