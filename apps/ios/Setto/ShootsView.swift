@@ -105,6 +105,8 @@ struct ShootDetailView: View {
     @State private var swipeStart: SwipeAnchor?
     @State private var showCamera = false
     @State private var headerHidden = false
+    @State private var newVideoId: String?
+    @State private var creatingVideo = false
 
     var body: some View {
         Group {
@@ -164,6 +166,21 @@ struct ShootDetailView: View {
         .navigationTitle(shoot.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(headerHidden ? .hidden : .visible, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(action: makeVideo) {
+                    if creatingVideo {
+                        ProgressView()
+                    } else {
+                        Label("Make video", systemImage: "film")
+                    }
+                }
+                .disabled(creatingVideo)
+            }
+        }
+        .navigationDestination(item: $newVideoId) { id in
+            VideoEditorView(projectId: id)
+        }
         .refreshable { await load() }
         .task { await load() }
         .fullScreenCover(item: $swipeStart) { anchor in
@@ -190,6 +207,22 @@ struct ShootDetailView: View {
             error = nil
         } catch {
             self.error = error.localizedDescription
+        }
+    }
+
+    /// Start a new video project scoped to this shoot, then push the editor.
+    private func makeVideo() {
+        Task {
+            creatingVideo = true
+            defer { creatingVideo = false }
+            do {
+                let client = ConvexClient(
+                    baseURL: Config.convexURL, token: auth.validToken())
+                newVideoId = try await client.createVideoProject(
+                    shootId: shoot.id)
+            } catch {
+                self.error = error.localizedDescription
+            }
         }
     }
 }

@@ -12,6 +12,8 @@ struct RootView: View {
                     .tabItem {
                         Label("Shoots", systemImage: "camera.on.rectangle")
                     }
+                VideosView()
+                    .tabItem { Label("Videos", systemImage: "film") }
                 FavoritesView()
                     .tabItem { Label("Favorites", systemImage: "heart") }
                 ModelsView()

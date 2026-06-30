@@ -13,6 +13,7 @@ import {
   getTemplate,
   getResolution,
   specDurationMs,
+  defaultKenBurns,
   DEFAULT_TEMPLATE_ID,
   type MediaInput,
   type VideoClip,
@@ -348,6 +349,80 @@ export const setClips = mutation({
       clips,
       posterUrl: posterFromClips(clips),
     });
+  },
+});
+
+// ── Targeted clip ops (simple args — used by iOS and optimistic web edits) ──
+
+/** Reorder clips to match the given id order (ids not present are dropped). */
+export const reorderClips = mutation({
+  args: { projectId: v.id("videoProjects"), clipIds: v.array(v.string()) },
+  handler: async (ctx, { projectId, clipIds }) => {
+    const scope = await getScope(ctx);
+    const project = assertOrg(await ctx.db.get(projectId), scope);
+    const byId = new Map(project.clips.map((c) => [c.id, c]));
+    const clips = clipIds
+      .map((id) => byId.get(id))
+      .filter((c): c is VideoClip => !!c);
+    if (clips.length !== project.clips.length) {
+      throw new Error("Reorder must include every clip exactly once");
+    }
+    await ctx.db.patch(projectId, {
+      clips,
+      posterUrl: posterFromClips(clips),
+    });
+  },
+});
+
+/** Retime a single clip. */
+export const setClipDuration = mutation({
+  args: {
+    projectId: v.id("videoProjects"),
+    clipId: v.string(),
+    durationMs: v.number(),
+  },
+  handler: async (ctx, { projectId, clipId, durationMs }) => {
+    const scope = await getScope(ctx);
+    const project = assertOrg(await ctx.db.get(projectId), scope);
+    const clips = project.clips.map((c) =>
+      c.id === clipId
+        ? { ...c, durationMs: Math.max(200, Math.round(durationMs)) }
+        : c,
+    );
+    await ctx.db.patch(projectId, { clips });
+  },
+});
+
+/** Remove a single clip. */
+export const removeClip = mutation({
+  args: { projectId: v.id("videoProjects"), clipId: v.string() },
+  handler: async (ctx, { projectId, clipId }) => {
+    const scope = await getScope(ctx);
+    const project = assertOrg(await ctx.db.get(projectId), scope);
+    const clips = project.clips.filter((c) => c.id !== clipId);
+    await ctx.db.patch(projectId, {
+      clips,
+      posterUrl: posterFromClips(clips),
+    });
+  },
+});
+
+/** Toggle the Ken Burns effect on an image clip. */
+export const setClipKenBurns = mutation({
+  args: {
+    projectId: v.id("videoProjects"),
+    clipId: v.string(),
+    enabled: v.boolean(),
+  },
+  handler: async (ctx, { projectId, clipId, enabled }) => {
+    const scope = await getScope(ctx);
+    const project = assertOrg(await ctx.db.get(projectId), scope);
+    const clips = project.clips.map((c, i) =>
+      c.id === clipId && c.sourceType === "image"
+        ? { ...c, effect: enabled ? defaultKenBurns(i) : { type: "none" as const } }
+        : c,
+    );
+    await ctx.db.patch(projectId, { clips });
   },
 });
 
