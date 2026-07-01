@@ -5,6 +5,7 @@ import Foundation
 
 struct GenerationIdsAck: Decodable { let generationIds: [String] }
 struct VideoIdAck: Decodable { let videoId: String }
+struct ReplaceImageAck: Decodable { let url: String? }
 
 extension ConvexClient {
     // MARK: Shot images
@@ -80,5 +81,20 @@ extension ConvexClient {
         let ack = try await call(
             "videos:generate", .mutation, args: args, as: VideoIdAck.self)
         return ack.videoId
+    }
+
+    // MARK: Destructive crop
+
+    /// Replace a generation's image with a newly-uploaded (cropped) file.
+    /// Returns the new playable URL.
+    @discardableResult
+    func replaceGenerationImage(
+        generationId: String, storageId: String
+    ) async throws -> String? {
+        let ack = try await call(
+            "generations:replaceImage", .mutation,
+            args: ["id": generationId, "storageId": storageId],
+            as: ReplaceImageAck.self)
+        return ack.url
     }
 }

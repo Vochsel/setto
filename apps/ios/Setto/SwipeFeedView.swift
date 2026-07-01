@@ -180,6 +180,7 @@ private struct MediaPage: View {
     @State private var likeTrigger = 0
     @State private var showAnimate = false
     @State private var showVariations = false
+    @State private var showCrop = false
 
     private var client: ConvexClient {
         ConvexClient(baseURL: Config.convexURL, token: auth.validToken())
@@ -206,6 +207,14 @@ private struct MediaPage: View {
         }
         .sheet(isPresented: $showVariations) {
             VariationsSheet(generationId: item.id).environmentObject(auth)
+        }
+        .sheet(isPresented: $showCrop) {
+            if let url = URL(string: item.url) {
+                CropView(generationId: item.id, imageURL: url) { newUrl in
+                    if !newUrl.isEmpty { item.url = newUrl }
+                }
+                .environmentObject(auth)
+            }
         }
     }
 
@@ -315,6 +324,13 @@ private struct MediaPage: View {
                 } label: {
                     railIcon("wand.and.stars", "Create", color: .white, size: 30)
                 }
+
+                Button {
+                    showCrop = true
+                } label: {
+                    railIcon("crop", "Crop", color: .white, size: 26)
+                }
+                .buttonStyle(.plain)
             }
 
             Button(action: toggleFavorite) {

@@ -511,3 +511,31 @@ export const remove = mutation({
     await ctx.db.delete(id);
   },
 });
+
+/**
+ * Destructively replace a generation's image with a newly-uploaded (e.g.
+ * cropped) file. The previously-stored file is deleted and any external
+ * `imageUrl` is cleared, so the image now resolves from the new storage id.
+ * Returns the new playable URL. Used by the fullscreen crop tool (web + iOS).
+ */
+export const replaceImage = mutation({
+  args: {
+    id: v.id("generations"),
+    storageId: v.id("_storage"),
+  },
+  handler: async (ctx, { id, storageId }) => {
+    const scope = await getScope(ctx);
+    const gen = assertOrg(await ctx.db.get(id), scope);
+    // Free the previous stored file (best effort) — the crop is destructive.
+    if (gen.storageId && gen.storageId !== storageId) {
+      try {
+        await ctx.storage.delete(gen.storageId);
+      } catch {
+        // Old file may already be gone; ignore.
+      }
+    }
+    await ctx.db.patch(id, { storageId, imageUrl: undefined });
+    const url = await ctx.storage.getUrl(storageId);
+    return { url: url ?? null };
+  },
+});

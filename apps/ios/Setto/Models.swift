@@ -113,7 +113,7 @@ struct ShootLocationDoc: Identifiable, Decodable {
 struct MediaItem: Identifiable, Decodable, Equatable {
     let id: String
     let kind: String  // "image" | "video"
-    let url: String
+    var url: String
     let posterUrl: String?
     var rating: Int?
     var reviewStatus: String?  // "approved" | "rejected" | "needs_changes"

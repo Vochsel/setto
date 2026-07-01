@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, type MouseEvent } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -11,8 +11,10 @@ import {
   Film,
   Trash2,
   Sparkles,
+  Crop as CropIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useMutation } from "convex/react";
 import {
   Dialog,
   DialogContent,
@@ -21,11 +23,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { AnimatePopover } from "@/components/animate-popover";
 import { VariationsPopover } from "@/components/variations-popover";
+import { ImageCropper } from "@/components/image-cropper";
 import {
   ReviewControls,
   type ReviewStatus,
 } from "@/components/review-controls";
 import { cn } from "@/lib/utils";
+import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 
 // Translucent control button for the dark lightbox scrim, with hover + click
@@ -171,26 +175,84 @@ export function ImageLightbox({
   const hasPrev = open && index > 0;
   const hasNext = open && index < images.length - 1;
 
+  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
+  const replaceImage = useMutation(api.generations.replaceImage);
+  const [cropping, setCropping] = useState(false);
+  const [cropBusy, setCropBusy] = useState(false);
+  // A local object-URL preview of a just-cropped image, shown instantly until
+  // Convex reactivity flows the new URL back through `images`.
+  const [localSrc, setLocalSrc] = useState<string | null>(null);
+  const canCrop = !isVideo && !!current?.generationId && !!current?.url;
+  const displaySrc = localSrc ?? current?.url;
+
+  // Clear crop mode + any local preview when leaving an item (nav / close).
+  function resetCrop() {
+    setCropping(false);
+    setLocalSrc((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+  }
+  function go(i: number) {
+    resetCrop();
+    onIndexChange(i);
+  }
+  function handleClose() {
+    resetCrop();
+    onClose();
+  }
+
+  async function handleCrop(blob: Blob) {
+    if (!current?.generationId) return;
+    setCropBusy(true);
+    try {
+      const uploadUrl = await generateUploadUrl();
+      const res = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": blob.type },
+        body: blob,
+      });
+      const { storageId } = await res.json();
+      await replaceImage({
+        id: current.generationId as Id<"generations">,
+        storageId,
+      });
+      setLocalSrc(URL.createObjectURL(blob));
+      setCropping(false);
+      toast.success("Image cropped");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not crop image");
+    } finally {
+      setCropBusy(false);
+    }
+  }
+
   // Click the dark scrim itself (not the media or any control) to close.
   const onBackdropClick = (e: MouseEvent) => {
-    if (e.target === e.currentTarget) onClose();
+    if (e.target === e.currentTarget) handleClose();
   };
 
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "ArrowRight" && index < images.length - 1) {
-        onIndexChange(index + 1);
-      } else if (e.key === "ArrowLeft" && index > 0) {
-        onIndexChange(index - 1);
-      }
+      if (cropping) return; // let the cropper own the keyboard while active
+      const move = (to: number) => {
+        setCropping(false);
+        setLocalSrc((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return null;
+        });
+        onIndexChange(to);
+      };
+      if (e.key === "ArrowRight" && index < images.length - 1) move(index + 1);
+      else if (e.key === "ArrowLeft" && index > 0) move(index - 1);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, index, images.length, onIndexChange]);
+  }, [open, index, images.length, onIndexChange, cropping]);
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+    <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
       <DialogContent
         showCloseButton={false}
         onClick={onBackdropClick}
@@ -238,6 +300,18 @@ export function ImageLightbox({
                       </Button>
                     }
                   />
+                )}
+                {canCrop && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className={cn(CTRL, cropping && "bg-white/25")}
+                    onClick={() => setCropping((c) => !c)}
+                    title="Crop (replaces the original)"
+                  >
+                    <CropIcon className="h-4 w-4" />
+                  </Button>
                 )}
                 {!isVideo && (
                   <Button
@@ -291,7 +365,7 @@ export function ImageLightbox({
               variant="ghost"
               size="icon"
               className={CTRL}
-              onClick={onClose}
+              onClick={handleClose}
               title="Close"
             >
               <X className="h-4 w-4" />
@@ -303,7 +377,14 @@ export function ImageLightbox({
           className="relative flex min-h-0 flex-1 items-center justify-center"
           onClick={onBackdropClick}
         >
-          {current?.url ? (
+          {cropping && displaySrc ? (
+            <ImageCropper
+              src={displaySrc}
+              busy={cropBusy}
+              onCancel={() => setCropping(false)}
+              onApply={handleCrop}
+            />
+          ) : current?.url ? (
             isVideo ? (
               <video
                 key={current.url}
@@ -318,23 +399,27 @@ export function ImageLightbox({
             ) : (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={current.url}
+                src={displaySrc}
                 alt={current.caption ?? ""}
                 className="max-h-full max-w-full rounded-lg object-contain"
               />
             )
           ) : null}
 
-          <NavButton
-            side="left"
-            disabled={!hasPrev}
-            onClick={() => hasPrev && onIndexChange(index - 1)}
-          />
-          <NavButton
-            side="right"
-            disabled={!hasNext}
-            onClick={() => hasNext && onIndexChange(index + 1)}
-          />
+          {!cropping && (
+            <>
+              <NavButton
+                side="left"
+                disabled={!hasPrev}
+                onClick={() => hasPrev && go(index - 1)}
+              />
+              <NavButton
+                side="right"
+                disabled={!hasNext}
+                onClick={() => hasNext && go(index + 1)}
+              />
+            </>
+          )}
         </div>
 
         {current?.mediaId ? (
