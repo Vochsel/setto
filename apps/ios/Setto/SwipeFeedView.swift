@@ -178,6 +178,8 @@ private struct MediaPage: View {
 
     @State private var saveState: MediaSaveState = .idle
     @State private var likeTrigger = 0
+    @State private var showAnimate = false
+    @State private var showVariations = false
 
     private var client: ConvexClient {
         ConvexClient(baseURL: Config.convexURL, token: auth.validToken())
@@ -199,6 +201,12 @@ private struct MediaPage: View {
         }
         .clipped()
         .contentShape(Rectangle())
+        .sheet(isPresented: $showAnimate) {
+            AnimateSheet(generationId: item.id).environmentObject(auth)
+        }
+        .sheet(isPresented: $showVariations) {
+            VariationsSheet(generationId: item.id).environmentObject(auth)
+        }
     }
 
     /// A double-tap likes (never un-likes — that's the heart button's job) and
@@ -291,6 +299,24 @@ private struct MediaPage: View {
     /// The right-hand action stack: favorite, download, share, approval status.
     private var reviewRail: some View {
         VStack(spacing: 20) {
+            // Generate from this image (mirrors the web lightbox) — images only.
+            if !item.isVideo {
+                Menu {
+                    Button {
+                        showAnimate = true
+                    } label: {
+                        Label("Animate into video", systemImage: "film")
+                    }
+                    Button {
+                        showVariations = true
+                    } label: {
+                        Label("Make variations", systemImage: "square.on.square")
+                    }
+                } label: {
+                    railIcon("wand.and.stars", "Create", color: .white, size: 30)
+                }
+            }
+
             Button(action: toggleFavorite) {
                 railIcon(
                     item.favorite ? "heart.fill" : "heart", "Like",

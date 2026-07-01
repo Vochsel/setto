@@ -104,6 +104,7 @@ struct ShootDetailView: View {
     @State private var loading = false
     @State private var swipeStart: SwipeAnchor?
     @State private var showCamera = false
+    @State private var showGenerate = false
     @State private var headerHidden = false
     @State private var newVideoId: String?
     @State private var creatingVideo = false
@@ -144,6 +145,12 @@ struct ShootDetailView: View {
                         }
                     }
                 }
+                FloatingButton(
+                    systemImage: "sparkles", tint: .black.opacity(0.6), size: 48
+                ) {
+                    showGenerate = true
+                }
+                .accessibilityLabel("Generate Shot")
                 FloatingButton(systemImage: "camera.fill", size: 60) {
                     showCamera = true
                 }
@@ -189,6 +196,12 @@ struct ShootDetailView: View {
         }
         .sheet(isPresented: $showCamera) {
             PhotoCaptureView(shoot: shoot) {
+                Task { await load() }
+            }
+            .environmentObject(auth)
+        }
+        .sheet(isPresented: $showGenerate) {
+            GenerateShotView(shoot: shoot) {
                 Task { await load() }
             }
             .environmentObject(auth)

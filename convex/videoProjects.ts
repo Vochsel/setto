@@ -14,9 +14,11 @@ import {
   getResolution,
   specDurationMs,
   defaultKenBurns,
+  kenBurnsFromControls,
   DEFAULT_TEMPLATE_ID,
   type MediaInput,
   type VideoClip,
+  type TransitionType,
 } from "@setto/core/video";
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -424,6 +426,102 @@ export const setClipKenBurns = mutation({
         : c,
     );
     await ctx.db.patch(projectId, { clips });
+  },
+});
+
+/** Set a clip's incoming transition (simple args — used by iOS). */
+export const setClipTransition = mutation({
+  args: {
+    projectId: v.id("videoProjects"),
+    clipId: v.string(),
+    type: v.union(
+      v.literal("none"),
+      v.literal("fade"),
+      v.literal("dissolve"),
+      v.literal("slide"),
+      v.literal("wipe"),
+    ),
+    durationMs: v.optional(v.number()),
+  },
+  handler: async (ctx, { projectId, clipId, type, durationMs }) => {
+    const scope = await getScope(ctx);
+    const project = assertOrg(await ctx.db.get(projectId), scope);
+    const clips = project.clips.map((c) =>
+      c.id === clipId
+        ? {
+            ...c,
+            transition: {
+              type: type as TransitionType,
+              durationMs: type === "none" ? 0 : Math.max(0, durationMs ?? 400),
+            },
+          }
+        : c,
+    );
+    await ctx.db.patch(projectId, { clips });
+  },
+});
+
+/**
+ * Set a full Ken Burns move on an image clip from friendly controls (direction
+ * in/out + focal point + zoom). Simple args — the iOS clip inspector's motion
+ * controls. (`setClipKenBurns` still exists for a plain on/off toggle.)
+ */
+export const setClipKenBurnsControls = mutation({
+  args: {
+    projectId: v.id("videoProjects"),
+    clipId: v.string(),
+    direction: v.union(v.literal("in"), v.literal("out")),
+    focusX: v.number(),
+    focusY: v.number(),
+    zoom: v.number(),
+  },
+  handler: async (ctx, { projectId, clipId, direction, focusX, focusY, zoom }) => {
+    const scope = await getScope(ctx);
+    const project = assertOrg(await ctx.db.get(projectId), scope);
+    const effect = kenBurnsFromControls({ direction, focusX, focusY, zoom });
+    const clips = project.clips.map((c) =>
+      c.id === clipId && c.sourceType === "image" ? { ...c, effect } : c,
+    );
+    await ctx.db.patch(projectId, { clips });
+  },
+});
+
+/** Append existing i2v `videos` renders as motion clips (simple args — iOS). */
+export const addVideos = mutation({
+  args: {
+    projectId: v.id("videoProjects"),
+    videoIds: v.array(v.id("videos")),
+  },
+  handler: async (ctx, { projectId, videoIds }) => {
+    const scope = await getScope(ctx);
+    const project = assertOrg(await ctx.db.get(projectId), scope);
+    const template = getTemplate(project.templateId);
+
+    const media: MediaInput[] = [];
+    for (const vid of videoIds) {
+      const video = assertOrg(await ctx.db.get(vid), scope);
+      if (video.status !== "succeeded" || !video.videoUrl) continue;
+      media.push({
+        sourceType: "video",
+        url: video.videoUrl,
+        posterUrl: video.posterUrl,
+        durationMs: Math.round((video.durationSeconds ?? 5) * 1000),
+        videoId: video._id,
+        generationId: video.generationId,
+        shotId: video.shotId,
+      });
+    }
+    if (!media.length) return { added: 0 };
+
+    const built = buildSpec(media, template.id).clips;
+    let layer = project.clips.length;
+    const newClips = built.map((c) => ({
+      ...c,
+      layer: template.kind === "stack" ? layer++ : undefined,
+    }));
+    const clips = [...project.clips, ...newClips];
+    await ctx.db.patch(projectId, { clips, posterUrl: posterFromClips(clips) });
+    return { added: newClips.length };
   },
 });
 

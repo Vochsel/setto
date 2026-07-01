@@ -27,8 +27,37 @@ struct VideoProjectCard: Identifiable, Decodable, Equatable {
     }
 }
 
+/// Friendly view of a Ken Burns move (mirrors kenBurnsControls in core).
+struct KenBurnsControls: Equatable {
+    var direction: String  // "in" | "out"
+    var focusX: Double
+    var focusY: Double
+    var zoom: Double
+}
+
 struct VideoEffect: Decodable, Equatable {
     let type: String  // "none" | "kenburns"
+    let fromScale: Double?
+    let toScale: Double?
+    let fromX: Double?
+    let fromY: Double?
+    let toX: Double?
+    let toY: Double?
+
+    /// Decode this effect into direction / focal / zoom for the editor.
+    var controls: KenBurnsControls {
+        guard type == "kenburns" else {
+            return .init(direction: "in", focusX: 0, focusY: 0, zoom: 1.18)
+        }
+        let from = fromScale ?? 1
+        let to = toScale ?? 1
+        if to >= from {
+            return .init(
+                direction: "in", focusX: toX ?? 0, focusY: toY ?? 0, zoom: to)
+        }
+        return .init(
+            direction: "out", focusX: fromX ?? 0, focusY: fromY ?? 0, zoom: from)
+    }
 }
 
 struct VideoTransition: Decodable, Equatable {
@@ -57,6 +86,7 @@ struct VideoClip: Identifiable, Decodable, Equatable {
 struct VideoAudio: Decodable, Equatable {
     let url: String
     let name: String?
+    let trackId: String?
 }
 
 /// A full project with its editable spec.
@@ -70,10 +100,32 @@ struct VideoProject: Identifiable, Decodable, Equatable {
     let fps: Int
     let clips: [VideoClip]
     let audio: VideoAudio?
+    let background: String?
+    let backgroundGradient: String?
+    let backgroundImageUrl: String?
+    let stackStaggerMs: Double?
+    let stackAnimate: Bool?
+
+    var isStack: Bool { templateId == "stack" }
 
     enum CodingKeys: String, CodingKey {
         case id = "_id"
-        case name, shootId, templateId, width, height, fps, clips, audio
+        case name, shootId, templateId, width, height, fps, clips, audio,
+            background, backgroundGradient, backgroundImageUrl, stackStaggerMs,
+            stackAnimate
+    }
+}
+
+/// An uploaded background track from the workspace audio library.
+struct AudioTrackDoc: Identifiable, Decodable, Equatable {
+    let id: String
+    let name: String
+    let url: String?
+    let durationMs: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case id = "_id"
+        case name, url, durationMs
     }
 }
 
@@ -94,17 +146,40 @@ struct VideoRender: Identifiable, Decodable, Equatable {
     }
 }
 
-/// A pickable source image (for "Add clips").
+/// A pickable source image (for "Add clips"). Carries the filterable snapshot
+/// fields (model / outfit / favorite) so the picker can narrow the library.
 struct VideoSourceImage: Identifiable, Decodable, Equatable {
     let id: String
     let imageUrl: String?
     let shootId: String?
+    let modelId: String?
+    let outfitId: String?
+    let favorite: Bool?
 
     var thumbURL: URL? { imageUrl.flatMap(URL.init(string:)) }
 
     enum CodingKeys: String, CodingKey {
         case id = "_id"
-        case imageUrl, shootId
+        case imageUrl, shootId, modelId, outfitId, favorite
+    }
+}
+
+/// A pickable source motion clip (for "Add clips" → Motion tab).
+struct VideoSourceVideo: Identifiable, Decodable, Equatable {
+    let id: String
+    let videoUrl: String?
+    let posterUrl: String?
+    let shootId: String?
+    let modelId: String?
+    let favorite: Bool?
+
+    var thumbURL: URL? {
+        (posterUrl ?? videoUrl).flatMap(URL.init(string:))
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id = "_id"
+        case videoUrl, posterUrl, shootId, modelId, favorite
     }
 }
 
