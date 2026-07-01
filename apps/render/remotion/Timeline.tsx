@@ -20,6 +20,7 @@ import { wipe } from "@remotion/transitions/wipe";
 import {
   getTemplate,
   msToFrames,
+  resolveStackStaggerMs,
   specDurationFrames,
   type VideoClip,
   type VideoSpec,
@@ -197,19 +198,25 @@ const SequenceTimeline: React.FC<{ spec: VideoSpec }> = ({ spec }) => {
 
 // ── Stack (layered photo pile) rendering ─────────────────────────────────────
 
-const StackLayer: React.FC<{ clip: VideoClip; index: number }> = ({
-  clip,
-  index,
-}) => {
+const StackLayer: React.FC<{
+  clip: VideoClip;
+  index: number;
+  animate: boolean;
+}> = ({ clip, index, animate }) => {
   const frame = useCurrentFrame();
-  const appear = interpolate(frame, [0, 10], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-  const scale = interpolate(frame, [0, 12], [0.82, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
+  // When not animating, layers just appear (full opacity, no drop/scale).
+  const appear = animate
+    ? interpolate(frame, [0, 10], [0, 1], {
+        extrapolateLeft: "clamp",
+        extrapolateRight: "clamp",
+      })
+    : 1;
+  const scale = animate
+    ? interpolate(frame, [0, 12], [0.82, 1], {
+        extrapolateLeft: "clamp",
+        extrapolateRight: "clamp",
+      })
+    : 1;
   // Alternate a small rotation/offset so the pile looks hand-stacked.
   const rot = (index % 2 === 0 ? 1 : -1) * (2 + (index % 3));
   return (
@@ -237,20 +244,37 @@ const StackLayer: React.FC<{ clip: VideoClip; index: number }> = ({
 };
 
 const StackTimeline: React.FC<{ spec: VideoSpec }> = ({ spec }) => {
-  const template = getTemplate(spec.templateId);
   const staggerFrames = Math.max(
     1,
-    msToFrames(template.stackStaggerMs ?? 600, spec.fps),
+    msToFrames(resolveStackStaggerMs(spec), spec.fps),
   );
+  const animate = spec.stackAnimate ?? true;
   return (
     <>
       {spec.clips.map((clip, i) => (
         <Sequence key={clip.id} from={i * staggerFrames}>
-          <StackLayer clip={clip} index={i} />
+          <StackLayer clip={clip} index={i} animate={animate} />
         </Sequence>
       ))}
     </>
   );
+};
+
+// ── Background (image > gradient > solid color) ──────────────────────────────
+
+const Background: React.FC<{ spec: VideoSpec }> = ({ spec }) => {
+  if (spec.backgroundImageUrl) {
+    return (
+      <AbsoluteFill>
+        <Img
+          src={spec.backgroundImageUrl}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        />
+      </AbsoluteFill>
+    );
+  }
+  const background = spec.backgroundGradient ?? spec.background ?? "#000000";
+  return <AbsoluteFill style={{ background }} />;
 };
 
 // ── Root composition ─────────────────────────────────────────────────────────
@@ -258,7 +282,8 @@ const StackTimeline: React.FC<{ spec: VideoSpec }> = ({ spec }) => {
 export const Timeline: React.FC<VideoSpec> = (spec) => {
   const template = getTemplate(spec.templateId);
   return (
-    <AbsoluteFill style={{ backgroundColor: spec.background ?? "#000000" }}>
+    <AbsoluteFill style={{ backgroundColor: "#000000" }}>
+      <Background spec={spec} />
       {template.kind === "stack" ? (
         <StackTimeline spec={spec} />
       ) : (

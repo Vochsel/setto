@@ -15,6 +15,7 @@ const mediaId = v.union(
   v.id("generations"),
   v.id("videos"),
   v.id("campaignCreatives"),
+  v.id("videoRenders"),
 );
 
 type ReviewPatch = {

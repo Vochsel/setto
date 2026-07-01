@@ -9,6 +9,7 @@
  */
 
 import type * as ads from "../ads.js";
+import type * as audioTracks from "../audioTracks.js";
 import type * as campaignCreatives from "../campaignCreatives.js";
 import type * as campaigns from "../campaigns.js";
 import type * as copyChat from "../copyChat.js";
@@ -50,6 +51,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   ads: typeof ads;
+  audioTracks: typeof audioTracks;
   campaignCreatives: typeof campaignCreatives;
   campaigns: typeof campaigns;
   copyChat: typeof copyChat;

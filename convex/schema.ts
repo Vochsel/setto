@@ -184,8 +184,12 @@ export const videoSpec = v.object({
   height: v.number(),
   fps: v.number(),
   background: v.optional(v.string()),
+  backgroundGradient: v.optional(v.string()),
+  backgroundImageUrl: v.optional(v.string()),
   clips: v.array(videoClip),
   audio: v.optional(videoAudio),
+  stackStaggerMs: v.optional(v.number()),
+  stackAnimate: v.optional(v.boolean()),
 });
 
 export default defineSchema({
@@ -591,8 +595,13 @@ export default defineSchema({
     height: v.number(),
     fps: v.number(),
     background: v.optional(v.string()),
+    backgroundGradient: v.optional(v.string()),
+    backgroundImageUrl: v.optional(v.string()),
     clips: v.array(videoClip),
     audio: v.optional(videoAudio),
+    // Photo-stack tuning (overrides the template's stagger + entrance animation).
+    stackStaggerMs: v.optional(v.number()),
+    stackAnimate: v.optional(v.boolean()),
     // --- meta ---
     posterUrl: v.optional(v.string()), // first clip's still, for cards
     lastRenderId: v.optional(v.id("videoRenders")),
@@ -637,6 +646,19 @@ export default defineSchema({
     .index("by_project", ["projectId"])
     .index("by_org", ["orgId"])
     .index("by_status", ["status"]),
+
+  // --- Audio library ------------------------------------------------------
+  // Uploaded background tracks, kept per workspace so any video project can
+  // pick from previously-uploaded songs (the video editor's audio picker).
+  audioTracks: defineTable({
+    orgId: v.string(),
+    createdBy: v.string(),
+    name: v.string(),
+    storageId: v.optional(v.id("_storage")),
+    // Resolved playable URL (Convex storage URLs are durable + public).
+    url: v.optional(v.string()),
+    durationMs: v.optional(v.number()),
+  }).index("by_org", ["orgId"]),
 
   // --- Usage & audit log --------------------------------------------------
   // One row per image-generation attempt, anywhere in the product. Powers team

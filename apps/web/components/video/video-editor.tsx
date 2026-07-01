@@ -15,9 +15,12 @@ import {
   getResolution,
   buildClips,
   defaultKenBurns,
+  resolveStackStaggerMs,
   specDurationFrames,
   specDurationMs,
   type VideoClip,
+  type VideoEffect,
+  type VideoTransition,
   type VideoSpec,
   type MediaInput,
 } from "@setto/core/video";
@@ -28,7 +31,7 @@ import {
   Music,
   Plus,
   Film,
-  X,
+  Layers,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/page-header";
@@ -42,21 +45,43 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ClipStrip } from "@/components/video/clip-strip";
+import { ClipInspector } from "@/components/video/clip-inspector";
+import {
+  BackgroundPicker,
+  type BackgroundPatch,
+} from "@/components/video/background-picker";
 import { AddClipsDialog } from "@/components/video/add-clips-dialog";
 import { formatDuration } from "@/lib/video-format";
+
+type SettingsPatch = {
+  templateId?: string;
+  width?: number;
+  height?: number;
+  fps?: number;
+  background?: string | null;
+  backgroundGradient?: string | null;
+  backgroundImageUrl?: string | null;
+  audio?: VideoSpec["audio"] | null;
+  stackStaggerMs?: number;
+  stackAnimate?: boolean;
+};
 
 export function VideoEditor({ projectId }: { projectId: Id<"videoProjects"> }) {
   const convex = useConvex();
   const project = useQuery(api.videoProjects.get, { id: projectId });
   const renders = useQuery(api.videoRenders.listByProject, { projectId });
+  const audioTracks = useQuery(api.audioTracks.list, {});
 
   const setClipsMut = useMutation(api.videoProjects.setClips);
   const updateSettingsMut = useMutation(api.videoProjects.updateSettings);
   const renameMut = useMutation(api.videoProjects.rename);
   const startRender = useMutation(api.videoRenders.start);
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
+  const createAudioTrack = useMutation(api.audioTracks.create);
 
   // Local working copy of the editable spec (seeded once from the server).
   const [clips, setClips] = useState<VideoClip[] | null>(null);
@@ -81,7 +106,11 @@ export function VideoEditor({ projectId }: { projectId: Id<"videoProjects"> }) {
         height: project.height,
         fps: project.fps,
         background: project.background,
+        backgroundGradient: project.backgroundGradient,
+        backgroundImageUrl: project.backgroundImageUrl,
         audio: project.audio,
+        stackStaggerMs: project.stackStaggerMs,
+        stackAnimate: project.stackAnimate,
       });
     }
   }, [project]);
@@ -101,14 +130,7 @@ export function VideoEditor({ projectId }: { projectId: Id<"videoProjects"> }) {
     else clipTimer.current = setTimeout(run, 350);
   }
 
-  function commitSettings(patch: {
-    templateId?: string;
-    width?: number;
-    height?: number;
-    fps?: number;
-    background?: string | null;
-    audio?: VideoSpec["audio"] | null;
-  }) {
+  function commitSettings(patch: SettingsPatch) {
     setSettings((s) => {
       if (!s) return s;
       const next = { ...s };
@@ -118,7 +140,15 @@ export function VideoEditor({ projectId }: { projectId: Id<"videoProjects"> }) {
       if (patch.fps !== undefined) next.fps = patch.fps;
       if (patch.background !== undefined)
         next.background = patch.background ?? undefined;
+      if (patch.backgroundGradient !== undefined)
+        next.backgroundGradient = patch.backgroundGradient ?? undefined;
+      if (patch.backgroundImageUrl !== undefined)
+        next.backgroundImageUrl = patch.backgroundImageUrl ?? undefined;
       if (patch.audio !== undefined) next.audio = patch.audio ?? undefined;
+      if (patch.stackStaggerMs !== undefined)
+        next.stackStaggerMs = patch.stackStaggerMs;
+      if (patch.stackAnimate !== undefined)
+        next.stackAnimate = patch.stackAnimate;
       return next;
     });
     void updateSettingsMut({ projectId, ...patch });
@@ -131,17 +161,20 @@ export function VideoEditor({ projectId }: { projectId: Id<"videoProjects"> }) {
   }
   function deleteClip(id: string) {
     if (!clips) return;
-    commitClips(clips.filter((c) => c.id !== id), true);
+    commitClips(
+      clips.filter((c) => c.id !== id),
+      true,
+    );
+    if (selectedId === id) setSelectedId(null);
   }
-  function toggleKenBurns(id: string) {
+  function setClipEffect(id: string, effect: VideoEffect) {
+    if (!clips) return;
+    commitClips(clips.map((c) => (c.id === id ? { ...c, effect } : c)));
+  }
+  function setClipTransition(id: string, transition: VideoTransition) {
     if (!clips) return;
     commitClips(
-      clips.map((c, i) => {
-        if (c.id !== id) return c;
-        const on = c.effect?.type === "kenburns";
-        return { ...c, effect: on ? { type: "none" } : defaultKenBurns(i) };
-      }),
-      true,
+      clips.map((c) => (c.id === id ? { ...c, transition } : c)),
     );
   }
   function reorder(next: VideoClip[]) {
@@ -183,25 +216,74 @@ export function VideoEditor({ projectId }: { projectId: Id<"videoProjects"> }) {
     commitSettings({ width: r.width, height: r.height });
   }
 
+  /** Upload a file to storage and resolve a durable, playable URL. */
+  async function uploadFile(
+    file: File,
+  ): Promise<{ storageId: string; url: string } | undefined> {
+    const uploadUrl = await generateUploadUrl();
+    const res = await fetch(uploadUrl, {
+      method: "POST",
+      headers: { "Content-Type": file.type },
+      body: file,
+    });
+    const { storageId } = await res.json();
+    const url = await convex.query(api.files.getUrl, { storageId });
+    if (!url) return undefined;
+    return { storageId, url };
+  }
+
   async function handleAudioUpload(file: File) {
     setUploadingAudio(true);
     try {
-      const uploadUrl = await generateUploadUrl();
-      const res = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": file.type },
-        body: file,
+      const up = await uploadFile(file);
+      if (!up) throw new Error("Could not resolve uploaded file");
+      // Persist to the workspace library so it's pickable next time…
+      const track = await createAudioTrack({
+        storageId: up.storageId as Id<"_storage">,
+        name: file.name,
       });
-      const { storageId } = await res.json();
-      const url = await convex.query(api.files.getUrl, { storageId });
-      if (!url) throw new Error("Could not resolve uploaded file");
-      commitSettings({ audio: { url, name: file.name, volume: 1 } });
-      toast.success("Audio added");
+      // …and set it on this project.
+      commitSettings({
+        audio: {
+          url: track.url ?? up.url,
+          name: track.name,
+          trackId: track._id,
+          volume: 1,
+        },
+      });
+      toast.success("Song added");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Audio upload failed");
     } finally {
       setUploadingAudio(false);
     }
+  }
+
+  function pickAudioTrack(value: string) {
+    if (value === "none") {
+      commitSettings({ audio: null });
+      return;
+    }
+    if (value === "current") return; // the (already-set) unnamed current track
+    const t = audioTracks?.find((a) => a._id === value);
+    if (!t?.url) return;
+    commitSettings({
+      audio: {
+        url: t.url,
+        name: t.name,
+        trackId: t._id,
+        volume: settings?.audio?.volume ?? 1,
+      },
+    });
+  }
+
+  async function handleBackgroundImage(file: File): Promise<string | undefined> {
+    const up = await uploadFile(file);
+    if (!up) {
+      toast.error("Could not upload background image");
+      return undefined;
+    }
+    return up.url;
   }
 
   async function saveName() {
@@ -235,11 +317,18 @@ export function VideoEditor({ projectId }: { projectId: Id<"videoProjects"> }) {
 
   const template = getTemplate(settings.templateId);
   const resolutionKey =
-    RESOLUTIONS.find((r) => r.width === settings.width && r.height === settings.height)
-      ?.key ?? RESOLUTIONS[0].key;
+    RESOLUTIONS.find(
+      (r) => r.width === settings.width && r.height === settings.height,
+    )?.key ?? RESOLUTIONS[0].key;
   const isPortrait = settings.height >= settings.width;
   const latestRender = renders?.[0];
   const totalMs = specDurationMs(spec);
+  const selectedClip = clips.find((c) => c.id === selectedId) ?? null;
+  const selectedIndex = clips.findIndex((c) => c.id === selectedId);
+  const stackStaggerMs = resolveStackStaggerMs(spec);
+  const audioSelectValue = settings.audio
+    ? (settings.audio.trackId ?? "current")
+    : "none";
 
   return (
     <>
@@ -256,7 +345,7 @@ export function VideoEditor({ projectId }: { projectId: Id<"videoProjects"> }) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               onBlur={saveName}
-              className="h-8 w-48 border-transparent px-1 text-base font-semibold hover:border-input focus:border-input"
+              className="hover:border-input focus:border-input h-8 w-48 border-transparent px-1 text-base font-semibold"
             />
           </div>
         }
@@ -275,7 +364,7 @@ export function VideoEditor({ projectId }: { projectId: Id<"videoProjects"> }) {
         </Button>
       </PageHeader>
 
-      <div className="grid gap-4 p-4 md:grid-cols-[1fr_300px] md:p-6">
+      <div className="grid gap-4 p-4 md:grid-cols-[1fr_320px] md:p-6">
         {/* Preview */}
         <div className="min-w-0">
           {clips.length === 0 ? (
@@ -310,6 +399,23 @@ export function VideoEditor({ projectId }: { projectId: Id<"videoProjects"> }) {
 
         {/* Settings */}
         <div className="space-y-4">
+          {/* Selected-clip inspector */}
+          {selectedClip ? (
+            <ClipInspector
+              key={selectedClip.id}
+              clip={selectedClip}
+              index={selectedIndex}
+              templateKind={template.kind}
+              onRetime={(ms) => retime(selectedClip.id, ms)}
+              onSetTransition={(t) => setClipTransition(selectedClip.id, t)}
+              onSetEffect={(e) => setClipEffect(selectedClip.id, e)}
+            />
+          ) : clips.length > 0 ? (
+            <p className="text-muted-foreground rounded-lg border border-dashed p-3 text-xs">
+              Select a clip below to fine-tune its motion, transition & timing.
+            </p>
+          ) : null}
+
           <Field label="Template">
             <Select value={settings.templateId} onValueChange={changeTemplate}>
               <SelectTrigger>
@@ -361,28 +467,85 @@ export function VideoEditor({ projectId }: { projectId: Id<"videoProjects"> }) {
             </Select>
           </Field>
 
-          <Field label="Background audio">
-            {settings.audio ? (
-              <div className="flex items-center gap-2 rounded-md border px-2 py-1.5 text-sm">
-                <Music className="text-muted-foreground h-4 w-4 shrink-0" />
-                <span className="min-w-0 flex-1 truncate">
-                  {settings.audio.name ?? "Audio track"}
-                </span>
-                <button
-                  onClick={() => commitSettings({ audio: null })}
-                  className="text-muted-foreground hover:text-destructive"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+          {/* Photo-stack controls */}
+          {template.kind === "stack" ? (
+            <div className="space-y-3 rounded-lg border p-3">
+              <div className="flex items-center gap-1.5 text-xs font-medium">
+                <Layers className="h-3.5 w-3.5" /> Photo stack
               </div>
-            ) : (
+              <div>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <Label className="text-muted-foreground text-xs">
+                    Time between photos
+                  </Label>
+                  <span className="text-xs tabular-nums">
+                    {(stackStaggerMs / 1000).toFixed(2)}s
+                  </span>
+                </div>
+                <Slider
+                  value={[stackStaggerMs]}
+                  min={150}
+                  max={2500}
+                  step={50}
+                  onValueChange={([v]) => commitSettings({ stackStaggerMs: v })}
+                  aria-label="Stack speed"
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label className="text-muted-foreground text-xs">
+                  Animate photos in
+                </Label>
+                <Switch
+                  checked={settings.stackAnimate ?? true}
+                  onCheckedChange={(v) => commitSettings({ stackAnimate: v })}
+                  aria-label="Animate photos in"
+                />
+              </div>
+            </div>
+          ) : null}
+
+          <Field label="Background">
+            <BackgroundPicker
+              value={{
+                background: settings.background,
+                backgroundGradient: settings.backgroundGradient,
+                backgroundImageUrl: settings.backgroundImageUrl,
+              }}
+              onChange={(patch: BackgroundPatch) => commitSettings(patch)}
+              onUpload={handleBackgroundImage}
+            />
+          </Field>
+
+          <Field label="Background audio">
+            <div className="space-y-2">
+              <Select value={audioSelectValue} onValueChange={pickAudioTrack}>
+                <SelectTrigger>
+                  <span className="flex min-w-0 items-center gap-2">
+                    <Music className="text-muted-foreground h-4 w-4 shrink-0" />
+                    <SelectValue placeholder="No audio" />
+                  </span>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No audio</SelectItem>
+                  {settings.audio && !settings.audio.trackId ? (
+                    <SelectItem value="current">
+                      {settings.audio.name ?? "Current track"}
+                    </SelectItem>
+                  ) : null}
+                  {(audioTracks ?? []).map((t) => (
+                    <SelectItem key={t._id} value={t._id}>
+                      {t.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <label className="hover:border-foreground/30 flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed px-2 py-2 text-sm">
                 {uploadingAudio ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Music className="h-4 w-4" />
                 )}
-                Upload track
+                Upload song
                 <input
                   type="file"
                   accept="audio/*"
@@ -393,7 +556,7 @@ export function VideoEditor({ projectId }: { projectId: Id<"videoProjects"> }) {
                   }}
                 />
               </label>
-            )}
+            </div>
           </Field>
 
           <ExportPanel latestRender={latestRender} />
@@ -408,9 +571,7 @@ export function VideoEditor({ projectId }: { projectId: Id<"videoProjects"> }) {
             selectedId={selectedId}
             onSelect={setSelectedId}
             onReorder={reorder}
-            onRetime={retime}
             onDelete={deleteClip}
-            onToggleKenBurns={toggleKenBurns}
           />
         </div>
       ) : null}

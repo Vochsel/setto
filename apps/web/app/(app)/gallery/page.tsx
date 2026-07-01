@@ -33,7 +33,14 @@ interface Filterable {
 export default function GalleryPage() {
   const images = useQuery(api.generations.listByOrg, {});
   const videos = useQuery(api.videos.listByOrg, {});
+  const renders = useQuery(api.videoRenders.listByOrg, {});
   const models = useQuery(api.models.list, {});
+
+  // Exported edited videos live alongside i2v `videos` in the feed.
+  const allVideos = useMemo(
+    () => (videos && renders ? [...videos, ...renders] : undefined),
+    [videos, renders],
+  );
 
   const [kind, setKind] = useState<MediaKind>("all");
   const [modelId, setModelId] = useState<string>(ALL);
@@ -81,12 +88,12 @@ export default function GalleryPage() {
   );
   const filteredVideos = useMemo(
     () =>
-      videos === undefined
+      allVideos === undefined
         ? undefined
         : kind === "image"
           ? []
-          : videos.filter(matches),
-    [videos, kind, matches],
+          : allVideos.filter(matches),
+    [allVideos, kind, matches],
   );
 
   const photos = mergeMedia(filteredImages, filteredVideos);

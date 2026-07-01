@@ -101,6 +101,7 @@ function toCard(p: Doc<"videoProjects">) {
       fps: p.fps,
       clips: p.clips,
       audio: p.audio,
+      stackStaggerMs: p.stackStaggerMs,
     }),
     posterUrl: p.posterUrl,
     favorite: p.favorite,
@@ -436,9 +437,16 @@ export const updateSettings = mutation({
     height: v.optional(v.number()),
     fps: v.optional(v.number()),
     background: v.optional(v.union(v.string(), v.null())),
+    backgroundGradient: v.optional(v.union(v.string(), v.null())),
+    backgroundImageUrl: v.optional(v.union(v.string(), v.null())),
     audio: v.optional(v.union(videoAudio, v.null())),
+    stackStaggerMs: v.optional(v.number()),
+    stackAnimate: v.optional(v.boolean()),
   },
-  handler: async (ctx, { projectId, audio, background, ...rest }) => {
+  handler: async (
+    ctx,
+    { projectId, audio, background, backgroundGradient, backgroundImageUrl, ...rest },
+  ) => {
     const scope = await getScope(ctx);
     assertOrg(await ctx.db.get(projectId), scope);
     const patch: Record<string, unknown> = {};
@@ -446,8 +454,15 @@ export const updateSettings = mutation({
       if (val !== undefined) patch[k] = val;
     }
     if (audio !== undefined) patch.audio = audio === null ? undefined : audio;
+    // Nullable strings clear the field (undefined = "leave alone", null = clear).
     if (background !== undefined)
       patch.background = background === null ? undefined : background;
+    if (backgroundGradient !== undefined)
+      patch.backgroundGradient =
+        backgroundGradient === null ? undefined : backgroundGradient;
+    if (backgroundImageUrl !== undefined)
+      patch.backgroundImageUrl =
+        backgroundImageUrl === null ? undefined : backgroundImageUrl;
     await ctx.db.patch(projectId, patch);
   },
 });

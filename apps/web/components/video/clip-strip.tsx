@@ -1,14 +1,20 @@
 "use client";
 
+import { useState } from "react";
 import {
   DndContext,
+  DragOverlay,
   PointerSensor,
   closestCenter,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragStartEvent,
 } from "@dnd-kit/core";
-import { restrictToHorizontalAxis } from "@dnd-kit/modifiers";
+import {
+  restrictToHorizontalAxis,
+  restrictToWindowEdges,
+} from "@dnd-kit/modifiers";
 import {
   SortableContext,
   arrayMove,
@@ -16,109 +22,139 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Trash2, Sparkles, Play } from "lucide-react";
+import { Trash2, Sparkles, Play, GripHorizontal } from "lucide-react";
 import type { VideoClip } from "@setto/core/video";
-import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { formatSeconds } from "@/lib/video-format";
 
-function ClipCard({
+/** Purely presentational card — shared by the in-strip item and the drag overlay. */
+function ClipCardVisual({
+  clip,
+  index,
+  selected,
+  dragging,
+  overlay,
+}: {
+  clip: VideoClip;
+  index: number;
+  selected?: boolean;
+  dragging?: boolean;
+  overlay?: boolean;
+}) {
+  const isVideo = clip.sourceType === "video";
+  const kenBurns = clip.effect?.type === "kenburns";
+  const thumb = isVideo ? (clip.posterUrl ?? clip.url) : clip.url;
+
+  return (
+    <div
+      className={cn(
+        "bg-card relative w-28 shrink-0 overflow-hidden rounded-xl border transition-all",
+        selected
+          ? "border-primary ring-primary/60 ring-2"
+          : "hover:border-foreground/25",
+        overlay && "border-primary rotate-[-3deg] scale-105 shadow-2xl",
+        dragging && !overlay && "opacity-40",
+      )}
+    >
+      <div className="bg-muted relative aspect-[9/16] w-full overflow-hidden">
+        {thumb ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={thumb}
+            alt=""
+            draggable={false}
+            className="h-full w-full object-cover"
+          />
+        ) : null}
+
+        {/* Top gradient + index / drag affordance. */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between bg-gradient-to-b from-black/55 to-transparent p-1.5">
+          <span className="rounded bg-black/45 px-1.5 text-[10px] font-semibold text-white tabular-nums backdrop-blur-sm">
+            {index + 1}
+          </span>
+          <GripHorizontal className="h-3.5 w-3.5 text-white/70" />
+        </div>
+
+        {/* Bottom row: duration + effect / video badges. */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-gradient-to-t from-black/60 to-transparent p-1.5">
+          <span className="rounded bg-black/45 px-1.5 text-[10px] font-medium text-white tabular-nums backdrop-blur-sm">
+            {formatSeconds(clip.durationMs)}
+          </span>
+          <span className="flex items-center gap-1">
+            {kenBurns ? (
+              <span className="flex size-4 items-center justify-center rounded bg-black/45 text-white backdrop-blur-sm">
+                <Sparkles className="h-2.5 w-2.5" />
+              </span>
+            ) : null}
+            {isVideo ? (
+              <span className="flex size-4 items-center justify-center rounded bg-black/45 text-white backdrop-blur-sm">
+                <Play className="h-2.5 w-2.5" fill="currentColor" />
+              </span>
+            ) : null}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SortableClipCard({
   clip,
   index,
   selected,
   onSelect,
-  onRetime,
   onDelete,
-  onToggleKenBurns,
 }: {
   clip: VideoClip;
   index: number;
   selected: boolean;
   onSelect: () => void;
-  onRetime: (ms: number) => void;
   onDelete: () => void;
-  onToggleKenBurns: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: clip.id });
-  const isVideo = clip.sourceType === "video";
-  const kenBurns = clip.effect?.type === "kenburns";
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: clip.id });
 
   return (
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={cn(
-        "bg-card relative w-32 shrink-0 rounded-lg border",
-        selected && "ring-foreground/40 ring-2",
-        isDragging && "z-10 opacity-80 shadow-lg",
-      )}
+      className="group/card relative"
     >
       <button
+        type="button"
         onClick={onSelect}
-        className="bg-muted relative block aspect-[9/16] w-full overflow-hidden rounded-t-lg"
+        {...attributes}
+        {...listeners}
+        aria-label={`Clip ${index + 1}`}
+        className="cursor-grab touch-none active:cursor-grabbing"
       >
-        {clip.posterUrl || clip.url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={isVideo ? (clip.posterUrl ?? clip.url) : clip.url}
-            alt=""
-            className="h-full w-full object-cover"
-          />
-        ) : null}
-        <span className="absolute top-1 left-1 rounded bg-black/60 px-1 text-[10px] font-medium text-white">
-          {index + 1}
-        </span>
-        {isVideo ? (
-          <span className="absolute right-1 bottom-1 rounded bg-black/60 p-0.5 text-white">
-            <Play className="h-3 w-3" />
-          </span>
-        ) : null}
+        <ClipCardVisual
+          clip={clip}
+          index={index}
+          selected={selected}
+          dragging={isDragging}
+        />
       </button>
 
-      <div className="space-y-1.5 p-1.5">
-        <div className="flex items-center justify-between">
-          <button
-            {...attributes}
-            {...listeners}
-            className="text-muted-foreground hover:text-foreground cursor-grab touch-none active:cursor-grabbing"
-            aria-label="Drag to reorder"
-          >
-            <GripVertical className="h-4 w-4" />
-          </button>
-          <span className="text-muted-foreground text-[11px] tabular-nums">
-            {formatSeconds(clip.durationMs)}
-          </span>
-          <button
-            onClick={onDelete}
-            className="text-muted-foreground hover:text-destructive"
-            aria-label="Delete clip"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
-        </div>
-
-        <Slider
-          value={[clip.durationMs]}
-          min={300}
-          max={10000}
-          step={100}
-          onValueChange={([v]) => onRetime(v)}
-          aria-label="Clip duration"
-        />
-
-        {!isVideo ? (
-          <Button
-            variant={kenBurns ? "secondary" : "ghost"}
-            size="sm"
-            className="h-6 w-full text-[11px]"
-            onClick={onToggleKenBurns}
-          >
-            <Sparkles className="h-3 w-3" /> Ken Burns
-          </Button>
-        ) : null}
-      </div>
+      {/* Delete — appears on hover, never starts a drag. */}
+      <button
+        type="button"
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete();
+        }}
+        aria-label="Delete clip"
+        className="bg-background/90 text-muted-foreground hover:text-destructive absolute right-1.5 top-1.5 z-10 flex size-6 items-center justify-center rounded-full border opacity-0 shadow-sm backdrop-blur transition group-hover/card:opacity-100"
+      >
+        <Trash2 className="h-3 w-3" />
+      </button>
     </div>
   );
 }
@@ -128,23 +164,27 @@ export function ClipStrip({
   selectedId,
   onSelect,
   onReorder,
-  onRetime,
   onDelete,
-  onToggleKenBurns,
 }: {
   clips: VideoClip[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   onReorder: (clips: VideoClip[]) => void;
-  onRetime: (id: string, ms: number) => void;
   onDelete: (id: string) => void;
-  onToggleKenBurns: (id: string) => void;
 }) {
+  const [activeId, setActiveId] = useState<string | null>(null);
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   );
 
+  const activeIndex = clips.findIndex((c) => c.id === activeId);
+  const activeClip = activeIndex >= 0 ? clips[activeIndex] : null;
+
+  function handleDragStart(e: DragStartEvent) {
+    setActiveId(String(e.active.id));
+  }
   function handleDragEnd(e: DragEndEvent) {
+    setActiveId(null);
     const { active, over } = e;
     if (!over || active.id === over.id) return;
     const oldIndex = clips.findIndex((c) => c.id === active.id);
@@ -157,28 +197,39 @@ export function ClipStrip({
     <DndContext
       sensors={sensors}
       collisionDetection={closestCenter}
-      modifiers={[restrictToHorizontalAxis]}
+      modifiers={[restrictToHorizontalAxis, restrictToWindowEdges]}
+      onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
+      onDragCancel={() => setActiveId(null)}
     >
       <SortableContext
         items={clips.map((c) => c.id)}
         strategy={horizontalListSortingStrategy}
       >
-        <div className="flex gap-2 overflow-x-auto pb-2">
+        <div className="group/strip flex gap-2.5 overflow-x-auto pb-2">
           {clips.map((clip, i) => (
-            <ClipCard
+            <SortableClipCard
               key={clip.id}
               clip={clip}
               index={i}
               selected={selectedId === clip.id}
               onSelect={() => onSelect(clip.id)}
-              onRetime={(ms) => onRetime(clip.id, ms)}
               onDelete={() => onDelete(clip.id)}
-              onToggleKenBurns={() => onToggleKenBurns(clip.id)}
             />
           ))}
         </div>
       </SortableContext>
+
+      <DragOverlay dropAnimation={{ duration: 200 }}>
+        {activeClip ? (
+          <ClipCardVisual
+            clip={activeClip}
+            index={activeIndex}
+            selected
+            overlay
+          />
+        ) : null}
+      </DragOverlay>
     </DndContext>
   );
 }

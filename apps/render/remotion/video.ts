@@ -93,9 +93,18 @@ export type VideoSpec = {
   width: number;
   height: number;
   fps: number;
+  /** Solid background color (CSS color). Used when no gradient/image is set. */
   background?: string;
+  /** A CSS gradient string (e.g. `linear-gradient(...)`). Wins over `background`. */
+  backgroundGradient?: string;
+  /** A full-frame background image URL. Wins over gradient + color. */
+  backgroundImageUrl?: string;
   clips: VideoClip[];
   audio?: VideoAudio;
+  /** Photo-stack: ms between successive layer reveals (overrides the template). */
+  stackStaggerMs?: number;
+  /** Photo-stack: animate each layer in (drop/scale/fade) vs. just appear. */
+  stackAnimate?: boolean;
 };
 
 // ── Templates ─────────────────────────────────────────────────────────────
@@ -295,7 +304,7 @@ export function specDurationMs(spec: VideoSpec): number {
   if (!spec.clips.length) return 0;
 
   if (template.kind === "stack") {
-    const stagger = template.stackStaggerMs ?? 600;
+    const stagger = resolveStackStaggerMs(spec);
     let maxEnd = 0;
     spec.clips.forEach((clip, i) => {
       const start = i * stagger;
@@ -323,6 +332,83 @@ export function specDurationMs(spec: VideoSpec): number {
 export function specDurationFrames(spec: VideoSpec): number {
   return Math.max(1, msToFrames(specDurationMs(spec), spec.fps));
 }
+
+const DEFAULT_STACK_STAGGER_MS = 700;
+
+/** The effective stack stagger for a spec: explicit override, else template. */
+export function resolveStackStaggerMs(spec: VideoSpec): number {
+  const template = getTemplate(spec.templateId);
+  return spec.stackStaggerMs ?? template.stackStaggerMs ?? DEFAULT_STACK_STAGGER_MS;
+}
+
+// ── Ken Burns controls (friendly editor representation) ────────────────────
+
+export type KenBurnsDirection = "in" | "out";
+
+/**
+ * A user-friendly view of a Ken Burns move: a direction (zoom in vs. out), a
+ * focal point the move emphasizes, and a peak zoom. Maps to/from the raw
+ * from/to scale + offset fields of a {@link VideoEffect}.
+ */
+export interface KenBurnsControls {
+  direction: KenBurnsDirection;
+  /** Focal point, normalized [-1,1] (0 = centered, +x right, +y down). */
+  focusX: number;
+  focusY: number;
+  /** Peak zoom scale (>1, e.g. 1.18 = 18% closer). */
+  zoom: number;
+}
+
+export const KEN_BURNS_DEFAULT_ZOOM = 1.18;
+
+const clampUnit = (n: number) => Math.max(-1, Math.min(1, n || 0));
+
+/** Build a Ken Burns effect from friendly direction/focus/zoom controls. */
+export function kenBurnsFromControls(c: KenBurnsControls): VideoEffect {
+  const zoom = Math.max(1.01, c.zoom || KEN_BURNS_DEFAULT_ZOOM);
+  const fx = clampUnit(c.focusX);
+  const fy = clampUnit(c.focusY);
+  if (c.direction === "out") {
+    // Start zoomed-in on the focal point, then pull back to a centered fit.
+    return { type: "kenburns", fromScale: zoom, toScale: 1, fromX: fx, fromY: fy, toX: 0, toY: 0 };
+  }
+  // Zoom in toward the focal point from a centered fit.
+  return { type: "kenburns", fromScale: 1, toScale: zoom, fromX: 0, fromY: 0, toX: fx, toY: fy };
+}
+
+/** Read direction/focus/zoom back out of an effect (for the editor UI). */
+export function kenBurnsControls(e: VideoEffect | undefined): KenBurnsControls {
+  if (!e || e.type !== "kenburns") {
+    return { direction: "in", focusX: 0, focusY: 0, zoom: KEN_BURNS_DEFAULT_ZOOM };
+  }
+  const from = e.fromScale ?? 1;
+  const to = e.toScale ?? 1;
+  const direction: KenBurnsDirection = to >= from ? "in" : "out";
+  return direction === "out"
+    ? { direction, focusX: e.fromX ?? 0, focusY: e.fromY ?? 0, zoom: from }
+    : { direction, focusX: e.toX ?? 0, focusY: e.toY ?? 0, zoom: to };
+}
+
+// ── Background presets ─────────────────────────────────────────────────────
+
+export interface BackgroundGradient {
+  id: string;
+  label: string;
+  /** A CSS background value (linear/radial gradient). */
+  css: string;
+}
+
+/** A small palette of ready-made gradients for the composition background. */
+export const BACKGROUND_GRADIENTS: BackgroundGradient[] = [
+  { id: "sunset", label: "Sunset", css: "linear-gradient(135deg, #f97316 0%, #db2777 100%)" },
+  { id: "ocean", label: "Ocean", css: "linear-gradient(135deg, #0ea5e9 0%, #4f46e5 100%)" },
+  { id: "mint", label: "Mint", css: "linear-gradient(135deg, #34d399 0%, #0f766e 100%)" },
+  { id: "grape", label: "Grape", css: "linear-gradient(135deg, #8b5cf6 0%, #d946ef 100%)" },
+  { id: "peach", label: "Peach", css: "linear-gradient(135deg, #fda4af 0%, #fdba74 100%)" },
+  { id: "gold", label: "Gold", css: "linear-gradient(135deg, #fbbf24 0%, #b45309 100%)" },
+  { id: "slate", label: "Slate", css: "linear-gradient(160deg, #334155 0%, #0f172a 100%)" },
+  { id: "noir", label: "Noir", css: "linear-gradient(180deg, #1f2937 0%, #000000 100%)" },
+];
 
 /** A reasonable default Ken Burns move, alternated by index so it varies. */
 export function defaultKenBurns(index: number): VideoEffect {

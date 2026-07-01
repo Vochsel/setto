@@ -30,8 +30,12 @@ export const start = mutation({
       height: project.height,
       fps: project.fps,
       background: project.background,
+      backgroundGradient: project.backgroundGradient,
+      backgroundImageUrl: project.backgroundImageUrl,
       clips: project.clips,
       audio: project.audio,
+      stackStaggerMs: project.stackStaggerMs,
+      stackAnimate: project.stackAnimate,
     };
     const durationMs = specDurationMs(spec);
 
@@ -123,6 +127,35 @@ export const listByProject = query({
       .withIndex("by_project", (q) => q.eq("projectId", projectId))
       .order("desc")
       .collect();
+  },
+});
+
+/**
+ * All succeeded exports for the workspace, newest first — shaped like a video
+ * row (videoUrl/posterUrl + review fields) so the gallery can merge them
+ * alongside i2v `videos` and images.
+ */
+export const listByOrg = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, { limit }) => {
+    const scope = await getScope(ctx);
+    const rows = await ctx.db
+      .query("videoRenders")
+      .withIndex("by_org", (q) => q.eq("orgId", scope.orgId))
+      .order("desc")
+      .collect();
+    const shaped = rows
+      .filter((r) => r.status === "succeeded" && !!r.outputUrl)
+      .map((r) => ({
+        _id: r._id,
+        _creationTime: r._creationTime,
+        videoUrl: r.outputUrl!,
+        posterUrl: r.posterUrl,
+        rating: r.rating,
+        reviewStatus: r.reviewStatus,
+        favorite: r.favorite,
+      }));
+    return limit ? shaped.slice(0, limit) : shaped;
   },
 });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Images, Play, type LucideIcon } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
@@ -106,16 +106,15 @@ function isDisplayable(p: MasonryPhoto): boolean {
  */
 function useInViewport<T extends Element>(rootMargin = "300px") {
   const ref = useRef<T | null>(null);
-  const [inView, setInView] = useState(false);
+  // No IntersectionObserver (e.g. SSR/old browsers): start "in view" so media
+  // loads eagerly rather than never.
+  const [inView, setInView] = useState(
+    () => typeof IntersectionObserver === "undefined",
+  );
 
   useEffect(() => {
     const el = ref.current;
     if (!el || inView) return;
-    // No IntersectionObserver (e.g. SSR/old browsers): load eagerly.
-    if (typeof IntersectionObserver === "undefined") {
-      setInView(true);
-      return;
-    }
     const io = new IntersectionObserver(
       (entries) => {
         if (entries.some((e) => e.isIntersecting)) {
@@ -222,10 +221,32 @@ function MasonryTile({
   );
 }
 
+/** How many tiles to reveal per "page" as the user scrolls. */
+const PAGE = 16;
+
+/** Responsive column count (2 / 3 / 4) tracked so we can flow items row-major. */
+function useColumnCount() {
+  const [n, setN] = useState(4);
+  useEffect(() => {
+    const compute = () =>
+      setN(
+        window.innerWidth < 640 ? 2 : window.innerWidth < 1024 ? 3 : 4,
+      );
+    compute();
+    window.addEventListener("resize", compute);
+    return () => window.removeEventListener("resize", compute);
+  }, []);
+  return n;
+}
+
 /**
  * Masonry photo grid with a built-in lightbox. Pass `undefined` while loading
  * to render skeletons. Used by the gallery and the per-model / per-location
  * photo pages.
+ *
+ * Newest-first ordering flows LEFT-TO-RIGHT (round-robin across columns), so the
+ * top row is the most recent media, and tiles are revealed incrementally on
+ * scroll rather than all at once.
  */
 export function PhotoMasonry({
   photos,
@@ -239,6 +260,33 @@ export function PhotoMasonry({
   emptyDescription?: string;
 }) {
   const [index, setIndex] = useState<number | null>(null);
+  const [visibleCount, setVisibleCount] = useState(PAGE);
+  const columnCount = useColumnCount();
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  const valid = useMemo(
+    () => (photos ?? []).filter(isDisplayable),
+    [photos],
+  );
+  const hasMore = visibleCount < valid.length;
+
+  // Reveal more as the sentinel nears the viewport. Re-observing on each bump
+  // keeps loading while the sentinel stays in view (short feeds fill instantly).
+  useEffect(() => {
+    if (!hasMore) return;
+    const el = sentinelRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setVisibleCount((c) => c + PAGE);
+        }
+      },
+      { rootMargin: "600px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasMore, visibleCount, columnCount]);
 
   if (photos === undefined) {
     return (
@@ -253,8 +301,6 @@ export function PhotoMasonry({
       </div>
     );
   }
-
-  const valid = photos.filter(isDisplayable);
 
   if (valid.length === 0) {
     return (
@@ -289,13 +335,32 @@ export function PhotoMasonry({
         },
   );
 
+  // Round-robin the visible prefix into columns → newest reads left-to-right.
+  const visible = valid.slice(0, visibleCount);
+  const columns: { photo: MasonryPhoto; flatIndex: number }[][] = Array.from(
+    { length: columnCount },
+    () => [],
+  );
+  visible.forEach((photo, i) =>
+    columns[i % columnCount].push({ photo, flatIndex: i }),
+  );
+
   return (
     <>
-      <div className="columns-2 gap-3 sm:columns-3 lg:columns-4 [&>*]:mb-3">
-        {valid.map((p, i) => (
-          <MasonryTile key={p._id} photo={p} onOpen={() => setIndex(i)} />
+      <div className="flex items-start gap-3">
+        {columns.map((col, ci) => (
+          <div key={ci} className="flex min-w-0 flex-1 flex-col gap-3">
+            {col.map(({ photo, flatIndex }) => (
+              <MasonryTile
+                key={photo._id}
+                photo={photo}
+                onOpen={() => setIndex(flatIndex)}
+              />
+            ))}
+          </div>
         ))}
       </div>
+      {hasMore ? <div ref={sentinelRef} className="h-8 w-full" /> : null}
       <ImageLightbox
         images={images}
         index={index}
