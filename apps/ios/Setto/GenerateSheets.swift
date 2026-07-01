@@ -105,7 +105,7 @@ struct VariationsSheet: View {
 
     @State private var count = 3
     @State private var prompt = ""
-    @State private var modelId = defaultImageGenModelId
+    @State private var modelId = defaultVariationGenModelId
     @State private var busy = false
     @State private var error: String?
     @State private var started = false
@@ -131,8 +131,9 @@ struct VariationsSheet: View {
                     }
                     Section("Model") {
                         Picker("Model", selection: $modelId) {
-                            ForEach(imageGenModels) { m in
-                                Text(m.label).tag(m.id)
+                            ForEach(variationGenModels) { m in
+                                Text("\(m.label) · \(formatModelPrice(m.price))")
+                                    .tag(m.id)
                             }
                         }
                     }

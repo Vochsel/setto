@@ -205,28 +205,23 @@ export const DEFAULT_MODEL_ID = "google/gemini-2.5-flash-image";
  */
 export const DEFAULT_VARIATION_MODEL_ID = "google/gemini-2.5-flash-image";
 
-/**
- * The cheap, image-to-image / edit-capable models offered in the variations
- * picker (all support image prompts and cost ≤ ~$0.045 an image). Ordered
- * cheapest-first so the most economical option leads.
- */
-export const VARIATION_MODEL_IDS = [
-  "google/gemini-2.5-flash-image",
-  "fal-ai/bytedance/seedream/v4/edit",
-  "fal-ai/qwen-image-edit-plus",
-  "openai/gpt-image-1-mini",
-  "fal-ai/flux-2-pro/edit",
-];
-
 export function getImageModel(id: string): ImageModel | undefined {
   return IMAGE_MODELS.find((m) => m.id === id);
 }
 
-/** The image models offered for variations, in `VARIATION_MODEL_IDS` order. */
+/**
+ * The image models offered for variations: every image-to-image / edit-capable
+ * model in the registry. Variations run off an existing image, so any model
+ * that can be conditioned on a reference photo (`supportsImagePrompt`) can
+ * produce them. Ordered cheapest-first so the most economical option leads,
+ * with the default variation model pinned to the front.
+ */
 export function variationModels(): ImageModel[] {
-  return VARIATION_MODEL_IDS.map((id) => getImageModel(id)).filter(
-    (m): m is ImageModel => Boolean(m),
-  );
+  return IMAGE_MODELS.filter((m) => m.supportsImagePrompt).sort((a, b) => {
+    if (a.id === DEFAULT_VARIATION_MODEL_ID) return -1;
+    if (b.id === DEFAULT_VARIATION_MODEL_ID) return 1;
+    return a.pricePerImage - b.pricePerImage;
+  });
 }
 
 /** Estimated USD cost for one image from this model (0 if unknown). */

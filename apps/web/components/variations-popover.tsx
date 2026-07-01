@@ -79,7 +79,7 @@ export function VariationsPopover({
         <div>
           <p className="text-xs font-medium">Generate variations</p>
           <p className="text-muted-foreground text-[11px]">
-            Realistic image-to-image takes off this photo, with a cheaper model.
+            Realistic image-to-image takes off this photo — pick any editing model.
           </p>
         </div>
 

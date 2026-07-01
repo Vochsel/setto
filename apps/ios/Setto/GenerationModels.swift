@@ -11,6 +11,15 @@ struct ImageGenModel: Identifiable, Hashable {
     let price: Double
 }
 
+/// Compact USD price for a model, e.g. "$0.039" or "$0.25" (mirrors web
+/// `formatPrice`: three decimals with trailing zeros trimmed).
+func formatModelPrice(_ usd: Double) -> String {
+    var s = String(format: "%.3f", usd)
+    while s.hasSuffix("0") { s.removeLast() }
+    if s.hasSuffix(".") { s.removeLast() }
+    return "$\(s)"
+}
+
 /// Curated image models offered for generating shots (default first).
 let imageGenModels: [ImageGenModel] = [
     .init(id: "google/gemini-2.5-flash-image", label: "Nano Banana 2.5 Flash", price: 0.039),
@@ -20,6 +29,26 @@ let imageGenModels: [ImageGenModel] = [
 ]
 
 let defaultImageGenModelId = "google/gemini-2.5-flash-image"
+
+/// Every image-to-image / edit-capable model, offered for "Make variations"
+/// (mirrors web `variationModels()`). Variations run off an existing image, so
+/// any model that conditions on a reference photo can produce them. Ordered
+/// cheapest-first with the default pinned to the front.
+let variationGenModels: [ImageGenModel] = [
+    .init(id: "google/gemini-2.5-flash-image", label: "Nano Banana 2.5 Flash", price: 0.039),
+    .init(id: "google/gemini-3.1-flash-lite-image", label: "Nano Banana 2 Lite", price: 0.034),
+    .init(id: "openai/gpt-image-1-mini", label: "GPT Image 1 mini", price: 0.04),
+    .init(id: "fal-ai/bytedance/seedream/v4/edit", label: "Seedream 4", price: 0.04),
+    .init(id: "fal-ai/qwen-image-edit-plus", label: "Qwen Image Edit Plus", price: 0.04),
+    .init(id: "fal-ai/flux-2-pro/edit", label: "FLUX.2 [pro] edit", price: 0.045),
+    .init(id: "fal-ai/nano-banana-2/edit", label: "Nano Banana 2 (fal)", price: 0.08),
+    .init(id: "google/gemini-3-pro-image-preview", label: "Nano Banana Pro", price: 0.134),
+    .init(id: "openai/gpt-image-1", label: "GPT Image 1", price: 0.19),
+    .init(id: "openai/gpt-image-2", label: "GPT Image 2", price: 0.25),
+    .init(id: "openai/gpt-image-1.5", label: "GPT Image 1.5", price: 0.25),
+]
+
+let defaultVariationGenModelId = "google/gemini-2.5-flash-image"
 
 // MARK: - Video models (image → video)
 
