@@ -7,114 +7,178 @@ import {
   getRenderProgress,
   type AwsRegion,
 } from "@remotion/lambda/client";
+import type { ActionCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
- * Execute a queued video export on Remotion Lambda and stream progress back to
- * its `videoRenders` row. Scheduled by `videoRenders.start`. Mirrors the
- * fal i2v render flow: trigger → poll progress → attach the output URL.
- *
- * Requires the Lambda to be deployed (see packages/remotion/scripts/deploy.ts)
- * and these env vars on the Convex deployment:
- *   REMOTION_LAMBDA_FUNCTION_NAME, REMOTION_SERVE_URL, REMOTION_REGION,
- *   REMOTION_AWS_ACCESS_KEY_ID, REMOTION_AWS_SECRET_ACCESS_KEY
+ * Execute a queued video export and store the resulting mp4 URL. Scheduled by
+ * `videoRenders.start`. Two backends, chosen by env:
+ *   1. REMOTION_RENDER_URL  → a Vercel Fluid Compute container (preferred).
+ *      Synchronous: POST the spec, get back a Vercel Blob mp4 URL.
+ *   2. REMOTION_LAMBDA_*     → Remotion Lambda (fallback). Trigger + poll.
+ * If neither is configured, the render fails with a setup message.
  */
 export const run = internalAction({
   args: { renderId: v.id("videoRenders") },
   handler: async (ctx, { renderId }) => {
-    const fail = async (error: string) => {
-      await ctx.runMutation(internal.videoRenders.attachResult, {
-        renderId,
-        status: "failed",
-        error,
-      });
-      await ctx.runMutation(internal.usage.recordForVideoExport, {
-        renderId,
-        status: "failed",
-        error,
-      });
-    };
-
     const render = await ctx.runQuery(internal.videoRenders.getInternal, {
       renderId,
     });
     if (!render) return;
 
-    const functionName = process.env.REMOTION_LAMBDA_FUNCTION_NAME;
-    const serveUrl = process.env.REMOTION_SERVE_URL;
-    const region = (process.env.REMOTION_REGION ?? "us-east-1") as AwsRegion;
-    if (!functionName || !serveUrl) {
-      return fail(
-        "Remotion Lambda is not configured. Deploy it (pnpm --filter @setto/remotion deploy) " +
-          "and set REMOTION_LAMBDA_FUNCTION_NAME / REMOTION_SERVE_URL / REMOTION_REGION " +
-          "(plus REMOTION_AWS_* credentials) on this Convex deployment.",
-      );
+    const containerUrl = process.env.REMOTION_RENDER_URL;
+    if (containerUrl) {
+      await renderViaContainer(ctx, renderId, render.spec, containerUrl);
+      return;
     }
+    await renderViaLambda(ctx, renderId, render.spec);
+  },
+});
 
-    try {
-      const { renderId: remId, bucketName } = await renderMediaOnLambda({
-        region,
+async function fail(
+  ctx: ActionCtx,
+  renderId: Id<"videoRenders">,
+  error: string,
+) {
+  await ctx.runMutation(internal.videoRenders.attachResult, {
+    renderId,
+    status: "failed",
+    error,
+  });
+  await ctx.runMutation(internal.usage.recordForVideoExport, {
+    renderId,
+    status: "failed",
+    error,
+  });
+}
+
+// ── Vercel container backend ────────────────────────────────────────────────
+
+async function renderViaContainer(
+  ctx: ActionCtx,
+  renderId: Id<"videoRenders">,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  spec: any,
+  baseUrl: string,
+) {
+  await ctx.runMutation(internal.videoRenders.setProgress, {
+    renderId,
+    status: "rendering",
+    progress: 0.1,
+    progressLabel: "Rendering on Vercel…",
+  });
+  try {
+    const secret = process.env.RENDER_SECRET;
+    const res = await fetch(`${baseUrl.replace(/\/$/, "")}/render`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...(secret ? { authorization: `Bearer ${secret}` } : {}),
+      },
+      body: JSON.stringify({ spec, renderId }),
+    });
+    if (!res.ok) {
+      throw new Error(`Render service ${res.status}: ${await res.text()}`);
+    }
+    const data = (await res.json()) as { url?: string; error?: string };
+    if (data.error || !data.url) {
+      throw new Error(data.error ?? "Render service returned no URL");
+    }
+    await ctx.runMutation(internal.videoRenders.attachResult, {
+      renderId,
+      status: "succeeded",
+      outputUrl: data.url,
+    });
+    await ctx.runMutation(internal.usage.recordForVideoExport, {
+      renderId,
+      status: "succeeded",
+    });
+  } catch (e) {
+    await fail(ctx, renderId, e instanceof Error ? e.message : String(e));
+  }
+}
+
+// ── Remotion Lambda backend (fallback) ──────────────────────────────────────
+
+async function renderViaLambda(
+  ctx: ActionCtx,
+  renderId: Id<"videoRenders">,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  spec: any,
+) {
+  const functionName = process.env.REMOTION_LAMBDA_FUNCTION_NAME;
+  const serveUrl = process.env.REMOTION_SERVE_URL;
+  const region = (process.env.REMOTION_REGION ?? "us-east-1") as AwsRegion;
+  if (!functionName || !serveUrl) {
+    return fail(
+      ctx,
+      renderId,
+      "No renderer configured. Set REMOTION_RENDER_URL (Vercel container) or " +
+        "the REMOTION_LAMBDA_* env vars on this Convex deployment.",
+    );
+  }
+
+  try {
+    const { renderId: remId, bucketName } = await renderMediaOnLambda({
+      region,
+      functionName,
+      serveUrl,
+      composition: "Timeline",
+      inputProps: spec,
+      codec: "h264",
+      imageFormat: "jpeg",
+      privacy: "public",
+      downloadBehavior: { type: "play-in-browser" },
+    });
+
+    await ctx.runMutation(internal.videoRenders.setProgress, {
+      renderId,
+      status: "rendering",
+      progress: 0.05,
+      progressLabel: "Rendering…",
+      renderId_remotion: remId,
+      bucketName,
+      renderRegion: region,
+    });
+
+    const deadline = Date.now() + 8 * 60 * 1000;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      if (Date.now() > deadline) return fail(ctx, renderId, "Render timed out");
+      await sleep(3000);
+      const progress = await getRenderProgress({
+        renderId: remId,
+        bucketName,
         functionName,
-        serveUrl,
-        composition: "Timeline",
-        inputProps: render.spec,
-        codec: "h264",
-        imageFormat: "jpeg",
-        privacy: "public",
-        downloadBehavior: { type: "play-in-browser" },
+        region,
       });
-
+      if (progress.fatalErrorEncountered) {
+        return fail(ctx, renderId, progress.errors?.[0]?.message ?? "Render failed");
+      }
+      if (progress.done) {
+        await ctx.runMutation(internal.videoRenders.attachResult, {
+          renderId,
+          status: "succeeded",
+          outputUrl: progress.outputFile ?? undefined,
+          costUsd: progress.costs?.accruedSoFar,
+        });
+        await ctx.runMutation(internal.usage.recordForVideoExport, {
+          renderId,
+          status: "succeeded",
+          costUsd: progress.costs?.accruedSoFar,
+        });
+        return;
+      }
       await ctx.runMutation(internal.videoRenders.setProgress, {
         renderId,
         status: "rendering",
-        progress: 0.05,
-        progressLabel: "Rendering…",
-        renderId_remotion: remId,
-        bucketName,
-        renderRegion: region,
+        progress: Math.max(0.05, progress.overallProgress),
+        progressLabel: `Rendering… ${Math.round(progress.overallProgress * 100)}%`,
       });
-
-      // Poll until done. Cap total wait so a stuck render can't run forever.
-      const deadline = Date.now() + 8 * 60 * 1000;
-      // eslint-disable-next-line no-constant-condition
-      while (true) {
-        if (Date.now() > deadline) {
-          return fail("Render timed out after 8 minutes");
-        }
-        await sleep(3000);
-        const progress = await getRenderProgress({
-          renderId: remId,
-          bucketName,
-          functionName,
-          region,
-        });
-        if (progress.fatalErrorEncountered) {
-          return fail(progress.errors?.[0]?.message ?? "Render failed on Lambda");
-        }
-        if (progress.done) {
-          await ctx.runMutation(internal.videoRenders.attachResult, {
-            renderId,
-            status: "succeeded",
-            outputUrl: progress.outputFile ?? undefined,
-            costUsd: progress.costs?.accruedSoFar,
-          });
-          await ctx.runMutation(internal.usage.recordForVideoExport, {
-            renderId,
-            status: "succeeded",
-            costUsd: progress.costs?.accruedSoFar,
-          });
-          return;
-        }
-        await ctx.runMutation(internal.videoRenders.setProgress, {
-          renderId,
-          status: "rendering",
-          progress: Math.max(0.05, progress.overallProgress),
-          progressLabel: `Rendering… ${Math.round(progress.overallProgress * 100)}%`,
-        });
-      }
-    } catch (e) {
-      await fail(e instanceof Error ? e.message : String(e));
     }
-  },
-});
+  } catch (e) {
+    await fail(ctx, renderId, e instanceof Error ? e.message : String(e));
+  }
+}

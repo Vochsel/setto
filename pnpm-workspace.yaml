@@ -1,6 +1,10 @@
 packages:
   - apps/*
   - packages/*
+  # apps/render is a self-contained Docker service (Vercel Fluid Compute). It
+  # vendors its Remotion composition and installs with npm inside the image, so
+  # keep it out of the pnpm workspace.
+  - "!apps/render"
 
 ignoredBuiltDependencies:
   - sharp

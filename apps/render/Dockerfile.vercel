@@ -1,0 +1,42 @@
+# Remotion render service for Vercel Fluid Compute (Dockerfile.vercel).
+# Vercel builds this image, stores it in the project registry, and runs it on
+# Fluid Compute. The server must listen on $PORT (defaults to 80).
+FROM node:22-bookworm-slim
+
+# Shared libraries Chromium (the Remotion headless shell) needs, per
+# https://remotion.dev/docs/docker — plus fonts for text rendering.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  libnss3 \
+  libdbus-1-3 \
+  libatk1.0-0 \
+  libgbm-dev \
+  libasound2 \
+  libxrandr2 \
+  libxkbcommon-dev \
+  libxfixes3 \
+  libxcomposite1 \
+  libxdamage1 \
+  libatk-bridge2.0-0 \
+  libpango-1.0-0 \
+  libcairo2 \
+  libcups2 \
+  fonts-liberation \
+  ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install deps first for better layer caching.
+COPY package.json ./
+RUN npm install --no-audit --no-fund
+
+# App source (server + vendored Remotion composition).
+COPY . .
+
+# Bake the Chrome headless shell into the image so the first render is fast.
+RUN node --input-type=module \
+  -e "import('@remotion/renderer').then((m) => m.ensureBrowser())"
+
+ENV NODE_ENV=production
+EXPOSE 80
+CMD ["npm", "run", "start"]

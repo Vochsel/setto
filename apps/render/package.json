@@ -1,0 +1,27 @@
+{
+  "name": "setto-render",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Remotion render service — runs as a Vercel Fluid Compute container. POST /render { spec } -> mp4 in Vercel Blob.",
+  "scripts": {
+    "start": "tsx src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "sync": "node scripts/sync.mjs"
+  },
+  "dependencies": {
+    "@remotion/bundler": "^4.0.0",
+    "@remotion/renderer": "^4.0.0",
+    "@remotion/transitions": "^4.0.0",
+    "@vercel/blob": "^2.0.0",
+    "react": "^19",
+    "react-dom": "^19",
+    "remotion": "^4.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19"
+  }
+}
