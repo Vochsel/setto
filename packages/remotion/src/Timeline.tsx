@@ -4,7 +4,9 @@ import {
   Audio,
   Img,
   OffthreadVideo,
+  Video,
   Sequence,
+  getRemotionEnvironment,
   interpolate,
   useCurrentFrame,
   type CalculateMetadataFunction,
@@ -86,14 +88,28 @@ const MotionClip: React.FC<{ clip: VideoClip }> = ({ clip }) => {
   const startFrom = clip.trimStartMs
     ? msToFrames(clip.trimStartMs, 30)
     : undefined;
+  const style: React.CSSProperties = {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+  };
+  // In the browser Player, <Video> buffers/preloads smoothly and can pause the
+  // timeline while it fills (no black flashes on scrub/play). Server renders
+  // keep <OffthreadVideo> (frame-accurate, ffmpeg-extracted).
+  const inPlayer = getRemotionEnvironment().isPlayer;
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <OffthreadVideo
-        src={clip.url}
-        startFrom={startFrom}
-        muted
-        style={{ width: "100%", height: "100%", objectFit: "cover" }}
-      />
+      {inPlayer ? (
+        <Video
+          src={clip.url}
+          startFrom={startFrom}
+          muted
+          pauseWhenBuffering
+          style={style}
+        />
+      ) : (
+        <OffthreadVideo src={clip.url} startFrom={startFrom} muted style={style} />
+      )}
       {clip.caption ? <Caption text={clip.caption} /> : null}
     </AbsoluteFill>
   );

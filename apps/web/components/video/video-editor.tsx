@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Player } from "@remotion/player";
+import { Player, type PlayerRef } from "@remotion/player";
 import { Timeline } from "@setto/remotion/Timeline";
 import { useConvex, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -94,6 +94,46 @@ export function VideoEditor({ projectId }: { projectId: Id<"videoProjects"> }) {
   const [exporting, setExporting] = useState(false);
   const [uploadingAudio, setUploadingAudio] = useState(false);
   const seeded = useRef(false);
+  const playerRef = useRef<PlayerRef>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
+
+  // Space toggles play/pause anywhere in the editor (except while typing in a
+  // field or driving a control). When focus is inside the preview, the Player's
+  // own space handler takes it, so we don't double-toggle.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.code !== "Space" && e.key !== " ") return;
+      const t = e.target as HTMLElement | null;
+      const tag = t?.tagName;
+      if (
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT" ||
+        tag === "BUTTON" ||
+        t?.isContentEditable
+      ) {
+        return;
+      }
+      const role = t?.getAttribute?.("role");
+      if (
+        role === "slider" ||
+        role === "combobox" ||
+        role === "listbox" ||
+        role === "menu" ||
+        role === "menuitem"
+      ) {
+        return;
+      }
+      if (t?.closest?.('[role="dialog"], [role="listbox"], [role="menu"]')) {
+        return;
+      }
+      if (previewRef.current?.contains(t)) return; // let the Player handle it
+      e.preventDefault();
+      playerRef.current?.toggle();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   useEffect(() => {
     if (project && !seeded.current) {
@@ -379,10 +419,12 @@ export function VideoEditor({ projectId }: { projectId: Id<"videoProjects"> }) {
             </div>
           ) : (
             <div
+              ref={previewRef}
               className="mx-auto overflow-hidden rounded-xl bg-black"
               style={{ maxWidth: isPortrait ? 360 : 640 }}
             >
               <Player
+                ref={playerRef}
                 component={Timeline}
                 inputProps={spec}
                 durationInFrames={specDurationFrames(spec)}
