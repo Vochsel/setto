@@ -213,9 +213,16 @@ struct GenerateShotView: View {
                     posePrompt: posePrompt,
                     extraPrompt: extraPrompt,
                     aspectRatio: aspect == "auto" ? nil : aspect)
-                for _ in 0..<count {
+                // One round-trip: the server loops `count` copies and schedules
+                // the work in the background, so a single quick call replaces N
+                // separate long-lived actions (far less chance of a drop).
+                do {
                     _ = try await c.generateShot(
-                        shotId: shotId, modelKey: imageModelId)
+                        shotId: shotId, modelKey: imageModelId, count: count)
+                } catch let e where Self.isConnectionDrop(e) {
+                    // The action is already in flight on the server and keeps
+                    // running even if our HTTP connection dropped — treat it as
+                    // started, not failed.
                 }
                 onGenerating()
                 dismiss()
@@ -223,5 +230,23 @@ struct GenerateShotView: View {
                 self.error = error.localizedDescription
             }
         }
+    }
+
+    /// A dropped/timed-out connection while `generateShot` is in flight isn't a
+    /// failure: the Convex action keeps running server-side (it only schedules
+    /// background work). Detect those so we don't surface a scary error for work
+    /// that's actually underway.
+    private static func isConnectionDrop(_ error: Error) -> Bool {
+        if let urlError = error as? URLError {
+            switch urlError.code {
+            case .networkConnectionLost, .timedOut, .notConnectedToInternet,
+                .cannotConnectToHost, .dataNotAllowed:
+                return true
+            default:
+                return false
+            }
+        }
+        let msg = error.localizedDescription.lowercased()
+        return msg.contains("connection lost") || msg.contains("in flight")
     }
 }

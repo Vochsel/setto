@@ -215,12 +215,15 @@ export function buildPrompt(inputs: PromptInputs): AssembledPrompt {
   // 9. Freeform extras
   push("Extra direction", inputs.shot.extraPrompt);
 
-  // 10. Quality baseline
+  // 10. Quality baseline. The "no watermark/text" instruction is stated in the
+  // positive prompt (not just the negative) because some providers — Google /
+  // OpenAI image models — ignore a separate negative prompt.
   push(
     "Quality",
     "photorealistic, ultra-detailed, professional fashion editorial photography, " +
       "natural skin texture, sharp focus on subject, cinematic color grading, " +
-      "high dynamic range",
+      "high dynamic range. Absolutely no watermark, no text, no captions, no " +
+      "logos or signatures anywhere in the image.",
   );
 
   const prompt = sections.map((s) => `${s.label}: ${s.text}`).join("\n");

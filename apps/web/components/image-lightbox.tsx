@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type MouseEvent } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -185,6 +185,34 @@ export function ImageLightbox({
   const canCrop = !isVideo && !!current?.generationId && !!current?.url;
   const displaySrc = localSrc ?? current?.url;
 
+  // Identity of the item currently being viewed, so live data changes (a new
+  // photo arriving, reordering) don't swap what's on screen out from under us.
+  const itemKey = (im?: LightboxImage) =>
+    im?.mediaId ?? im?.generationId ?? im?.url ?? "";
+  const viewedKey = useRef<string | null>(null);
+
+  // If the array shifts under a fixed index (e.g. newest-first prepend), follow
+  // the item we were actually looking at rather than whatever now sits at index.
+  useEffect(() => {
+    if (index === null) {
+      viewedKey.current = null;
+      return;
+    }
+    const here = itemKey(images[index]);
+    const want = viewedKey.current;
+    if (want == null || here === want) {
+      viewedKey.current = here;
+      return;
+    }
+    const ni = images.findIndex((im) => itemKey(im) === want);
+    if (ni >= 0) {
+      if (ni !== index) onIndexChange(ni);
+    } else {
+      viewedKey.current = here; // item is gone — stay put on whatever's here
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [images, index]);
+
   // Clear crop mode + any local preview when leaving an item (nav / close).
   function resetCrop() {
     setCropping(false);
@@ -195,6 +223,7 @@ export function ImageLightbox({
   }
   function go(i: number) {
     resetCrop();
+    viewedKey.current = itemKey(images[i]);
     onIndexChange(i);
   }
   function handleClose() {
@@ -242,6 +271,7 @@ export function ImageLightbox({
           if (prev) URL.revokeObjectURL(prev);
           return null;
         });
+        viewedKey.current = itemKey(images[to]);
         onIndexChange(to);
       };
       if (e.key === "ArrowRight" && index < images.length - 1) move(index + 1);
@@ -249,7 +279,7 @@ export function ImageLightbox({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, index, images.length, onIndexChange, cropping]);
+  }, [open, index, images, onIndexChange, cropping]);
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>

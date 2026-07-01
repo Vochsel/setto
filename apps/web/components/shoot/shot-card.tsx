@@ -192,7 +192,15 @@ export function ShotCard({
       const r = await generate({ shotId: shot._id, modelKey });
       toast.success(`Generating ${r.generationIds.length} image(s)…`);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Generation failed");
+      const msg = e instanceof Error ? e.message : "";
+      // "Connection lost while action was in flight" isn't a failure: the action
+      // schedules the work server-side and keeps running even if our socket
+      // blipped. Surface it as in-progress, not an error.
+      if (/connection lost|in flight/i.test(msg)) {
+        toast.success("Generating… (your images are on the way)");
+      } else {
+        toast.error(msg || "Generation failed");
+      }
     } finally {
       setGenerating(false);
     }

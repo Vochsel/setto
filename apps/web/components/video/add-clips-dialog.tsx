@@ -117,7 +117,7 @@ export function AddClipsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[88vh] max-w-5xl flex-col">
+      <DialogContent className="flex max-h-[90vh] w-[96vw] flex-col sm:max-w-[1600px]">
         <DialogHeader>
           <DialogTitle>Add clips</DialogTitle>
         </DialogHeader>
@@ -208,7 +208,7 @@ export function AddClipsDialog({
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           {loading ? (
-            <div className="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-6">
+            <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12">
               {Array.from({ length: 12 }).map((_, i) => (
                 <Skeleton key={i} className="aspect-[9/16] rounded-lg" />
               ))}
@@ -217,7 +217,7 @@ export function AddClipsDialog({
             imageItems.length === 0 ? (
               <Empty label="No images match these filters" />
             ) : (
-              <div className="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-6">
+              <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12">
                 {imageItems.map((g) => {
                   const key = `g:${g._id}`;
                   const media: MediaInput = {
@@ -243,7 +243,7 @@ export function AddClipsDialog({
           ) : videoItems.length === 0 ? (
             <Empty label="No motion clips match these filters" />
           ) : (
-            <div className="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-6">
+            <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12">
               {videoItems.map((v) => {
                 const key = `v:${v._id}`;
                 const media: MediaInput = {

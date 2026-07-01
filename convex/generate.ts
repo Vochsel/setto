@@ -221,6 +221,15 @@ function modelHeadshotPrompt(
   descriptor: string,
   refMode: "none" | "identity" | "resemblance",
 ): string {
+  // For invented / resemblance faces, steer away from the image models' default
+  // glamour bias so the library reads like real, everyday people.
+  const ordinary =
+    refMode === "identity"
+      ? ""
+      : "Depict an ordinary, everyday, natural-looking person — realistic, " +
+        "relatable and average-looking with authentic skin and imperfections. " +
+        "Not a glamorous or idealised fashion model; avoid overly pretty, " +
+        "handsome, airbrushed, symmetrical or model-like features. ";
   return (
     "Photorealistic studio headshot portrait — head and shoulders, centred, " +
     "facing the camera with a clear, unobstructed face and a relaxed neutral " +
@@ -235,6 +244,7 @@ function modelHeadshotPrompt(
           "individual, NOT an exact copy or recognisable likeness of the person " +
           "shown. "
         : "") +
+    ordinary +
     (descriptor ? `${descriptor}. ` : "") +
     "Plain heather-grey crew-neck T-shirt, seamless light-grey background, soft " +
     "even lighting, natural skin texture, sharp focus, no text or watermark."
@@ -244,9 +254,10 @@ function modelHeadshotPrompt(
 function modelSheetPrompt(descriptor?: string): string {
   const base = (descriptor ?? "").trim();
   return (
-    "Create a professional character reference sheet of the exact same person " +
-    "shown in the reference images — identical face, hair, skin tone and body " +
-    "proportions. " +
+    "Create a character reference sheet of the exact same person shown in the " +
+    "reference images — identical face, hair, skin tone and body proportions. " +
+    "Keep them a real, ordinary, natural-looking person; do not beautify, " +
+    "slim, airbrush or make them more attractive than the reference. " +
     (base ? `${base}. ` : "") +
     "Compose it as a compact 4:5 portrait sheet that COMPLETELY FILLS the frame " +
     "with no empty bands, blank margins or gaps between panels, on a seamless " +
@@ -274,6 +285,10 @@ export const generateShot = action({
     shotId: v.id("shots"),
     modelKey: v.optional(v.string()),
     variationIds: v.optional(v.array(v.string())),
+    // How many images to generate per selected variation (1–6). Doing the batch
+    // in one action call keeps clients from making N separate round-trips (each
+    // of which risks a "connection lost while action was in flight").
+    count: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -301,6 +316,7 @@ export const generateShot = action({
     // Create one row per variation and hand the slow provider call to a
     // scheduled job. This action returns immediately, so the user can fire
     // another batch (or move to another shot) without waiting for the images.
+    const copies = Math.max(1, Math.min(6, Math.round(args.count ?? 1)));
     const generationIds: string[] = [];
     for (const variationId of targets) {
       const variation = variationId
@@ -339,59 +355,61 @@ export const generateShot = action({
         ...(c.location?.imageUrls ?? []),
       ];
       const modelImgs = c.model?.imageUrls ?? [];
-      // Pick a *random* location shot each time so batches vary the backdrop
-      // framing instead of always grounding on the same frame.
-      const shuffledLoc = shuffle(locationShots);
-      const references = Array.from(
-        new Set([
-          ...outfitImgs.slice(0, 2), // always send the outfit image
-          ...shuffledLoc.slice(0, 1), // always send >=1 (random) location shot
-          ...modelImgs.slice(0, 2), // subject likeness
-          ...shuffledLoc.slice(1, 3), // extra location grounding
-        ]),
-      );
-      // Nudge multi-image models to actually use the references (provider-aware),
-      // and — when the subject reference is included — tell the model to read it
-      // for identity only, never for clothing (the model reference is a neutral
-      // studio sheet, so its plain clothing must not bleed into the wardrobe).
-      const identityNote = modelImgs.length
-        ? " The person reference is a neutral studio model sheet — use it only " +
-          "for the subject's facial identity and body proportions; do not copy " +
-          "its plain clothing, T-pose, panel layout, or background."
-        : "";
-      const promptText = references.length
-        ? `${assembled.prompt}\n\n${referenceGuidance(model)}${identityNote}`
-        : assembled.prompt;
+      // Generate `copies` images for this variation, reshuffling the backdrop
+      // each time so a batch varies instead of repeating one framing.
+      for (let copy = 0; copy < copies; copy++) {
+        const shuffledLoc = shuffle(locationShots);
+        const references = Array.from(
+          new Set([
+            ...outfitImgs.slice(0, 2), // always send the outfit image
+            ...shuffledLoc.slice(0, 1), // always send >=1 (random) location shot
+            ...modelImgs.slice(0, 2), // subject likeness
+            ...shuffledLoc.slice(1, 3), // extra location grounding
+          ]),
+        );
+        // Nudge multi-image models to actually use the references (provider-aware),
+        // and — when the subject reference is included — tell the model to read it
+        // for identity only, never for clothing (the model reference is a neutral
+        // studio sheet, so its plain clothing must not bleed into the wardrobe).
+        const identityNote = modelImgs.length
+          ? " The person reference is a neutral studio model sheet — use it only " +
+            "for the subject's facial identity and body proportions; do not copy " +
+            "its plain clothing, T-pose, panel layout, or background."
+          : "";
+        const promptText = references.length
+          ? `${assembled.prompt}\n\n${referenceGuidance(model)}${identityNote}`
+          : assembled.prompt;
 
-      const genId = await ctx.runMutation(internal.generations.create, {
-        orgId,
-        createdBy: userId,
-        shotId: args.shotId,
-        shootId: c.shootId,
-        variationId: variationId ?? undefined,
-        // Freeze the shot's current recipe onto the generation so galleries
-        // attribute this image correctly even if the shot is re-cast later.
-        modelId: c.modelId ?? undefined,
-        outfitId: c.outfitId ?? undefined,
-        locationId: c.locationId ?? undefined,
-        styleId: c.styleId ?? undefined,
-        cameraId: c.cameraId ?? undefined,
-        lightingId: c.lightingId ?? undefined,
-        provider: model.provider,
-        modelKey,
-        modelLabel: model.label,
-        prompt: promptText,
-        negativePrompt: assembled.negativePrompt,
-      });
-      generationIds.push(genId);
+        const genId = await ctx.runMutation(internal.generations.create, {
+          orgId,
+          createdBy: userId,
+          shotId: args.shotId,
+          shootId: c.shootId,
+          variationId: variationId ?? undefined,
+          // Freeze the shot's current recipe onto the generation so galleries
+          // attribute this image correctly even if the shot is re-cast later.
+          modelId: c.modelId ?? undefined,
+          outfitId: c.outfitId ?? undefined,
+          locationId: c.locationId ?? undefined,
+          styleId: c.styleId ?? undefined,
+          cameraId: c.cameraId ?? undefined,
+          lightingId: c.lightingId ?? undefined,
+          provider: model.provider,
+          modelKey,
+          modelLabel: model.label,
+          prompt: promptText,
+          negativePrompt: assembled.negativePrompt,
+        });
+        generationIds.push(genId);
 
-      await ctx.scheduler.runAfter(0, internal.generate.runOne, {
-        genId,
-        modelKey,
-        prompt: promptText,
-        referenceImageUrls: references,
-        aspectRatio: c.shot.aspectRatio ?? undefined,
-      });
+        await ctx.scheduler.runAfter(0, internal.generate.runOne, {
+          genId,
+          modelKey,
+          prompt: promptText,
+          referenceImageUrls: references,
+          aspectRatio: c.shot.aspectRatio ?? undefined,
+        });
+      }
     }
     return { generationIds };
   },

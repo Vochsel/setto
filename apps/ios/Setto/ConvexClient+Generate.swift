@@ -34,13 +34,17 @@ extension ConvexClient {
     }
 
     /// Generate image(s) for a shot (one per selected outfit variation).
+    /// `count` requests that many copies of the batch in a single round-trip
+    /// (the server loops), instead of the client firing N separate actions.
     @discardableResult
     func generateShot(
-        shotId: String, modelKey: String? = nil, variationIds: [String]? = nil
+        shotId: String, modelKey: String? = nil, variationIds: [String]? = nil,
+        count: Int? = nil
     ) async throws -> [String] {
         var args: [String: Any] = ["shotId": shotId]
         if let modelKey { args["modelKey"] = modelKey }
         if let variationIds { args["variationIds"] = variationIds }
+        if let count { args["count"] = count }
         let ack = try await call(
             "generate:generateShot", .action, args: args,
             as: GenerationIdsAck.self)

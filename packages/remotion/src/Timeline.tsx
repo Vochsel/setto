@@ -59,12 +59,20 @@ const ImageClip: React.FC<{ clip: VideoClip; clipFrames: number }> = ({
   const t = clipFrames <= 1 ? 1 : Math.min(1, Math.max(0, frame / (clipFrames - 1)));
 
   let transform = "scale(1)";
+  // The zoom is anchored at the focal point (via transform-origin) so it grows
+  // toward/from that spot — a plain translate doesn't keep the focal area in
+  // view as the image scales.
+  let transformOrigin = "50% 50%";
   if (e && e.type === "kenburns") {
-    const scale = lerp(e.fromScale ?? 1, e.toScale ?? 1, t);
-    // Normalized pan [-1,1] mapped to a gentle percentage translate.
-    const x = lerp(e.fromX ?? 0, e.toX ?? 0, t) * 8;
-    const y = lerp(e.fromY ?? 0, e.toY ?? 0, t) * 8;
-    transform = `scale(${scale}) translate(${x}%, ${y}%)`;
+    const from = e.fromScale ?? 1;
+    const to = e.toScale ?? 1;
+    const scale = lerp(from, to, t);
+    // The focal point is the offset at the more-zoomed end of the move.
+    const zoomIn = to >= from;
+    const fx = zoomIn ? (e.toX ?? 0) : (e.fromX ?? 0);
+    const fy = zoomIn ? (e.toY ?? 0) : (e.fromY ?? 0);
+    transformOrigin = `${((fx + 1) / 2) * 100}% ${((fy + 1) / 2) * 100}%`;
+    transform = `scale(${scale})`;
   }
 
   return (
@@ -76,6 +84,7 @@ const ImageClip: React.FC<{ clip: VideoClip; clipFrames: number }> = ({
           height: "100%",
           objectFit: "cover",
           transform,
+          transformOrigin,
         }}
       />
       {clip.caption ? <Caption text={clip.caption} /> : null}

@@ -360,7 +360,6 @@ export function VideoEditor({ projectId }: { projectId: Id<"videoProjects"> }) {
     RESOLUTIONS.find(
       (r) => r.width === settings.width && r.height === settings.height,
     )?.key ?? RESOLUTIONS[0].key;
-  const isPortrait = settings.height >= settings.width;
   const latestRender = renders?.[0];
   const totalMs = specDurationMs(spec);
   const selectedClip = clips.find((c) => c.id === selectedId) ?? null;
@@ -404,43 +403,50 @@ export function VideoEditor({ projectId }: { projectId: Id<"videoProjects"> }) {
         </Button>
       </PageHeader>
 
-      <div className="grid gap-4 p-4 md:grid-cols-[1fr_320px] md:p-6">
-        {/* Preview */}
-        <div className="min-w-0">
-          {clips.length === 0 ? (
-            <div className="bg-muted/40 flex aspect-video flex-col items-center justify-center gap-3 rounded-xl border border-dashed">
-              <Film className="text-muted-foreground h-8 w-8" />
-              <p className="text-muted-foreground text-sm">
-                Add clips to start your video
-              </p>
-              <Button onClick={() => setAddOpen(true)}>
-                <Plus className="h-4 w-4" /> Add clips
-              </Button>
-            </div>
-          ) : (
-            <div
-              ref={previewRef}
-              className="mx-auto overflow-hidden rounded-xl bg-black"
-              style={{ maxWidth: isPortrait ? 360 : 640 }}
-            >
-              <Player
-                ref={playerRef}
-                component={Timeline}
-                inputProps={spec}
-                durationInFrames={specDurationFrames(spec)}
-                fps={spec.fps}
-                compositionWidth={spec.width}
-                compositionHeight={spec.height}
-                style={{ width: "100%" }}
-                controls
-                loop
-              />
-            </div>
-          )}
-        </div>
+      <div
+        className="flex min-h-0 flex-col"
+        style={{ height: "calc(100dvh - 4rem)" }}
+      >
+        <div className="grid min-h-0 flex-1 gap-4 overflow-hidden p-4 md:grid-cols-[1fr_340px] md:p-6">
+          {/* Preview */}
+          <div className="flex min-h-0 min-w-0 items-center justify-center overflow-hidden">
+            {clips.length === 0 ? (
+              <div className="bg-muted/40 flex aspect-video max-h-full max-w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed p-6">
+                <Film className="text-muted-foreground h-8 w-8" />
+                <p className="text-muted-foreground text-sm">
+                  Add clips to start your video
+                </p>
+                <Button onClick={() => setAddOpen(true)}>
+                  <Plus className="h-4 w-4" /> Add clips
+                </Button>
+              </div>
+            ) : (
+              <div
+                ref={previewRef}
+                className="relative mx-auto h-full max-h-full overflow-hidden rounded-xl bg-black"
+                style={{
+                  aspectRatio: `${spec.width} / ${spec.height}`,
+                  maxWidth: "100%",
+                }}
+              >
+                <Player
+                  ref={playerRef}
+                  component={Timeline}
+                  inputProps={spec}
+                  durationInFrames={specDurationFrames(spec)}
+                  fps={spec.fps}
+                  compositionWidth={spec.width}
+                  compositionHeight={spec.height}
+                  style={{ width: "100%", height: "100%" }}
+                  controls
+                  loop
+                />
+              </div>
+            )}
+          </div>
 
-        {/* Settings */}
-        <div className="space-y-4">
+          {/* Settings */}
+          <div className="min-h-0 space-y-4 overflow-y-auto pr-1">
           {/* Selected-clip inspector */}
           {selectedClip ? (
             <ClipInspector
@@ -601,22 +607,23 @@ export function VideoEditor({ projectId }: { projectId: Id<"videoProjects"> }) {
             </div>
           </Field>
 
-          <ExportPanel latestRender={latestRender} />
+            <ExportPanel latestRender={latestRender} />
+          </div>
         </div>
-      </div>
 
-      {/* Timeline strip */}
-      {clips.length > 0 ? (
-        <div className="border-t p-4 md:px-6">
-          <ClipStrip
-            clips={clips}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-            onReorder={reorder}
-            onDelete={deleteClip}
-          />
-        </div>
-      ) : null}
+        {/* Timeline strip */}
+        {clips.length > 0 ? (
+          <div className="shrink-0 overflow-x-auto border-t p-3 md:px-6">
+            <ClipStrip
+              clips={clips}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              onReorder={reorder}
+              onDelete={deleteClip}
+            />
+          </div>
+        ) : null}
+      </div>
 
       <AddClipsDialog
         open={addOpen}
