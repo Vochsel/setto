@@ -23,6 +23,7 @@ import {
   getTemplate,
   msToFrames,
   resolveStackStaggerMs,
+  resolveStackScale,
   specDurationFrames,
   type VideoClip,
   type VideoSpec,
@@ -227,7 +228,8 @@ const StackLayer: React.FC<{
   clip: VideoClip;
   index: number;
   animate: boolean;
-}> = ({ clip, index, animate }) => {
+  sizeScale: number;
+}> = ({ clip, index, animate, sizeScale }) => {
   const frame = useCurrentFrame();
   // When not animating, layers just appear (full opacity, no drop/scale).
   const appear = animate
@@ -244,11 +246,13 @@ const StackLayer: React.FC<{
     : 1;
   // Alternate a small rotation/offset so the pile looks hand-stacked.
   const rot = (index % 2 === 0 ? 1 : -1) * (2 + (index % 3));
+  // Base photo width is 72% of frame; the user's size multiplier scales it.
+  const widthPct = 72 * sizeScale;
   return (
     <AbsoluteFill style={{ justifyContent: "center", alignItems: "center" }}>
       <div
         style={{
-          width: "72%",
+          width: `${widthPct}%`,
           aspectRatio: "3 / 4",
           background: "white",
           padding: 14,
@@ -274,11 +278,12 @@ const StackTimeline: React.FC<{ spec: VideoSpec }> = ({ spec }) => {
     msToFrames(resolveStackStaggerMs(spec), spec.fps),
   );
   const animate = spec.stackAnimate ?? true;
+  const sizeScale = resolveStackScale(spec);
   return (
     <>
       {spec.clips.map((clip, i) => (
         <Sequence key={clip.id} from={i * staggerFrames}>
-          <StackLayer clip={clip} index={i} animate={animate} />
+          <StackLayer clip={clip} index={i} animate={animate} sizeScale={sizeScale} />
         </Sequence>
       ))}
     </>

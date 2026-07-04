@@ -105,6 +105,8 @@ export type VideoSpec = {
   stackStaggerMs?: number;
   /** Photo-stack: animate each layer in (drop/scale/fade) vs. just appear. */
   stackAnimate?: boolean;
+  /** Photo-stack: photo size as a multiplier of the default (1 = default). */
+  stackScale?: number;
 };
 
 // ── Templates ─────────────────────────────────────────────────────────────
@@ -339,6 +341,18 @@ const DEFAULT_STACK_STAGGER_MS = 700;
 export function resolveStackStaggerMs(spec: VideoSpec): number {
   const template = getTemplate(spec.templateId);
   return spec.stackStaggerMs ?? template.stackStaggerMs ?? DEFAULT_STACK_STAGGER_MS;
+}
+
+/** Default photo size (multiplier of the base stack photo width) and its range. */
+export const DEFAULT_STACK_SCALE = 1;
+export const STACK_SCALE_MIN = 0.5;
+export const STACK_SCALE_MAX = 1.4;
+
+/** The effective photo-size multiplier for a stack spec, clamped to a sane range. */
+export function resolveStackScale(spec: VideoSpec): number {
+  const s = spec.stackScale ?? DEFAULT_STACK_SCALE;
+  if (!Number.isFinite(s)) return DEFAULT_STACK_SCALE;
+  return Math.max(STACK_SCALE_MIN, Math.min(STACK_SCALE_MAX, s));
 }
 
 // ── Ken Burns controls (friendly editor representation) ────────────────────

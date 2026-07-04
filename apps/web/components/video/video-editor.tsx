@@ -16,6 +16,9 @@ import {
   buildClips,
   defaultKenBurns,
   resolveStackStaggerMs,
+  resolveStackScale,
+  STACK_SCALE_MIN,
+  STACK_SCALE_MAX,
   specDurationFrames,
   specDurationMs,
   type VideoClip,
@@ -68,6 +71,7 @@ type SettingsPatch = {
   audio?: VideoSpec["audio"] | null;
   stackStaggerMs?: number;
   stackAnimate?: boolean;
+  stackScale?: number;
 };
 
 export function VideoEditor({ projectId }: { projectId: Id<"videoProjects"> }) {
@@ -151,6 +155,7 @@ export function VideoEditor({ projectId }: { projectId: Id<"videoProjects"> }) {
         audio: project.audio,
         stackStaggerMs: project.stackStaggerMs,
         stackAnimate: project.stackAnimate,
+        stackScale: project.stackScale,
       });
     }
   }, [project]);
@@ -189,6 +194,7 @@ export function VideoEditor({ projectId }: { projectId: Id<"videoProjects"> }) {
         next.stackStaggerMs = patch.stackStaggerMs;
       if (patch.stackAnimate !== undefined)
         next.stackAnimate = patch.stackAnimate;
+      if (patch.stackScale !== undefined) next.stackScale = patch.stackScale;
       return next;
     });
     void updateSettingsMut({ projectId, ...patch });
@@ -365,6 +371,7 @@ export function VideoEditor({ projectId }: { projectId: Id<"videoProjects"> }) {
   const selectedClip = clips.find((c) => c.id === selectedId) ?? null;
   const selectedIndex = clips.findIndex((c) => c.id === selectedId);
   const stackStaggerMs = resolveStackStaggerMs(spec);
+  const stackScale = resolveStackScale(spec);
   const audioSelectValue = settings.audio
     ? (settings.audio.trackId ?? "current")
     : "none";
@@ -547,6 +554,24 @@ export function VideoEditor({ projectId }: { projectId: Id<"videoProjects"> }) {
                   checked={settings.stackAnimate ?? true}
                   onCheckedChange={(v) => commitSettings({ stackAnimate: v })}
                   aria-label="Animate photos in"
+                />
+              </div>
+              <div>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <Label className="text-muted-foreground text-xs">
+                    Photo size
+                  </Label>
+                  <span className="text-xs tabular-nums">
+                    {Math.round(stackScale * 100)}%
+                  </span>
+                </div>
+                <Slider
+                  value={[stackScale]}
+                  min={STACK_SCALE_MIN}
+                  max={STACK_SCALE_MAX}
+                  step={0.05}
+                  onValueChange={([v]) => commitSettings({ stackScale: v })}
+                  aria-label="Photo size"
                 />
               </div>
             </div>

@@ -540,6 +540,7 @@ export const updateSettings = mutation({
     audio: v.optional(v.union(videoAudio, v.null())),
     stackStaggerMs: v.optional(v.number()),
     stackAnimate: v.optional(v.boolean()),
+    stackScale: v.optional(v.number()),
   },
   handler: async (
     ctx,

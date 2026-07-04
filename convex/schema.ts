@@ -190,6 +190,7 @@ export const videoSpec = v.object({
   audio: v.optional(videoAudio),
   stackStaggerMs: v.optional(v.number()),
   stackAnimate: v.optional(v.boolean()),
+  stackScale: v.optional(v.number()),
 });
 
 export default defineSchema({
@@ -602,6 +603,7 @@ export default defineSchema({
     // Photo-stack tuning (overrides the template's stagger + entrance animation).
     stackStaggerMs: v.optional(v.number()),
     stackAnimate: v.optional(v.boolean()),
+    stackScale: v.optional(v.number()),
     // --- meta ---
     posterUrl: v.optional(v.string()), // first clip's still, for cards
     lastRenderId: v.optional(v.id("videoRenders")),

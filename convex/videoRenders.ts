@@ -36,6 +36,7 @@ export const start = mutation({
       audio: project.audio,
       stackStaggerMs: project.stackStaggerMs,
       stackAnimate: project.stackAnimate,
+      stackScale: project.stackScale,
     };
     const durationMs = specDurationMs(spec);
 
