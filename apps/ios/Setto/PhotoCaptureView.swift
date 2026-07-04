@@ -122,7 +122,7 @@ struct PhotoCaptureView: View {
                 Section("Reference") {
                     HStack(spacing: 12) {
                         ForEach(references, id: \.self) { url in
-                            AsyncImage(url: url) { phase in
+                            CachedAsyncImage(url: url) { phase in
                                 if let image = phase.image {
                                     image.resizable().scaledToFill()
                                 } else {
@@ -207,8 +207,7 @@ struct PhotoCaptureView: View {
         loading = true
         defer { loading = false }
         do {
-            let client = ConvexClient(
-                baseURL: Config.convexURL, token: auth.validToken())
+            let client = auth.client()
             async let locs = client.call(
                 "shootLocations:listByShoot", .query,
                 args: ["shootId": shoot.id], as: [ShootLocationDoc].self)
@@ -234,8 +233,7 @@ struct PhotoCaptureView: View {
         Task {
             defer { saving = false }
             do {
-                let client = ConvexClient(
-                    baseURL: Config.convexURL, token: auth.validToken())
+                let client = auth.client()
                 // Upload the photo only to hand it to the model as the scene
                 // reference — it's never saved as a generation of its own.
                 let storageId = try await client.uploadImage(data)

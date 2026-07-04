@@ -166,7 +166,7 @@ struct CameraView: View {
     private var references_view: some View {
         VStack(spacing: 8) {
             ForEach(references, id: \.self) { url in
-                AsyncImage(url: url) { phase in
+                CachedAsyncImage(url: url) { phase in
                     if let image = phase.image {
                         image.resizable().scaledToFill()
                     } else {

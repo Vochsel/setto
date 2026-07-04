@@ -37,7 +37,7 @@ struct MasonryTile: View {
     let item: MediaItem
 
     var body: some View {
-        AsyncImage(url: item.thumbURL) { phase in
+        CachedAsyncImage(url: item.thumbURL) { phase in
             switch phase {
             case .success(let image):
                 image.resizable().scaledToFit()

@@ -58,7 +58,7 @@ struct VideoEditorView: View {
     @State private var bgPickerItem: PhotosPickerItem?
 
     private func client() -> ConvexClient {
-        ConvexClient(baseURL: Config.convexURL, token: auth.validToken())
+        auth.client()
     }
 
     var body: some View {
@@ -124,7 +124,7 @@ struct VideoEditorView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
                         ForEach(editClips) { clip in
-                            AsyncImage(url: clip.thumbURL) { phase in
+                            CachedAsyncImage(url: clip.thumbURL) { phase in
                                 if let img = phase.image {
                                     img.resizable().scaledToFill()
                                 } else {
@@ -223,7 +223,7 @@ struct VideoEditorView: View {
             }
             if let img = backgroundImageUrl, let url = URL(string: img) {
                 HStack {
-                    AsyncImage(url: url) { phase in
+                    CachedAsyncImage(url: url) { phase in
                         if let image = phase.image {
                             image.resizable().scaledToFill()
                         } else {
@@ -604,7 +604,7 @@ private struct ClipRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            AsyncImage(url: clip.thumbURL) { phase in
+            CachedAsyncImage(url: clip.thumbURL) { phase in
                 if let img = phase.image {
                     img.resizable().scaledToFill()
                 } else {
@@ -661,7 +661,7 @@ private struct ClipDetailSheet: View {
     private var isSequence: Bool { templateId != "stack" }
 
     private func client() -> ConvexClient {
-        ConvexClient(baseURL: Config.convexURL, token: auth.validToken())
+        auth.client()
     }
 
     var body: some View {
@@ -790,7 +790,7 @@ private struct FocalPad: View {
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .topLeading) {
-                AsyncImage(url: thumbURL) { phase in
+                CachedAsyncImage(url: thumbURL) { phase in
                     if let img = phase.image {
                         img.resizable().scaledToFill()
                     } else {
@@ -1010,7 +1010,7 @@ private struct AddClipsSheet: View {
         url: URL?, on: Bool, fav: Bool, isVideo: Bool = false,
         toggle: @escaping () -> Void
     ) -> some View {
-        AsyncImage(url: url) { phase in
+        CachedAsyncImage(url: url) { phase in
             if let image = phase.image {
                 image.resizable().scaledToFill()
             } else {
@@ -1054,7 +1054,7 @@ private struct AddClipsSheet: View {
     }
 
     private func client() -> ConvexClient {
-        ConvexClient(baseURL: Config.convexURL, token: auth.validToken())
+        auth.client()
     }
 
     private func load() async {

@@ -49,8 +49,7 @@ struct CampaignsView: View {
         loading = true
         defer { loading = false }
         do {
-            let client = ConvexClient(
-                baseURL: Config.convexURL, token: auth.validToken())
+            let client = auth.client()
             campaigns = try await client.call(
                 "campaigns:list", .query, as: [Campaign].self)
             error = nil

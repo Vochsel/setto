@@ -42,8 +42,7 @@ struct ShootsView: View {
         loading = true
         defer { loading = false }
         do {
-            let client = ConvexClient(
-                baseURL: Config.convexURL, token: auth.validToken())
+            let client = auth.client()
             shoots = try await client.call(
                 "shoots:list", .query, as: [Shoot].self)
             error = nil
@@ -59,7 +58,7 @@ private struct ShootRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            AsyncImage(url: shoot.coverURL) { phase in
+            CachedAsyncImage(url: shoot.coverURL) { phase in
                 if let image = phase.image {
                     image.resizable().scaledToFill()
                 } else {
@@ -212,8 +211,7 @@ struct ShootDetailView: View {
         loading = true
         defer { loading = false }
         do {
-            let client = ConvexClient(
-                baseURL: Config.convexURL, token: auth.validToken())
+            let client = auth.client()
             items = try await client.call(
                 "review:feed", .query,
                 args: ["shootId": shoot.id], as: [MediaItem].self)
@@ -229,8 +227,7 @@ struct ShootDetailView: View {
             creatingVideo = true
             defer { creatingVideo = false }
             do {
-                let client = ConvexClient(
-                    baseURL: Config.convexURL, token: auth.validToken())
+                let client = auth.client()
                 newVideoId = try await client.createVideoProject(
                     shootId: shoot.id)
             } catch {

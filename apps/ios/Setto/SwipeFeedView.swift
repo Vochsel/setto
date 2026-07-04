@@ -183,7 +183,7 @@ private struct MediaPage: View {
     @State private var showCrop = false
 
     private var client: ConvexClient {
-        ConvexClient(baseURL: Config.convexURL, token: auth.validToken())
+        auth.client()
     }
 
     var body: some View {
@@ -235,7 +235,7 @@ private struct MediaPage: View {
         if item.isVideo, let url = URL(string: item.url) {
             LoopingVideoView(url: url, isActive: isActive)
         } else {
-            AsyncImage(url: URL(string: item.url)) { phase in
+            CachedAsyncImage(url: URL(string: item.url), maxWidth: 1024) { phase in
                 switch phase {
                 case .success(let image):
                     image.resizable().scaledToFit()

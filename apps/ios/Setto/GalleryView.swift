@@ -103,8 +103,7 @@ struct GalleryView: View {
         loading = true
         defer { loading = false }
         do {
-            let client = ConvexClient(
-                baseURL: Config.convexURL, token: auth.validToken())
+            let client = auth.client()
             items = try await client.call(
                 "review:feed", .query, as: [MediaItem].self)
             error = nil

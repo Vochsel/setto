@@ -235,8 +235,7 @@ struct CropView: View {
                         domain: "crop", code: 1,
                         userInfo: [NSLocalizedDescriptionKey: "Crop failed"])
                 }
-                let c = ConvexClient(
-                    baseURL: Config.convexURL, token: auth.validToken())
+                let c = auth.client()
                 let storageId = try await c.uploadImage(data)
                 let newUrl = try await c.replaceGenerationImage(
                     generationId: generationId, storageId: storageId)

@@ -33,9 +33,10 @@ and is what the web bridge redirects the access token back to.
 | File | Role |
 | --- | --- |
 | `Config.swift` | backend + web URLs, callback scheme |
-| `AuthStore.swift` | WorkOS web login, token in Keychain |
+| `AuthStore.swift` | WorkOS web login, token in Keychain, silent refresh on expiry/foreground |
 | `Keychain.swift` | tiny Keychain wrapper |
-| `ConvexClient.swift` | Convex HTTP API (`call(path, type, args)`) |
+| `ConvexClient.swift` | Convex HTTP API (`call(path, type, args)`) with per-request token refresh |
+| `ImageCache.swift` | `CachedAsyncImage` — downsampling image loader with memory + disk cache |
 | `Models.swift` | Codable views of Convex docs |
 | `RootView.swift` | tabs + login + account |
 | `CampaignsView.swift`, `ModelsView.swift` | example product screens |

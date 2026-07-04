@@ -21,6 +21,19 @@ enum ConvexError: LocalizedError {
 struct ConvexClient {
     let baseURL: URL
     let token: String?
+    /// Resolves a fresh access token at call time, silently refreshing an
+    /// expired one first (see `AuthStore.token()`). Preferred over the static
+    /// `token` so a request made after the short WorkOS token has lapsed —
+    /// e.g. a pull-to-refresh after the app sat idle — refreshes instead of
+    /// failing with "Please sign in." Falls back to `token` when absent.
+    var tokenProvider: (@Sendable () async -> String?)? = nil
+
+    /// The bearer to send, refreshing through `tokenProvider` when available.
+    private func bearer() async throws -> String {
+        if let tokenProvider, let fresh = await tokenProvider() { return fresh }
+        if let token { return token }
+        throw ConvexError.notAuthenticated
+    }
 
     /// Call a function and decode its result.
     func call<T: Decodable>(
@@ -29,7 +42,7 @@ struct ConvexClient {
         args: [String: Any] = [:],
         as _: T.Type
     ) async throws -> T {
-        guard let token else { throw ConvexError.notAuthenticated }
+        let token = try await bearer()
 
         var request = URLRequest(
             url: baseURL.appendingPathComponent("api/\(type.rawValue)"))
@@ -84,7 +97,7 @@ extension ConvexClient {
     func uploadImage(
         _ data: Data, contentType: String = "image/jpeg"
     ) async throws -> String {
-        guard token != nil else { throw ConvexError.notAuthenticated }
+        _ = try await bearer()
         let uploadURL = try await call(
             "files:generateUploadUrl", .mutation, as: String.self)
         guard let url = URL(string: uploadURL) else {

@@ -100,7 +100,7 @@ struct GenerateShotView: View {
                 Section("Reference") {
                     HStack(spacing: 12) {
                         ForEach(references, id: \.self) { url in
-                            AsyncImage(url: url) { phase in
+                            CachedAsyncImage(url: url) { phase in
                                 if let image = phase.image {
                                     image.resizable().scaledToFill()
                                 } else {
@@ -164,7 +164,7 @@ struct GenerateShotView: View {
     }
 
     private func client() -> ConvexClient {
-        ConvexClient(baseURL: Config.convexURL, token: auth.validToken())
+        auth.client()
     }
 
     private func defaultModelForLocation() {
