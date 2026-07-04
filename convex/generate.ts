@@ -547,16 +547,27 @@ export const generateFromCapture = action({
  * setting while varying pose / expression / framing / light, so the result
  * reads as another frame from the same shoot rather than an unrelated image.
  */
-function buildVariationPrompt(userPrompt?: string): string {
+function buildVariationPrompt(
+  userPrompt?: string,
+  hasProductRef?: boolean,
+): string {
   const base =
-    "Create a new, realistic variation of the attached photograph. Keep the " +
-    "same person and their likeness, the same wardrobe, the same location and " +
-    "the same overall photographic style, but naturally vary the pose, " +
+    "Create a new, realistic variation of the FIRST attached photograph. Keep " +
+    "the same person and their likeness, the same wardrobe, the same location " +
+    "and the same overall photographic style, but naturally vary the pose, " +
     "expression, camera framing and lighting so it reads as a different frame " +
     "from the same photoshoot. Photorealistic, natural skin texture, sharp " +
     "focus, no text, watermark or added graphics.";
+  // When the product photo is attached (from the source frame's metadata),
+  // anchor the wardrobe to it so the exact garment is preserved, not redrawn.
+  const productNote = hasProductRef
+    ? "\n\nThe additional reference image(s) show the exact product/garment worn " +
+      "in that photo — reproduce it faithfully (identical design, colour, " +
+      "pattern, logo, cut and details) and do not restyle or alter it."
+    : "";
   const extra = (userPrompt ?? "").trim();
-  return extra ? `${base}\n\nAdditional direction: ${extra}` : base;
+  const direction = extra ? `\n\nAdditional direction: ${extra}` : "";
+  return `${base}${productNote}${direction}`;
 }
 
 /**
@@ -591,7 +602,14 @@ export const generateVariations = action({
     if (!model) throw new Error(`Unknown model: ${modelKey}`);
 
     const count = Math.min(Math.max(args.count ?? 1, 1), 4);
-    const promptText = buildVariationPrompt(args.prompt);
+    // The source frame is the primary image-to-image reference; the product
+    // photo(s) from the frame's metadata are attached after it so the exact
+    // garment is preserved across the variation.
+    const productImgs = src.productImageUrls ?? [];
+    const references = Array.from(
+      new Set([src.imageUrl, ...productImgs.slice(0, 2)]),
+    );
+    const promptText = buildVariationPrompt(args.prompt, productImgs.length > 0);
 
     const generationIds: string[] = [];
     for (let i = 0; i < count; i++) {
@@ -618,8 +636,9 @@ export const generateVariations = action({
         genId,
         modelKey,
         prompt: promptText,
-        // The source image IS the reference (image-to-image / edit).
-        referenceImageUrls: [src.imageUrl],
+        // The source image is the primary reference (image-to-image / edit),
+        // followed by the product photo(s) from the frame's metadata.
+        referenceImageUrls: references,
         aspectRatio: src.aspectRatio ?? undefined,
       });
     }

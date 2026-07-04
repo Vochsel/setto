@@ -139,8 +139,10 @@ export const context = internalQuery({
  * Resolve a source generation into everything needed to spin off realistic
  * variations of it: the org (for the auth check), the shot/shoot it belongs to,
  * the frozen recipe snapshot (so variations inherit per-model / per-location
- * attribution), the shot's aspect ratio, and the resolved source image URL
- * (the image-to-image reference). Internal-only.
+ * attribution), the shot's aspect ratio, the resolved source image URL (the
+ * image-to-image reference), and the product (outfit) photo(s) captured in the
+ * frame's metadata (attached alongside the source so the exact garment survives
+ * the variation). Internal-only.
  */
 export const variationSource = internalQuery({
   args: { generationId: v.id("generations") },
@@ -152,6 +154,40 @@ export const variationSource = internalQuery({
       imageUrl = (await ctx.storage.getUrl(g.storageId)) ?? undefined;
     }
     const shot = await ctx.db.get(g.shotId);
+
+    // The product photo this frame was generated from, read straight off the
+    // generation's frozen recipe metadata (outfitId + variationId). Prefer the
+    // specific variation's image when the frame was for a variation and that
+    // variation has one, else the base outfit images — mirroring how
+    // `generate.generateShot` picks its outfit references.
+    const resolveRefUrls = async (
+      imgs: { storageId?: string; url?: string }[] | undefined,
+    ) => {
+      const out: string[] = [];
+      for (const i of imgs ?? []) {
+        let u = i.url;
+        if (i.storageId) {
+          const r = await ctx.storage.getUrl(i.storageId as never);
+          if (r) u = r;
+        }
+        if (u) out.push(u);
+      }
+      return out;
+    };
+    let productImageUrls: string[] = [];
+    if (g.outfitId) {
+      const outfit = await ctx.db.get(g.outfitId);
+      if (outfit) {
+        const variation = g.variationId
+          ? (outfit.variations ?? []).find((x) => x.id === g.variationId)
+          : undefined;
+        const imgs = variation?.images?.length
+          ? variation.images
+          : outfit.images;
+        productImageUrls = await resolveRefUrls(imgs);
+      }
+    }
+
     return {
       orgId: g.orgId,
       shotId: g.shotId,
@@ -164,6 +200,7 @@ export const variationSource = internalQuery({
       lightingId: g.lightingId ?? null,
       aspectRatio: shot?.aspectRatio ?? null,
       imageUrl: imageUrl ?? null,
+      productImageUrls,
     };
   },
 });
