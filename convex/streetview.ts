@@ -1,4 +1,8 @@
-import { action, internalMutation } from "./_generated/server";
+import {
+  action,
+  internalMutation,
+  internalQuery,
+} from "./_generated/server";
 import { internal, api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
@@ -7,6 +11,29 @@ import { v } from "convex/values";
 export const DEFAULT_STREETVIEW_RADIUS_M = 150;
 /** How many random nearby points to sample when expansion is on. */
 const NEARBY_POINTS = 3;
+/** Frame dimensions we request from the Street View Static API. */
+const TILE_SIZE = "640x640";
+
+/**
+ * Quantize a coordinate for use in a cache key. Six decimals is ~0.11m — far
+ * finer than Street View's panorama spacing — so it collapses float noise
+ * without ever merging two genuinely different spots.
+ */
+const round6 = (n: number) => Math.round(n * 1e6) / 1e6;
+
+/** Cache key for one captured frame (a Street View Static API tile). */
+const tileKey = (
+  lat: number,
+  lng: number,
+  heading: number,
+  pitch: number,
+  fov: number,
+  size: string,
+) => `${round6(lat)}|${round6(lng)}|${heading}|${pitch}|${fov}|${size}`;
+
+/** Cache key for an imagery-availability metadata probe at a point. */
+const metaKey = (lat: number, lng: number) =>
+  `${round6(lat)}|${round6(lng)}`;
 
 /**
  * A lat/lng `distM` metres from (lat,lng) along compass bearing `bearingDeg`.
@@ -76,6 +103,10 @@ export const capture = action({
     const pitch = args.pitch ?? 0;
     const headings = args.headings ?? [0, 90, 180, 270];
 
+    // How many frames we served from the Convex cache instead of the Google
+    // API, so callers can see the cache doing its job.
+    let fromCache = 0;
+
     // Resolve the effective expansion radius: an explicit arg wins (lets a
     // shoot pass its own radius), otherwise fall back to the location's own
     // stored setting. Zero / unset => centre-only, the classic behaviour.
@@ -85,13 +116,26 @@ export const capture = action({
         ? (loc.streetViewRadiusMeters ?? DEFAULT_STREETVIEW_RADIUS_M)
         : 0);
 
-    /** Confirm Street View exists at a point. */
+    /**
+     * Confirm Street View exists at a point. A positive result is cached per
+     * rounded coordinate so repeat captures skip the metadata round-trip. We
+     * deliberately do NOT cache a negative: imagery is only ever added to a
+     * spot over time, so a "no imagery" answer must stay re-probeable.
+     */
     const hasImagery = async (lat: number, lng: number): Promise<boolean> => {
+      const k = metaKey(lat, lng);
+      if (await ctx.runQuery(internal.streetview.getCachedMeta, { key: k })) {
+        return true;
+      }
       const res = await fetch(
         `https://maps.googleapis.com/maps/api/streetview/metadata?location=${lat},${lng}&key=${key}`,
       );
       const meta = (await res.json()) as { status?: string };
-      return meta.status === "OK";
+      const ok = meta.status === "OK";
+      if (ok) {
+        await ctx.runMutation(internal.streetview.putCachedMeta, { key: k });
+      }
+      return ok;
     };
 
     if (!(await hasImagery(loc.lat, loc.lng))) {
@@ -111,13 +155,28 @@ export const capture = action({
       heading: number,
       caption: string,
     ) => {
+      // A previously captured frame for these exact params is reused straight
+      // from Convex storage — no Google call, no extra stored copy.
+      const k = tileKey(lat, lng, heading, pitch, fov, TILE_SIZE);
+      const cached = await ctx.runQuery(internal.streetview.getCachedTile, {
+        key: k,
+      });
+      if (cached) {
+        refs.push({ storageId: cached, source: "street_view", caption });
+        fromCache++;
+        return;
+      }
       const url =
-        `https://maps.googleapis.com/maps/api/streetview?size=640x640` +
+        `https://maps.googleapis.com/maps/api/streetview?size=${TILE_SIZE}` +
         `&location=${lat},${lng}&heading=${heading}&pitch=${pitch}&fov=${fov}&key=${key}`;
       const res = await fetch(url);
       if (!res.ok) return;
       const blob = await res.blob();
       const storageId = await ctx.storage.store(blob);
+      await ctx.runMutation(internal.streetview.putCachedTile, {
+        key: k,
+        storageId,
+      });
       refs.push({ storageId, source: "street_view", caption });
     };
 
@@ -148,7 +207,69 @@ export const capture = action({
         refs,
       });
     }
-    return { added: refs.length };
+    return { added: refs.length, fromCache };
+  },
+});
+
+/**
+ * Look up a cached Street View frame by its request key. Returns the stored
+ * file id, or null on a cache miss. `.first()` (not `.unique()`) so a rare
+ * duplicate from a write race can never throw a lookup.
+ */
+export const getCachedTile = internalQuery({
+  args: { key: v.string() },
+  handler: async (ctx, { key }) => {
+    const row = await ctx.db
+      .query("streetViewCache")
+      .withIndex("by_key", (q) => q.eq("key", key))
+      .first();
+    return row?.storageId ?? null;
+  },
+});
+
+/** Record a freshly fetched frame under its request key (first writer wins). */
+export const putCachedTile = internalMutation({
+  args: { key: v.string(), storageId: v.id("_storage") },
+  handler: async (ctx, { key, storageId }) => {
+    const existing = await ctx.db
+      .query("streetViewCache")
+      .withIndex("by_key", (q) => q.eq("key", key))
+      .first();
+    if (existing) return;
+    await ctx.db.insert("streetViewCache", {
+      key,
+      storageId,
+      createdAt: Date.now(),
+    });
+  },
+});
+
+/**
+ * True when we've already confirmed Street View imagery exists at this point.
+ * A row is only ever written for a positive probe, so its presence is the
+ * answer.
+ */
+export const getCachedMeta = internalQuery({
+  args: { key: v.string() },
+  handler: async (ctx, { key }) => {
+    const row = await ctx.db
+      .query("streetViewMetaCache")
+      .withIndex("by_key", (q) => q.eq("key", key))
+      .first();
+    return row !== null;
+  },
+});
+
+/** Record that Street View imagery exists at a point (first writer wins). */
+export const putCachedMeta = internalMutation({
+  args: { key: v.string() },
+  handler: async (ctx, { key }) => {
+    const existing = await ctx.db
+      .query("streetViewMetaCache")
+      .withIndex("by_key", (q) => q.eq("key", key))
+      .first();
+    if (existing) return;
+    await ctx.db.insert("streetViewMetaCache", { key, createdAt: Date.now() });
   },
 });
 
