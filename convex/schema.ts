@@ -191,6 +191,8 @@ export const videoSpec = v.object({
   stackStaggerMs: v.optional(v.number()),
   stackAnimate: v.optional(v.boolean()),
   stackScale: v.optional(v.number()),
+  stackScatter: v.optional(v.number()),
+  stackAspect: v.optional(v.string()),
 });
 
 export default defineSchema({
@@ -604,6 +606,8 @@ export default defineSchema({
     stackStaggerMs: v.optional(v.number()),
     stackAnimate: v.optional(v.boolean()),
     stackScale: v.optional(v.number()),
+    stackScatter: v.optional(v.number()),
+    stackAspect: v.optional(v.string()),
     // --- meta ---
     posterUrl: v.optional(v.string()), // first clip's still, for cards
     lastRenderId: v.optional(v.id("videoRenders")),

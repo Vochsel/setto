@@ -107,6 +107,10 @@ export type VideoSpec = {
   stackAnimate?: boolean;
   /** Photo-stack: photo size as a multiplier of the default (1 = default). */
   stackScale?: number;
+  /** Photo-stack: how scattered the pile is — 0 (neat) … 2 (messy). 1 = default. */
+  stackScatter?: number;
+  /** Photo-stack: photo aspect ratio as a CSS ratio, e.g. "3/4", "4/5", "1/1". */
+  stackAspect?: string;
 };
 
 // ── Templates ─────────────────────────────────────────────────────────────
@@ -353,6 +357,33 @@ export function resolveStackScale(spec: VideoSpec): number {
   const s = spec.stackScale ?? DEFAULT_STACK_SCALE;
   if (!Number.isFinite(s)) return DEFAULT_STACK_SCALE;
   return Math.max(STACK_SCALE_MIN, Math.min(STACK_SCALE_MAX, s));
+}
+
+/** Default scatter (rotation/offset) amount for the stack pile, and its range. */
+export const DEFAULT_STACK_SCATTER = 1;
+export const STACK_SCATTER_MIN = 0;
+export const STACK_SCATTER_MAX = 2;
+
+/** The effective scatter amount for a stack spec, clamped to [0, 2]. */
+export function resolveStackScatter(spec: VideoSpec): number {
+  const s = spec.stackScatter ?? DEFAULT_STACK_SCATTER;
+  if (!Number.isFinite(s)) return DEFAULT_STACK_SCATTER;
+  return Math.max(STACK_SCATTER_MIN, Math.min(STACK_SCATTER_MAX, s));
+}
+
+/** Selectable photo aspect ratios for the stack template (CSS ratio + label). */
+export const STACK_ASPECTS: { key: string; label: string }[] = [
+  { key: "3/4", label: "Portrait · 3:4" },
+  { key: "4/5", label: "Portrait · 4:5" },
+  { key: "1/1", label: "Square · 1:1" },
+  { key: "9/16", label: "Tall · 9:16" },
+];
+export const DEFAULT_STACK_ASPECT = "3/4";
+
+/** The effective photo aspect ratio for a stack spec (falls back to the default). */
+export function resolveStackAspect(spec: VideoSpec): string {
+  const a = spec.stackAspect;
+  return STACK_ASPECTS.some((x) => x.key === a) ? (a as string) : DEFAULT_STACK_ASPECT;
 }
 
 // ── Ken Burns controls (friendly editor representation) ────────────────────

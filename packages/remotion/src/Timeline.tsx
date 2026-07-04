@@ -24,6 +24,8 @@ import {
   msToFrames,
   resolveStackStaggerMs,
   resolveStackScale,
+  resolveStackScatter,
+  resolveStackAspect,
   specDurationFrames,
   type VideoClip,
   type VideoSpec,
@@ -224,12 +226,21 @@ const SequenceTimeline: React.FC<{ spec: VideoSpec }> = ({ spec }) => {
 
 // ── Stack (layered photo pile) rendering ─────────────────────────────────────
 
+// Deterministic pseudo-random in [-1, 1] from an integer seed, so the pile
+// looks scattered but renders identically every time (Lambda + Player agree).
+const jitter = (n: number) => {
+  const x = Math.sin((n + 1) * 12.9898) * 43758.5453;
+  return (x - Math.floor(x)) * 2 - 1;
+};
+
 const StackLayer: React.FC<{
   clip: VideoClip;
   index: number;
   animate: boolean;
   sizeScale: number;
-}> = ({ clip, index, animate, sizeScale }) => {
+  scatter: number;
+  aspect: string;
+}> = ({ clip, index, animate, sizeScale, scatter, aspect }) => {
   const frame = useCurrentFrame();
   // When not animating, layers just appear (full opacity, no drop/scale).
   const appear = animate
@@ -244,8 +255,11 @@ const StackLayer: React.FC<{
         extrapolateRight: "clamp",
       })
     : 1;
-  // Alternate a small rotation/offset so the pile looks hand-stacked.
-  const rot = (index % 2 === 0 ? 1 : -1) * (2 + (index % 3));
+  // Alternate rotation + a deterministic positional offset so the pile looks
+  // hand-stacked; `scatter` scales both (0 = perfectly aligned, 2 = messy).
+  const rot = (index % 2 === 0 ? 1 : -1) * (2 + (index % 3)) * scatter;
+  const offX = jitter(index * 2 + 1) * 6 * scatter; // % of photo width
+  const offY = jitter(index * 2 + 2) * 6 * scatter;
   // Base photo width is 72% of frame; the user's size multiplier scales it.
   const widthPct = 72 * sizeScale;
   return (
@@ -253,14 +267,14 @@ const StackLayer: React.FC<{
       <div
         style={{
           width: `${widthPct}%`,
-          aspectRatio: "3 / 4",
+          aspectRatio: aspect,
           background: "white",
           padding: 14,
           paddingBottom: 48,
           borderRadius: 4,
           boxShadow: "0 18px 50px rgba(0,0,0,0.45)",
           opacity: appear,
-          transform: `rotate(${rot}deg) scale(${scale})`,
+          transform: `translate(${offX}%, ${offY}%) rotate(${rot}deg) scale(${scale})`,
         }}
       >
         <Img
@@ -279,11 +293,20 @@ const StackTimeline: React.FC<{ spec: VideoSpec }> = ({ spec }) => {
   );
   const animate = spec.stackAnimate ?? true;
   const sizeScale = resolveStackScale(spec);
+  const scatter = resolveStackScatter(spec);
+  const aspect = resolveStackAspect(spec);
   return (
     <>
       {spec.clips.map((clip, i) => (
         <Sequence key={clip.id} from={i * staggerFrames}>
-          <StackLayer clip={clip} index={i} animate={animate} sizeScale={sizeScale} />
+          <StackLayer
+            clip={clip}
+            index={i}
+            animate={animate}
+            sizeScale={sizeScale}
+            scatter={scatter}
+            aspect={aspect}
+          />
         </Sequence>
       ))}
     </>

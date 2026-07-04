@@ -19,6 +19,11 @@ import {
   resolveStackScale,
   STACK_SCALE_MIN,
   STACK_SCALE_MAX,
+  resolveStackScatter,
+  STACK_SCATTER_MIN,
+  STACK_SCATTER_MAX,
+  resolveStackAspect,
+  STACK_ASPECTS,
   specDurationFrames,
   specDurationMs,
   type VideoClip,
@@ -72,6 +77,8 @@ type SettingsPatch = {
   stackStaggerMs?: number;
   stackAnimate?: boolean;
   stackScale?: number;
+  stackScatter?: number;
+  stackAspect?: string;
 };
 
 export function VideoEditor({ projectId }: { projectId: Id<"videoProjects"> }) {
@@ -156,6 +163,8 @@ export function VideoEditor({ projectId }: { projectId: Id<"videoProjects"> }) {
         stackStaggerMs: project.stackStaggerMs,
         stackAnimate: project.stackAnimate,
         stackScale: project.stackScale,
+        stackScatter: project.stackScatter,
+        stackAspect: project.stackAspect,
       });
     }
   }, [project]);
@@ -195,6 +204,9 @@ export function VideoEditor({ projectId }: { projectId: Id<"videoProjects"> }) {
       if (patch.stackAnimate !== undefined)
         next.stackAnimate = patch.stackAnimate;
       if (patch.stackScale !== undefined) next.stackScale = patch.stackScale;
+      if (patch.stackScatter !== undefined)
+        next.stackScatter = patch.stackScatter;
+      if (patch.stackAspect !== undefined) next.stackAspect = patch.stackAspect;
       return next;
     });
     void updateSettingsMut({ projectId, ...patch });
@@ -372,6 +384,8 @@ export function VideoEditor({ projectId }: { projectId: Id<"videoProjects"> }) {
   const selectedIndex = clips.findIndex((c) => c.id === selectedId);
   const stackStaggerMs = resolveStackStaggerMs(spec);
   const stackScale = resolveStackScale(spec);
+  const stackScatter = resolveStackScatter(spec);
+  const stackAspect = resolveStackAspect(spec);
   const audioSelectValue = settings.audio
     ? (settings.audio.trackId ?? "current")
     : "none";
@@ -573,6 +587,46 @@ export function VideoEditor({ projectId }: { projectId: Id<"videoProjects"> }) {
                   onValueChange={([v]) => commitSettings({ stackScale: v })}
                   aria-label="Photo size"
                 />
+              </div>
+              <div>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <Label className="text-muted-foreground text-xs">
+                    Scatter
+                  </Label>
+                  <span className="text-xs tabular-nums">
+                    {stackScatter === 0
+                      ? "Neat"
+                      : `${Math.round(stackScatter * 100)}%`}
+                  </span>
+                </div>
+                <Slider
+                  value={[stackScatter]}
+                  min={STACK_SCATTER_MIN}
+                  max={STACK_SCATTER_MAX}
+                  step={0.1}
+                  onValueChange={([v]) => commitSettings({ stackScatter: v })}
+                  aria-label="Scatter"
+                />
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-muted-foreground text-xs">
+                  Photo shape
+                </Label>
+                <Select
+                  value={stackAspect}
+                  onValueChange={(v) => commitSettings({ stackAspect: v })}
+                >
+                  <SelectTrigger className="h-8 w-[9.5rem]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STACK_ASPECTS.map((a) => (
+                      <SelectItem key={a.key} value={a.key}>
+                        {a.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           ) : null}

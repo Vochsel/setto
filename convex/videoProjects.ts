@@ -541,6 +541,8 @@ export const updateSettings = mutation({
     stackStaggerMs: v.optional(v.number()),
     stackAnimate: v.optional(v.boolean()),
     stackScale: v.optional(v.number()),
+    stackScatter: v.optional(v.number()),
+    stackAspect: v.optional(v.string()),
   },
   handler: async (
     ctx,
