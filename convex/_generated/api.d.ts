@@ -45,6 +45,8 @@ import type * as shoots from "../shoots.js";
 import type * as shopify from "../shopify.js";
 import type * as shopifyData from "../shopifyData.js";
 import type * as shots from "../shots.js";
+import type * as social from "../social.js";
+import type * as socialNode from "../socialNode.js";
 import type * as streetview from "../streetview.js";
 import type * as usage from "../usage.js";
 import type * as users from "../users.js";
@@ -96,6 +98,8 @@ declare const fullApi: ApiFromModules<{
   shopify: typeof shopify;
   shopifyData: typeof shopifyData;
   shots: typeof shots;
+  social: typeof social;
+  socialNode: typeof socialNode;
   streetview: typeof streetview;
   usage: typeof usage;
   users: typeof users;

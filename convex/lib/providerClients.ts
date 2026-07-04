@@ -224,24 +224,47 @@ export async function printifyPaginate<T>(
 }
 
 /**
- * Authenticated Buffer request (new bearer-token API at developers.buffer.com).
- * NOTE: the exact base/endpoints are finalized in the Buffer slice against a
- * real token; kept here so `verify` has a working auth check.
+ * Buffer (developers.buffer.com) uses a bearer-token GraphQL API. The gateway
+ * URL can be overridden per-connection via `meta.graphqlUrl` so it can be
+ * adjusted without a code change once validated against a live token.
+ *
+ * NOTE: Buffer's GraphQL schema (channels / createPost) is implemented here to
+ * the published shape but not yet exercised against a real account — this is the
+ * one provider path to confirm end-to-end with a token. All Buffer calls funnel
+ * through `bufferGraphQL`, so any schema tweaks are localized to this section.
  */
-export async function bufferFetch<T = unknown>(
+const BUFFER_GRAPHQL_URL = "https://graph.buffer.com";
+
+export interface BufferChannel {
+  id: string;
+  name?: string;
+  service?: string;
+  serviceType?: string;
+  avatar?: string;
+}
+export interface BufferAsset {
+  // Exactly one of image/video, each { url, thumbnailUrl? }.
+  image?: { url: string; thumbnailUrl?: string };
+  video?: { url: string; thumbnailUrl?: string };
+}
+
+function bufferEndpoint(meta: Record<string, unknown>): string {
+  return String(meta.graphqlUrl ?? BUFFER_GRAPHQL_URL);
+}
+
+export async function bufferGraphQL<T>(
   secret: string,
-  path: string,
-  init?: RequestInit,
+  meta: Record<string, unknown>,
+  query: string,
+  variables: Record<string, unknown> = {},
 ): Promise<T> {
-  const url = `https://api.buffer.com/1/${path.replace(/^\//, "")}`;
-  const res = await fetch(url, {
-    ...init,
+  const res = await fetch(bufferEndpoint(meta), {
+    method: "POST",
     headers: {
       Authorization: `Bearer ${secret}`,
       "Content-Type": "application/json",
-      Accept: "application/json",
-      ...(init?.headers ?? {}),
     },
+    body: JSON.stringify({ query, variables }),
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
@@ -251,7 +274,51 @@ export async function bufferFetch<T = unknown>(
         : `Buffer API error ${res.status}: ${body.slice(0, 200)}`,
     );
   }
-  return (await res.json()) as T;
+  const json = (await res.json()) as { data?: T; errors?: Array<{ message: string }> };
+  if (json.errors?.length) throw new Error(`Buffer: ${json.errors[0].message}`);
+  return json.data as T;
+}
+
+/** List the connected social channels for the token's account. */
+export async function bufferChannels(
+  secret: string,
+  meta: Record<string, unknown>,
+): Promise<BufferChannel[]> {
+  const data = await bufferGraphQL<{ channels?: BufferChannel[] }>(
+    secret,
+    meta,
+    `query { channels { id name service serviceType avatar } }`,
+  );
+  return data.channels ?? [];
+}
+
+/** Create/schedule a post on one channel. `dueAt` (ISO) schedules for later. */
+export async function bufferCreatePost(
+  secret: string,
+  meta: Record<string, unknown>,
+  input: {
+    channelId: string;
+    text: string;
+    assets?: BufferAsset[];
+    dueAt?: string;
+  },
+): Promise<{ id?: string; status?: string }> {
+  const data = await bufferGraphQL<{ createPost?: { id?: string; status?: string } }>(
+    secret,
+    meta,
+    `mutation($input: CreatePostInput!) { createPost(input: $input) { id status } }`,
+    {
+      input: {
+        channelId: input.channelId,
+        text: input.text,
+        assets: input.assets ?? [],
+        ...(input.dueAt
+          ? { dueAt: input.dueAt, schedulingType: "AUTOMATIC", mode: "CUSTOM_SCHEDULED" }
+          : {}),
+      },
+    },
+  );
+  return data.createPost ?? {};
 }
 
 /** Verify a provider's credentials by hitting a cheap authenticated endpoint. */
@@ -288,12 +355,19 @@ export async function verifyProvider(
       };
     }
     case "buffer": {
-      const profiles = await bufferFetch<Array<{ service?: string }>>(
-        secret,
-        "profiles.json",
-      );
-      const count = Array.isArray(profiles) ? profiles.length : 0;
-      return { label: `Buffer · ${count} channel${count === 1 ? "" : "s"}` };
+      const channels = await bufferChannels(secret, meta);
+      const count = channels.length;
+      return {
+        label: `Buffer · ${count} channel${count === 1 ? "" : "s"}`,
+        meta: {
+          ...meta,
+          channels: channels.map((c) => ({
+            id: c.id,
+            name: c.name,
+            service: c.service,
+          })),
+        },
+      };
     }
     default:
       throw new Error(`Unknown provider: ${provider}`);

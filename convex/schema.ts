@@ -258,6 +258,32 @@ export default defineSchema({
     .index("by_org", ["orgId"])
     .index("by_org_external", ["orgId", "externalId"]),
 
+  // Social posts composed from gallery media and pushed to Buffer. Org-scoped
+  // (a shared content calendar); `createdBy` records the author.
+  socialPosts: defineTable({
+    orgId: v.string(),
+    createdBy: v.string(),
+    provider: v.string(), // "buffer"
+    text: v.string(),
+    media: v.array(
+      v.object({
+        type: v.string(), // "image" | "video"
+        url: v.string(),
+        thumbnailUrl: v.optional(v.string()),
+      }),
+    ),
+    channelIds: v.array(v.string()),
+    scheduledAt: v.optional(v.number()), // when to publish; absent = draft/now
+    status: v.string(), // "draft" | "scheduled" | "sent" | "error"
+    externalIds: v.optional(v.array(v.string())), // Buffer post ids
+    error: v.optional(v.string()),
+    // Provenance: which shots/videos this post was built from.
+    sourceGenerationIds: v.optional(v.array(v.string())),
+    sourceVideoIds: v.optional(v.array(v.string())),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_org", ["orgId"]),
+
   // Per-USER connections to external services (Shopify / Printify / Buffer).
   // Credentials are personal: each member connects their own account. The
   // secret is AES-256-GCM encrypted at rest (see convex/lib/crypto.ts) and only

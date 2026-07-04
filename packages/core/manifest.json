@@ -3539,6 +3539,197 @@
     "returns": null
   },
   {
+    "path": "social:posts",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {}
+    },
+    "returns": null
+  },
+  {
+    "path": "social:remove",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "socialPosts",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "social:saveDraft",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "channelIds": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "string"
+            }
+          },
+          "optional": true
+        },
+        "media": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "object",
+              "value": {
+                "thumbnailUrl": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "type": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": false
+                },
+                "url": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": false
+                }
+              }
+            }
+          },
+          "optional": false
+        },
+        "scheduledAt": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
+        "sourceGenerationIds": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "string"
+            }
+          },
+          "optional": true
+        },
+        "sourceVideoIds": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "string"
+            }
+          },
+          "optional": true
+        },
+        "text": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "socialNode:channels",
+    "type": "Action",
+    "args": {
+      "type": "object",
+      "value": {}
+    },
+    "returns": null
+  },
+  {
+    "path": "socialNode:schedule",
+    "type": "Action",
+    "args": {
+      "type": "object",
+      "value": {
+        "channelIds": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "string"
+            }
+          },
+          "optional": false
+        },
+        "media": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "object",
+              "value": {
+                "thumbnailUrl": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "type": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": false
+                },
+                "url": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": false
+                }
+              }
+            }
+          },
+          "optional": false
+        },
+        "scheduledAt": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
+        "sourceGenerationIds": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "string"
+            }
+          },
+          "optional": true
+        },
+        "sourceVideoIds": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "string"
+            }
+          },
+          "optional": true
+        },
+        "text": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
     "path": "streetview:capture",
     "type": "Action",
     "args": {
