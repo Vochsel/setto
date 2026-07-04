@@ -5,6 +5,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Sun, Moon, Monitor } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
+import { Connections } from "@/components/settings/connections";
 import {
   Card,
   CardContent,
@@ -111,6 +112,8 @@ export default function SettingsPage() {
             </Select>
           </CardContent>
         </Card>
+
+        <Connections />
       </div>
     </>
   );
