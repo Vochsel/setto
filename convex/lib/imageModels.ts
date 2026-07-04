@@ -86,14 +86,38 @@ export const IMAGE_MODELS: ImageModel[] = [
   {
     id: "openai/gpt-image-2",
     provider: "openai",
-    label: "GPT Image 2",
+    label: "GPT Image 2 — High",
     description:
-      "OpenAI's newest — highest fidelity, excellent prompt adherence and reference-image support.",
+      "OpenAI's newest at max quality — highest fidelity, excellent prompt adherence and reference-image support. Best for final, hero shots.",
     supportsImagePrompt: true,
     pricePerImage: 0.25,
     openaiModel: "gpt-image-2",
     openaiSize: "1024x1536",
     openaiQuality: "high",
+  },
+  {
+    id: "openai/gpt-image-2-medium",
+    provider: "openai",
+    label: "GPT Image 2 — Medium",
+    description:
+      "Same model at medium quality — balanced cost and detail for most shots, at a fraction of the high-quality price.",
+    supportsImagePrompt: true,
+    pricePerImage: 0.063,
+    openaiModel: "gpt-image-2",
+    openaiSize: "1024x1536",
+    openaiQuality: "medium",
+  },
+  {
+    id: "openai/gpt-image-2-low",
+    provider: "openai",
+    label: "GPT Image 2 — Low",
+    description:
+      "Same model at low quality — the cheapest tier, great for rapid ideation and drafts. Pick a favourite, then re-run it at higher quality or upscale.",
+    supportsImagePrompt: true,
+    pricePerImage: 0.016,
+    openaiModel: "gpt-image-2",
+    openaiSize: "1024x1536",
+    openaiQuality: "low",
   },
   {
     id: "openai/gpt-image-1.5",
