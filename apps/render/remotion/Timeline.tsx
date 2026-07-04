@@ -26,6 +26,7 @@ import {
   resolveStackScale,
   resolveStackScatter,
   resolveStackAspect,
+  stackLayers,
   specDurationFrames,
   type VideoClip,
   type VideoSpec,
@@ -297,11 +298,12 @@ const StackTimeline: React.FC<{ spec: VideoSpec }> = ({ spec }) => {
   const aspect = resolveStackAspect(spec);
   return (
     <>
-      {spec.clips.map((clip, i) => (
-        <Sequence key={clip.id} from={i * staggerFrames}>
+      {stackLayers(spec).map(({ clip, index }) => (
+        // The same clip can appear across loops, so the id alone isn't unique.
+        <Sequence key={`${clip.id}-${index}`} from={index * staggerFrames}>
           <StackLayer
             clip={clip}
-            index={i}
+            index={index}
             animate={animate}
             sizeScale={sizeScale}
             scatter={scatter}

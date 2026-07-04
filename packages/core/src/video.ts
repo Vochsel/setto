@@ -111,6 +111,9 @@ export type VideoSpec = {
   stackScatter?: number;
   /** Photo-stack: photo aspect ratio as a CSS ratio, e.g. "3/4", "4/5", "1/1". */
   stackAspect?: string;
+  /** Photo-stack: how many times to place the whole photo set, one loop after
+   * another (1 = play the set once). */
+  stackLoops?: number;
 };
 
 // ── Templates ─────────────────────────────────────────────────────────────
@@ -312,8 +315,10 @@ export function specDurationMs(spec: VideoSpec): number {
   if (template.kind === "stack") {
     const stagger = resolveStackStaggerMs(spec);
     let maxEnd = 0;
-    spec.clips.forEach((clip, i) => {
-      const start = i * stagger;
+    // The set can be placed multiple times (stackLoops), so walk the expanded
+    // layer list rather than the raw clips.
+    stackLayers(spec).forEach(({ clip, index }) => {
+      const start = index * stagger;
       maxEnd = Math.max(maxEnd, start + clip.durationMs);
     });
     return maxEnd;
@@ -384,6 +389,40 @@ export const DEFAULT_STACK_ASPECT = "3/4";
 export function resolveStackAspect(spec: VideoSpec): string {
   const a = spec.stackAspect;
   return STACK_ASPECTS.some((x) => x.key === a) ? (a as string) : DEFAULT_STACK_ASPECT;
+}
+
+/** Default number of times a stack places its photo set, and the allowed range. */
+export const DEFAULT_STACK_LOOPS = 1;
+export const STACK_LOOPS_MIN = 1;
+export const STACK_LOOPS_MAX = 10;
+
+/**
+ * The effective loop count for a stack spec: how many times the whole photo set
+ * is placed, one loop after another. Clamped to a whole number in range.
+ */
+export function resolveStackLoops(spec: VideoSpec): number {
+  const n = spec.stackLoops ?? DEFAULT_STACK_LOOPS;
+  if (!Number.isFinite(n)) return DEFAULT_STACK_LOOPS;
+  return Math.max(STACK_LOOPS_MIN, Math.min(STACK_LOOPS_MAX, Math.round(n)));
+}
+
+/**
+ * Expand a stack spec's clips into the full ordered list of layers, repeating
+ * the set `stackLoops` times. Each entry carries its global 0-based stacking
+ * index (used for the stagger offset and the deterministic scatter/rotation),
+ * so the duration math and the renderer produce an identical pile.
+ */
+export function stackLayers(
+  spec: VideoSpec,
+): { clip: VideoClip; index: number }[] {
+  const loops = resolveStackLoops(spec);
+  const layers: { clip: VideoClip; index: number }[] = [];
+  for (let loop = 0; loop < loops; loop++) {
+    for (const clip of spec.clips) {
+      layers.push({ clip, index: layers.length });
+    }
+  }
+  return layers;
 }
 
 // ── Ken Burns controls (friendly editor representation) ────────────────────

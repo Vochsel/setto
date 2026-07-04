@@ -24,6 +24,9 @@ import {
   STACK_SCATTER_MAX,
   resolveStackAspect,
   STACK_ASPECTS,
+  resolveStackLoops,
+  STACK_LOOPS_MIN,
+  STACK_LOOPS_MAX,
   specDurationFrames,
   specDurationMs,
   type VideoClip,
@@ -79,6 +82,7 @@ type SettingsPatch = {
   stackScale?: number;
   stackScatter?: number;
   stackAspect?: string;
+  stackLoops?: number;
 };
 
 export function VideoEditor({ projectId }: { projectId: Id<"videoProjects"> }) {
@@ -165,6 +169,7 @@ export function VideoEditor({ projectId }: { projectId: Id<"videoProjects"> }) {
         stackScale: project.stackScale,
         stackScatter: project.stackScatter,
         stackAspect: project.stackAspect,
+        stackLoops: project.stackLoops,
       });
     }
   }, [project]);
@@ -207,6 +212,7 @@ export function VideoEditor({ projectId }: { projectId: Id<"videoProjects"> }) {
       if (patch.stackScatter !== undefined)
         next.stackScatter = patch.stackScatter;
       if (patch.stackAspect !== undefined) next.stackAspect = patch.stackAspect;
+      if (patch.stackLoops !== undefined) next.stackLoops = patch.stackLoops;
       return next;
     });
     void updateSettingsMut({ projectId, ...patch });
@@ -386,6 +392,7 @@ export function VideoEditor({ projectId }: { projectId: Id<"videoProjects"> }) {
   const stackScale = resolveStackScale(spec);
   const stackScatter = resolveStackScatter(spec);
   const stackAspect = resolveStackAspect(spec);
+  const stackLoops = resolveStackLoops(spec);
   const audioSelectValue = settings.audio
     ? (settings.audio.trackId ?? "current")
     : "none";
@@ -568,6 +575,24 @@ export function VideoEditor({ projectId }: { projectId: Id<"videoProjects"> }) {
                   checked={settings.stackAnimate ?? true}
                   onCheckedChange={(v) => commitSettings({ stackAnimate: v })}
                   aria-label="Animate photos in"
+                />
+              </div>
+              <div>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <Label className="text-muted-foreground text-xs">
+                    Repeat set
+                  </Label>
+                  <span className="text-xs tabular-nums">
+                    {stackLoops <= 1 ? "Once" : `${stackLoops}×`}
+                  </span>
+                </div>
+                <Slider
+                  value={[stackLoops]}
+                  min={STACK_LOOPS_MIN}
+                  max={STACK_LOOPS_MAX}
+                  step={1}
+                  onValueChange={([v]) => commitSettings({ stackLoops: v })}
+                  aria-label="Repeat set"
                 />
               </div>
               <div>

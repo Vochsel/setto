@@ -104,6 +104,7 @@ function toCard(p: Doc<"videoProjects">) {
       clips: p.clips,
       audio: p.audio,
       stackStaggerMs: p.stackStaggerMs,
+      stackLoops: p.stackLoops,
     }),
     posterUrl: p.posterUrl,
     favorite: p.favorite,
@@ -543,6 +544,7 @@ export const updateSettings = mutation({
     stackScale: v.optional(v.number()),
     stackScatter: v.optional(v.number()),
     stackAspect: v.optional(v.string()),
+    stackLoops: v.optional(v.number()),
   },
   handler: async (
     ctx,
