@@ -224,22 +224,23 @@ export async function printifyPaginate<T>(
 }
 
 /**
- * Buffer (developers.buffer.com) uses a bearer-token GraphQL API. The gateway
- * URL can be overridden per-connection via `meta.graphqlUrl` so it can be
- * adjusted without a code change once validated against a live token.
+ * Buffer uses a bearer-token GraphQL API at https://api.buffer.com. Public API
+ * tokens are ONLY accepted here — the legacy REST host (api.bufferapp.com) and
+ * the internal gateway (graph.buffer.com) both reject them. The URL can be
+ * overridden per-connection via `meta.graphqlUrl`.
  *
- * NOTE: Buffer's GraphQL schema (channels / createPost) is implemented here to
- * the published shape but not yet exercised against a real account — this is the
- * one provider path to confirm end-to-end with a token. All Buffer calls funnel
- * through `bufferGraphQL`, so any schema tweaks are localized to this section.
+ * Verified against a live token: `channels(input:{organizationId})` lists the
+ * org's channels; `createPost(input)` returns a `PostActionPayload` union whose
+ * error members each carry a `message`. Enum values are lowerCamelCase.
  */
-const BUFFER_GRAPHQL_URL = "https://graph.buffer.com";
+const BUFFER_GRAPHQL_URL = "https://api.buffer.com";
 
 export interface BufferChannel {
   id: string;
   name?: string;
   service?: string;
-  serviceType?: string;
+  type?: string;
+  serviceId?: string;
   avatar?: string;
 }
 export interface BufferAsset {
@@ -279,20 +280,53 @@ export async function bufferGraphQL<T>(
   return json.data as T;
 }
 
-/** List the connected social channels for the token's account. */
+/**
+ * The token's Buffer organization id — cached in `meta` at connect time, else
+ * resolved from the account's first organization. `channels` is org-scoped, so
+ * every channel/post call needs it.
+ */
+export async function bufferOrganizationId(
+  secret: string,
+  meta: Record<string, unknown>,
+): Promise<string> {
+  const cached = meta.organizationId;
+  if (typeof cached === "string" && cached) return cached;
+  const data = await bufferGraphQL<{
+    account?: { organizations?: Array<{ id: string }> };
+  }>(secret, meta, `query { account { organizations { id name } } }`);
+  const id = data.account?.organizations?.[0]?.id;
+  if (!id) throw new Error("No Buffer organization found for this token.");
+  return id;
+}
+
+/** List the connected social channels for the token's organization. */
 export async function bufferChannels(
   secret: string,
   meta: Record<string, unknown>,
 ): Promise<BufferChannel[]> {
+  const organizationId = await bufferOrganizationId(secret, meta);
   const data = await bufferGraphQL<{ channels?: BufferChannel[] }>(
     secret,
     meta,
-    `query { channels { id name service serviceType avatar } }`,
+    `query($input: ChannelsInput!) {
+      channels(input: $input) { id name service type serviceId avatar }
+    }`,
+    { input: { organizationId } },
   );
   return data.channels ?? [];
 }
 
-/** Create/schedule a post on one channel. `dueAt` (ISO) schedules for later. */
+type BufferPostResult = {
+  __typename: string;
+  message?: string;
+  post?: { id?: string; status?: string };
+};
+
+/**
+ * Create a post on one channel. With `dueAt` (ISO) it schedules for that time;
+ * without, it posts now. `schedulingType: automatic` makes Buffer publish it
+ * (vs. a mobile reminder). Throws with the typed error message on failure.
+ */
 export async function bufferCreatePost(
   secret: string,
   meta: Record<string, unknown>,
@@ -303,22 +337,38 @@ export async function bufferCreatePost(
     dueAt?: string;
   },
 ): Promise<{ id?: string; status?: string }> {
-  const data = await bufferGraphQL<{ createPost?: { id?: string; status?: string } }>(
+  const postInput: Record<string, unknown> = {
+    channelId: input.channelId,
+    text: input.text,
+    assets: input.assets ?? [],
+    schedulingType: "automatic",
+    ...(input.dueAt
+      ? { dueAt: input.dueAt, mode: "customScheduled" }
+      : { mode: "shareNow" }),
+  };
+  const data = await bufferGraphQL<{ createPost?: BufferPostResult }>(
     secret,
     meta,
-    `mutation($input: CreatePostInput!) { createPost(input: $input) { id status } }`,
-    {
-      input: {
-        channelId: input.channelId,
-        text: input.text,
-        assets: input.assets ?? [],
-        ...(input.dueAt
-          ? { dueAt: input.dueAt, schedulingType: "AUTOMATIC", mode: "CUSTOM_SCHEDULED" }
-          : {}),
-      },
-    },
+    `mutation($input: CreatePostInput!) {
+      createPost(input: $input) {
+        __typename
+        ... on PostActionSuccess { post { id status } }
+        ... on NotFoundError { message }
+        ... on UnauthorizedError { message }
+        ... on UnexpectedError { message }
+        ... on RestProxyError { message }
+        ... on LimitReachedError { message }
+        ... on InvalidInputError { message }
+      }
+    }`,
+    { input: postInput },
   );
-  return data.createPost ?? {};
+  const result = data.createPost;
+  if (!result) throw new Error("Buffer returned no result.");
+  if (result.__typename !== "PostActionSuccess") {
+    throw new Error(result.message ?? `Buffer error (${result.__typename})`);
+  }
+  return { id: result.post?.id, status: result.post?.status };
 }
 
 /** Verify a provider's credentials by hitting a cheap authenticated endpoint. */
@@ -355,12 +405,14 @@ export async function verifyProvider(
       };
     }
     case "buffer": {
-      const channels = await bufferChannels(secret, meta);
+      const organizationId = await bufferOrganizationId(secret, meta);
+      const channels = await bufferChannels(secret, { ...meta, organizationId });
       const count = channels.length;
       return {
         label: `Buffer · ${count} channel${count === 1 ? "" : "s"}`,
         meta: {
           ...meta,
+          organizationId,
           channels: channels.map((c) => ({
             id: c.id,
             name: c.name,
