@@ -217,6 +217,28 @@ export default defineSchema({
     defaultImageModelKey: v.optional(v.string()),
   }).index("by_org", ["orgId"]),
 
+  // Per-USER connections to external services (Shopify / Printify / Buffer).
+  // Credentials are personal: each member connects their own account. The
+  // secret is AES-256-GCM encrypted at rest (see convex/lib/crypto.ts) and only
+  // decrypted inside "use node" actions; it is never returned to the client or
+  // exposed via MCP. `meta` holds non-secret config (e.g. the Shopify domain).
+  integrations: defineTable({
+    orgId: v.string(), // workspace the connection lives in
+    userId: v.string(), // the member who connected (WorkOS user id)
+    provider: v.string(), // "shopify" | "printify" | "buffer"
+    label: v.optional(v.string()), // human name, e.g. the shop/store name
+    ciphertext: v.string(), // base64 AES-256-GCM ciphertext of the secret
+    iv: v.string(), // base64 96-bit IV
+    authTag: v.string(), // base64 GCM auth tag
+    meta: v.optional(v.any()), // non-secret config (shopify domain, shop id, …)
+    status: v.string(), // "unverified" | "connected" | "error"
+    lastError: v.optional(v.string()),
+    connectedAt: v.number(),
+    lastUsedAt: v.optional(v.number()),
+  })
+    .index("by_org_user", ["orgId", "userId"])
+    .index("by_org_user_provider", ["orgId", "userId", "provider"]),
+
   // --- Library: people ----------------------------------------------------
   models: defineTable({
     orgId: v.string(), // scope key: WorkOS org id, or "user:<id>" for solo

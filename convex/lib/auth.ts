@@ -1,4 +1,4 @@
-import { QueryCtx, MutationCtx } from "../_generated/server";
+import { QueryCtx, MutationCtx, ActionCtx } from "../_generated/server";
 
 /**
  * The authenticated caller's scope. `orgId` is the sharing boundary: every team
@@ -13,7 +13,10 @@ export type Scope = {
   email?: string;
 };
 
-export async function getScope(ctx: QueryCtx | MutationCtx): Promise<Scope> {
+/** Any Convex context that can read the caller's identity. */
+type AuthCtx = QueryCtx | MutationCtx | ActionCtx;
+
+export async function getScope(ctx: AuthCtx): Promise<Scope> {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) {
     throw new Error("Not authenticated");
@@ -33,7 +36,7 @@ export async function getScope(ctx: QueryCtx | MutationCtx): Promise<Scope> {
 
 /** Returns the scope, or null when unauthenticated (for "soft" queries). */
 export async function getScopeOrNull(
-  ctx: QueryCtx | MutationCtx,
+  ctx: AuthCtx,
 ): Promise<Scope | null> {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) return null;
