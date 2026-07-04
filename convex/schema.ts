@@ -297,7 +297,13 @@ export default defineSchema({
     images: v.optional(v.array(imageRef)),
     variations: v.optional(v.array(outfitVariation)),
     archived: v.optional(v.boolean()),
-  }).index("by_org", ["orgId"]),
+    // Provenance when imported from an external store, e.g. "shopify:8123456".
+    // Used to re-sync in place instead of creating duplicates.
+    externalId: v.optional(v.string()),
+    externalMeta: v.optional(v.any()), // { handle, productType, updatedAt, url }
+  })
+    .index("by_org", ["orgId"])
+    .index("by_org_external", ["orgId", "externalId"]),
 
   // --- Library: presets (photography style / camera / lighting) -----------
   presets: defineTable({

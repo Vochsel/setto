@@ -63,6 +63,87 @@ export async function shopifyFetch<T = unknown>(
   return (await res.json()) as T;
 }
 
+export interface ShopifyImage {
+  id: number;
+  src: string;
+  alt?: string | null;
+}
+export interface ShopifyVariant {
+  id: number;
+  title: string;
+  price?: string;
+  sku?: string;
+  image_id?: number | null;
+}
+export interface ShopifyProduct {
+  id: number;
+  title: string;
+  handle: string;
+  body_html?: string | null;
+  product_type?: string | null;
+  status?: string;
+  updated_at?: string;
+  images?: ShopifyImage[];
+  variants?: ShopifyVariant[];
+}
+
+/**
+ * List all products from a Shopify store, following REST cursor pagination
+ * (the `Link` header). Stops at `max` products if given.
+ */
+export async function shopifyListProducts(
+  secret: string,
+  meta: Record<string, unknown>,
+  max?: number,
+): Promise<ShopifyProduct[]> {
+  const domain = shopifyDomain(meta);
+  const version = shopifyApiVersion(meta);
+  const out: ShopifyProduct[] = [];
+  let url:
+    | string
+    | null = `https://${domain}/admin/api/${version}/products.json?limit=250`;
+  while (url) {
+    const res: Response = await fetch(url, {
+      headers: {
+        "X-Shopify-Access-Token": secret,
+        Accept: "application/json",
+      },
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new Error(
+        res.status === 401 || res.status === 403
+          ? "Shopify rejected the access token (check the token and store domain)."
+          : `Shopify API error ${res.status}: ${body.slice(0, 200)}`,
+      );
+    }
+    const { products } = (await res.json()) as { products: ShopifyProduct[] };
+    out.push(...products);
+    if (max && out.length >= max) return out.slice(0, max);
+    // Cursor pagination: the "next" page URL is in the Link header.
+    const link = res.headers.get("link") ?? "";
+    const next = /<([^>]+)>;\s*rel="next"/.exec(link);
+    url = next ? next[1] : null;
+  }
+  return out;
+}
+
+/** Strip HTML tags + decode a few common entities from Shopify body_html. */
+export function stripHtml(html?: string | null): string | undefined {
+  if (!html) return undefined;
+  const text = html
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&#39;|&rsquo;|&lsquo;/g, "'")
+    .replace(/&quot;|&ldquo;|&rdquo;/g, '"')
+    .replace(/\s+/g, " ")
+    .trim();
+  return text || undefined;
+}
+
 /** Authenticated Printify request. Returns parsed JSON. */
 export async function printifyFetch<T = unknown>(
   secret: string,

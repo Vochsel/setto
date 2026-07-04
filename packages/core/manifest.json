@@ -3194,6 +3194,38 @@
     "returns": null
   },
   {
+    "path": "shopify:products",
+    "type": "Action",
+    "args": {
+      "type": "object",
+      "value": {
+        "limit": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "shopify:sync",
+    "type": "Action",
+    "args": {
+      "type": "object",
+      "value": {
+        "limit": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
     "path": "shots:create",
     "type": "Mutation",
     "args": {
