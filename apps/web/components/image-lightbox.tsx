@@ -256,8 +256,11 @@ export function ImageLightbox({
     }
   }
 
-  // Click the dark scrim itself (not the media or any control) to close.
+  // Click the dark scrim itself (not the media or any control) to close — but
+  // never while cropping: the crop tool is modal and must block until the user
+  // applies or cancels it.
   const onBackdropClick = (e: MouseEvent) => {
+    if (cropping) return;
     if (e.target === e.currentTarget) handleClose();
   };
 
@@ -286,6 +289,14 @@ export function ImageLightbox({
       <DialogContent
         showCloseButton={false}
         onClick={onBackdropClick}
+        onEscapeKeyDown={(e) => {
+          // While cropping, Escape cancels the crop rather than closing the
+          // whole lightbox out from under an in-progress edit.
+          if (cropping) {
+            e.preventDefault();
+            setCropping(false);
+          }
+        }}
         className="flex h-[100dvh] w-screen max-w-none flex-col gap-2 rounded-none border-0 bg-black/90 p-2 ring-0 backdrop-blur-sm sm:max-w-none sm:p-3"
       >
         <DialogTitle className="sr-only">Image preview</DialogTitle>
