@@ -1,8 +1,11 @@
 /**
  * Convert a Convex validator (as emitted by `convex function-spec`) into a
  * JSON Schema, so each function becomes a properly-typed MCP tool input.
+ *
+ * Shared by every MCP transport (the stdio server in apps/mcp and the remote
+ * HTTP server in apps/web) so the tool schemas are identical everywhere.
  */
-import type { Validator } from "@setto/core";
+import type { Validator } from "./manifest";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Json = any;

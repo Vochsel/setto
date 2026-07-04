@@ -13,6 +13,10 @@ export default authkitMiddleware({
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|callback|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    // The remote MCP endpoint and its OAuth discovery metadata authenticate
+    // themselves (bearer token / public metadata), so AuthKit must not run on
+    // them — otherwise unauthenticated connector requests get HTML login
+    // redirects instead of a proper 401 / JSON.
+    "/((?!_next/static|_next/image|favicon.ico|callback|api/mcp|\\.well-known|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };

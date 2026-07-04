@@ -12,6 +12,16 @@
 const clientId = process.env.WORKOS_CLIENT_ID;
 const jwtClientId = process.env.WORKOS_JWT_CLIENT_ID ?? clientId;
 
+// Remote MCP connectors (Claude.ai / ChatGPT) authenticate through WorkOS
+// AuthKit acting as an OAuth 2.0 server (the `{slug}.authkit.app/oauth2/*`
+// endpoints). Tokens from that flow are signed with the same keys but carry
+// `iss` = the AuthKit domain itself — NOT the `api.workos.com/user_management`
+// issuer the web app/CLI tokens use — so they need their own provider or every
+// tool call the MCP server makes would fail with "Not authenticated".
+// Set MCP_AUTHORIZATION_SERVER to the AuthKit domain (e.g.
+// https://your-app.authkit.app) in the Convex deployment to enable it.
+const authKitDomain = process.env.MCP_AUTHORIZATION_SERVER?.replace(/\/$/, "");
+
 export default {
   providers: [
     {
@@ -27,5 +37,15 @@ export default {
       algorithm: "RS256",
       jwks: `https://api.workos.com/sso/jwks/${jwtClientId}`,
     },
+    ...(authKitDomain
+      ? [
+          {
+            type: "customJwt" as const,
+            issuer: authKitDomain,
+            algorithm: "RS256",
+            jwks: `${authKitDomain}/oauth2/jwks`,
+          },
+        ]
+      : []),
   ],
 };
