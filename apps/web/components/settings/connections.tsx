@@ -32,6 +32,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ConfirmDelete } from "@/components/confirm-delete";
+import { BrandBadge } from "@/components/integrations/brand-icon";
 
 type Field = {
   key: string;
@@ -43,7 +44,6 @@ type Field = {
 type ProviderDef = {
   id: "shopify" | "printify" | "buffer";
   name: string;
-  emoji: string;
   blurb: string;
   secretLabel: string;
   secretPlaceholder: string;
@@ -55,7 +55,6 @@ const PROVIDERS: ProviderDef[] = [
   {
     id: "shopify",
     name: "Shopify",
-    emoji: "🛍️",
     blurb: "Sync your product catalog in as wardrobe to shoot.",
     secretLabel: "Admin API access token",
     secretPlaceholder: "shpat_…",
@@ -75,7 +74,6 @@ const PROVIDERS: ProviderDef[] = [
   {
     id: "printify",
     name: "Printify",
-    emoji: "🖨️",
     blurb: "Production costs, orders and shipping for your products.",
     secretLabel: "Personal Access Token",
     secretPlaceholder: "eyJ…",
@@ -85,7 +83,6 @@ const PROVIDERS: ProviderDef[] = [
   {
     id: "buffer",
     name: "Buffer",
-    emoji: "📣",
     blurb: "Schedule social posts from your shots and videos.",
     secretLabel: "Access token",
     secretPlaceholder: "1/…",
@@ -215,9 +212,7 @@ function ProviderRow({
 
   return (
     <div className="flex items-center gap-3 px-6 py-4">
-      <div className="text-2xl leading-none" aria-hidden>
-        {def.emoji}
-      </div>
+      <BrandBadge provider={def.id} className="h-10 w-10" />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="font-medium">{def.name}</span>
@@ -273,7 +268,8 @@ function ProviderRow({
           <DialogContent>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <span aria-hidden>{def.emoji}</span> Connect {def.name}
+                <BrandBadge provider={def.id} className="h-6 w-6" /> Connect{" "}
+                {def.name}
               </DialogTitle>
               <DialogDescription>{def.blurb}</DialogDescription>
             </DialogHeader>
