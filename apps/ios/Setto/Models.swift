@@ -56,7 +56,7 @@ struct OutfitDoc: Identifiable, Decodable {
 }
 
 /// A shoot card (from `shoots:list`) with the light counts the list renders.
-struct Shoot: Identifiable, Decodable {
+struct Shoot: Identifiable, Decodable, Hashable {
     let id: String
     let name: String
     let status: String

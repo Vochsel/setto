@@ -39,6 +39,10 @@ targets:
         # Saving images & videos from the reel back to your device.
         NSPhotoLibraryAddUsageDescription: >-
           Setto saves images and videos you download to your photo library.
+        # Picking shoot locations on the map / finding nearby places.
+        NSLocationWhenInUseUsageDescription: >-
+          Setto uses your location to center the map on where you are and find
+          nearby places to shoot.
         # Custom URL scheme used by the WorkOS web-login callback.
         CFBundleURLTypes:
           - CFBundleURLName: app.setto.ios

@@ -7,6 +7,9 @@ struct ShootsView: View {
     @State private var shoots: [Shoot] = []
     @State private var error: String?
     @State private var loading = false
+    @State private var showNewShoot = false
+    @State private var newShootName = ""
+    @State private var createdShoot: Shoot?
 
     var body: some View {
         NavigationStack {
@@ -19,8 +22,14 @@ struct ShootsView: View {
                         systemImage: "exclamationmark.triangle",
                         description: Text(error))
                 } else if shoots.isEmpty {
-                    ContentUnavailableView(
-                        "No shoots yet", systemImage: "camera.on.rectangle")
+                    ContentUnavailableView {
+                        Label("No shoots yet", systemImage: "camera.on.rectangle")
+                    } description: {
+                        Text("Create a shoot to start capturing and generating.")
+                    } actions: {
+                        Button("New shoot") { showNewShoot = true }
+                            .buttonStyle(.borderedProminent)
+                    }
                 } else {
                     List(shoots) { shoot in
                         NavigationLink {
@@ -33,8 +42,25 @@ struct ShootsView: View {
                 }
             }
             .navigationTitle("Shoots")
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button { showNewShoot = true } label: {
+                        Image(systemName: "plus")
+                    }
+                }
+            }
+            .navigationDestination(item: $createdShoot) { shoot in
+                ShootDetailView(shoot: shoot).environmentObject(auth)
+            }
             .refreshable { await load() }
             .task { await load() }
+            .alert("New shoot", isPresented: $showNewShoot) {
+                TextField("Name", text: $newShootName)
+                Button("Create") { Task { await createShoot() } }
+                Button("Cancel", role: .cancel) { newShootName = "" }
+            } message: {
+                Text("Give your shoot a name.")
+            }
         }
     }
 
@@ -46,6 +72,22 @@ struct ShootsView: View {
             shoots = try await client.call(
                 "shoots:list", .query, as: [Shoot].self)
             error = nil
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    private func createShoot() async {
+        let name = newShootName.trimmingCharacters(in: .whitespaces)
+        newShootName = ""
+        guard !name.isEmpty else { return }
+        do {
+            let id = try await auth.client().createShoot(name: name)
+            await load()
+            // Jump straight into the new shoot to add locations / generate.
+            createdShoot = Shoot(
+                id: id, name: name, status: "draft", description: nil,
+                locationCount: 0, shotCount: 0, recentImages: nil)
         } catch {
             self.error = error.localizedDescription
         }

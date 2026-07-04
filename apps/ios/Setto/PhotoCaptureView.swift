@@ -45,6 +45,7 @@ struct PhotoCaptureView: View {
     @State private var showCamera = false
     @State private var saving = false
     @State private var error: String?
+    @State private var addingLocation = false
 
     private var selectedModel: ModelDoc? { models.first { $0.id == modelId } }
     private var selectedOutfit: OutfitDoc? { outfits.first { $0.id == outfitId } }
@@ -58,12 +59,14 @@ struct PhotoCaptureView: View {
                 if loading {
                     ProgressView()
                 } else if locations.isEmpty {
-                    ContentUnavailableView(
-                        "No locations in this shoot",
-                        systemImage: "mappin.slash",
-                        description: Text(
-                            "Add a location to the shoot first, then capture photos for it."
-                        ))
+                    ContentUnavailableView {
+                        Label("No locations yet", systemImage: "mappin.slash")
+                    } description: {
+                        Text("Add a location so you can capture photos for it.")
+                    } actions: {
+                        Button("Add location") { addingLocation = true }
+                            .buttonStyle(.borderedProminent)
+                    }
                 } else {
                     form
                 }
@@ -76,6 +79,10 @@ struct PhotoCaptureView: View {
                 }
             }
             .task { await load() }
+            .sheet(isPresented: $addingLocation) {
+                AddLocationView(shootId: shoot.id) { await load() }
+                    .environmentObject(auth)
+            }
             .fullScreenCover(isPresented: $showCamera) {
                 CameraView(
                     references: references,
@@ -98,6 +105,11 @@ struct PhotoCaptureView: View {
                     }
                 }
                 .onChange(of: locationId) { _, _ in defaultModelForLocation() }
+                Button {
+                    addingLocation = true
+                } label: {
+                    Label("Add location", systemImage: "mappin.and.ellipse")
+                }
             }
 
             Section("Model") {
