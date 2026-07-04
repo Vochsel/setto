@@ -30,6 +30,15 @@ struct SwipeFeedView: View {
     @State private var peekOffset: CGSize = .zero
     @State private var peekAnchor: UnitPoint = .center
 
+    // Quick-schedule: seed a social post from the media on screen.
+    @State private var scheduling = false
+    @State private var schedChannels: [SocialChannel] = []
+    @State private var schedTZ = Scheduling.defaultTZ
+
+    private var currentItem: MediaItem? {
+        items.first { $0.id == currentId }
+    }
+
     var body: some View {
         // NOTE: the dismiss offset is applied with `.offset` (layout-neutral) and
         // never with `.scaleEffect` — scaling a paging ScrollView breaks its
@@ -90,6 +99,36 @@ struct SwipeFeedView: View {
             .padding(.leading, 20)
             .padding(.top, 8)
         }
+        .overlay(alignment: .topTrailing) {
+            if currentItem != nil {
+                Button {
+                    scheduling = true
+                    Task { await loadScheduleContext() }
+                } label: {
+                    Image(systemName: "calendar.badge.plus")
+                        .font(.title3.bold())
+                        .foregroundStyle(.white)
+                        .padding(12)
+                        .background(.black.opacity(0.35), in: Circle())
+                }
+                .padding(.trailing, 20)
+                .padding(.top, 8)
+            }
+        }
+        .sheet(isPresented: $scheduling) {
+            if let item = currentItem {
+                SocialComposerView(
+                    post: nil, timezone: schedTZ, channels: schedChannels,
+                    initialMedia: [
+                        SocialMedia(
+                            type: item.isVideo ? "video" : "image",
+                            url: item.url,
+                            thumbnailUrl: item.isVideo ? item.posterUrl : nil)
+                    ]
+                ) {}
+                .environmentObject(auth)
+            }
+        }
         // Slide the whole reel with the back-swipe; a static black backdrop
         // (applied after the offset, so it stays put) fills the revealed gap.
         .offset(x: dismissOffset)
@@ -142,6 +181,22 @@ struct SwipeFeedView: View {
         let upper = min(idx + 4, items.count)
         guard idx + 1 < upper else { return }
         prefetcher.warm(Array(items[(idx + 1)..<upper]))
+    }
+
+    /// Lazily load the workspace timezone and (if Buffer is connected) its
+    /// channels for the quick-schedule composer — cheap, only on first open.
+    private func loadScheduleContext() async {
+        let client = auth.client()
+        if let tz = try? await client.workspaceSettings().timezone {
+            schedTZ = tz
+        }
+        guard schedChannels.isEmpty else { return }
+        let connected =
+            (try? await client.connections())?
+            .first { $0.provider == "buffer" }?.status == "connected"
+        if connected {
+            schedChannels = (try? await client.socialChannels()) ?? []
+        }
     }
 }
 
