@@ -35,6 +35,8 @@ import type * as models from "../models.js";
 import type * as outfitCategories from "../outfitCategories.js";
 import type * as outfits from "../outfits.js";
 import type * as presets from "../presets.js";
+import type * as printify from "../printify.js";
+import type * as printifyNode from "../printifyNode.js";
 import type * as renderVideo from "../renderVideo.js";
 import type * as review from "../review.js";
 import type * as settings from "../settings.js";
@@ -84,6 +86,8 @@ declare const fullApi: ApiFromModules<{
   outfitCategories: typeof outfitCategories;
   outfits: typeof outfits;
   presets: typeof presets;
+  printify: typeof printify;
+  printifyNode: typeof printifyNode;
   renderVideo: typeof renderVideo;
   review: typeof review;
   settings: typeof settings;

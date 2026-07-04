@@ -217,6 +217,47 @@ export default defineSchema({
     defaultImageModelKey: v.optional(v.string()),
   }).index("by_org", ["orgId"]),
 
+  // Printify products cached for the workspace (production cost vs. retail).
+  // Org-scoped so the whole workspace sees them; `syncedBy` records who synced.
+  printifyProducts: defineTable({
+    orgId: v.string(),
+    syncedBy: v.string(),
+    shopId: v.number(),
+    externalId: v.string(), // "printify:<productId>"
+    productId: v.string(),
+    title: v.string(),
+    images: v.optional(v.array(v.string())), // preview image URLs
+    variantCount: v.number(),
+    cost: v.optional(v.number()), // lowest production cost, minor units (cents)
+    price: v.optional(v.number()), // lowest retail price, minor units
+    currency: v.optional(v.string()),
+    visible: v.optional(v.boolean()),
+    syncedAt: v.number(),
+  })
+    .index("by_org", ["orgId"])
+    .index("by_org_external", ["orgId", "externalId"]),
+
+  // Printify orders cached for the workspace (costs, status, shipping/tracking).
+  printifyOrders: defineTable({
+    orgId: v.string(),
+    syncedBy: v.string(),
+    shopId: v.number(),
+    externalId: v.string(), // "printify:order:<id>"
+    orderId: v.string(),
+    status: v.optional(v.string()),
+    totalPrice: v.optional(v.number()), // what the customer paid, minor units
+    totalShipping: v.optional(v.number()),
+    productionCost: v.optional(v.number()), // sum of line-item costs, minor units
+    currency: v.optional(v.string()),
+    lineItemCount: v.number(),
+    shipments: v.optional(v.any()), // [{ carrier, number, url, deliveredAt }]
+    address: v.optional(v.any()), // { country, region, city }
+    placedAt: v.optional(v.string()), // Printify created_at
+    syncedAt: v.number(),
+  })
+    .index("by_org", ["orgId"])
+    .index("by_org_external", ["orgId", "externalId"]),
+
   // Per-USER connections to external services (Shopify / Printify / Buffer).
   // Credentials are personal: each member connects their own account. The
   // secret is AES-256-GCM encrypted at rest (see convex/lib/crypto.ts) and only

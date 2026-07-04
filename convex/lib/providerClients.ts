@@ -171,6 +171,58 @@ export async function printifyFetch<T = unknown>(
   return (await res.json()) as T;
 }
 
+export interface PrintifyVariant {
+  id: number;
+  price?: number; // retail, minor units
+  cost?: number; // production, minor units
+  is_enabled?: boolean;
+  title?: string;
+}
+export interface PrintifyProduct {
+  id: number | string;
+  title: string;
+  visible?: boolean;
+  images?: Array<{ src: string; is_default?: boolean }>;
+  variants?: PrintifyVariant[];
+}
+export interface PrintifyOrder {
+  id: string;
+  status?: string;
+  total_price?: number;
+  total_shipping?: number;
+  line_items?: Array<{ cost?: number; quantity?: number }>;
+  shipments?: Array<{ carrier?: string; number?: string; url?: string; delivered_at?: string }>;
+  address_to?: { country?: string; region?: string; city?: string };
+  created_at?: string;
+}
+
+/**
+ * Page through a Printify list endpoint. Printify returns
+ * `{ data: [...], current_page, last_page }`; we walk pages until the last one
+ * (or `max` items). Returns the flat `data` array.
+ */
+export async function printifyPaginate<T>(
+  secret: string,
+  path: string,
+  max?: number,
+): Promise<T[]> {
+  const out: T[] = [];
+  let page = 1;
+  for (;;) {
+    const sep = path.includes("?") ? "&" : "?";
+    const body = await printifyFetch<{
+      data: T[];
+      current_page?: number;
+      last_page?: number;
+    }>(secret, `${path}${sep}limit=100&page=${page}`);
+    out.push(...(body.data ?? []));
+    if (max && out.length >= max) return out.slice(0, max);
+    if (!body.last_page || (body.current_page ?? page) >= body.last_page) break;
+    page++;
+  }
+  return out;
+}
+
 /**
  * Authenticated Buffer request (new bearer-token API at developers.buffer.com).
  * NOTE: the exact base/endpoints are finalized in the Buffer slice against a

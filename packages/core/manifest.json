@@ -2655,6 +2655,62 @@
     "returns": null
   },
   {
+    "path": "printify:orders",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "limit": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "printify:products",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {}
+    },
+    "returns": null
+  },
+  {
+    "path": "printify:summary",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {}
+    },
+    "returns": null
+  },
+  {
+    "path": "printifyNode:sync",
+    "type": "Action",
+    "args": {
+      "type": "object",
+      "value": {
+        "maxOrders": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
+        "shopId": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
     "path": "review:favorites",
     "type": "Query",
     "args": {
