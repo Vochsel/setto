@@ -113,9 +113,15 @@ export function ImageCropper({
   const pct = (n: number) => `${n * 100}%`;
 
   return (
+    // Fullscreen, self-contained modal: covers the lightbox chrome (header
+    // controls, review row, nav) and swallows pointer/clicks so the crop tool
+    // blocks all other interaction until the user applies or cancels. The dark
+    // backdrop hides the chrome behind; the crop box's box-shadow dims the image
+    // outside the selection.
     <div
-      className="flex h-full w-full flex-col items-center justify-center gap-3"
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-black/90 p-4"
       onClick={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
     >
       <div
         ref={wrapRef}
@@ -156,7 +162,10 @@ export function ImageCropper({
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      {/* z-10 keeps the controls above the crop box's 9999px box-shadow scrim,
+          which would otherwise paint over them (it belongs to the positioned
+          crop box and so paints after this in-flow row). */}
+      <div className="relative z-10 flex items-center gap-2">
         <Button variant="secondary" onClick={onCancel} disabled={busy}>
           <X className="h-4 w-4" /> Cancel
         </Button>
