@@ -43,6 +43,7 @@ export function LocationPanel({
   scheduledAt,
   onRemoved,
   highlightShotId,
+  highlightMediaId,
   shootId,
   shootLocationTargets,
   libraryLocations,
@@ -55,6 +56,9 @@ export function LocationPanel({
   onRemoved: () => void;
   /** Deep-link target shot to scroll to / highlight. */
   highlightShotId?: string;
+  /** Deep-link target image/video (generation or video id) to open in the
+   * lightbox — matched against the owning shot's media. */
+  highlightMediaId?: string;
   /** The shoot id (for move / duplicate of shots between locations). */
   shootId?: Id<"shoots">;
   /** All of the shoot's locations, as move / duplicate targets. */
@@ -256,6 +260,7 @@ export function LocationPanel({
               castModelIds={shootLocation.modelIds}
               scheduledAt={scheduledAt}
               highlight={shot._id === highlightShotId}
+              highlightMediaId={highlightMediaId}
               shootId={shootId}
               shootLocations={shootLocationTargets}
               libraryLocations={libraryLocations}

@@ -85,6 +85,35 @@ interface LocationInfo {
   streetViewUrls?: { url: string }[];
 }
 
+/**
+ * Index of a deep-link target within a shot's succeeded images, or null when
+ * the target isn't one of them. The filter mirrors `lightboxImages` below so the
+ * index lines up with what the lightbox renders.
+ */
+function deepLinkImageIndex(
+  generations: GenerationDoc[],
+  mediaId?: string,
+): number | null {
+  if (!mediaId) return null;
+  const i = generations
+    .filter((g) => g.status === "succeeded" && g.imageUrl)
+    .findIndex((g) => g._id === mediaId);
+  return i === -1 ? null : i;
+}
+
+/** As {@link deepLinkImageIndex}, but for the shot's succeeded videos. */
+function deepLinkVideoIndex(
+  generations: GenerationDoc[],
+  mediaId?: string,
+): number | null {
+  if (!mediaId) return null;
+  const i = generations
+    .flatMap((g) => g.videos ?? [])
+    .filter((vd) => vd.status === "succeeded" && vd.videoUrl)
+    .findIndex((vd) => vd._id === mediaId);
+  return i === -1 ? null : i;
+}
+
 export function ShotCard({
   shot,
   library,
@@ -92,6 +121,7 @@ export function ShotCard({
   castModelIds,
   scheduledAt,
   highlight,
+  highlightMediaId,
   shootId,
   shootLocations,
   libraryLocations,
@@ -104,6 +134,9 @@ export function ShotCard({
   scheduledAt?: number;
   /** Deep-link target — scroll into view and ring this shot. */
   highlight?: boolean;
+  /** Deep-link target media (generation or video id): when it belongs to this
+   * shot, pop it open in the matching lightbox once it has loaded. */
+  highlightMediaId?: string;
   /** The shoot this shot belongs to (for move / duplicate targets). */
   shootId?: Id<"shoots">;
   /** Other locations in the shoot, as move / duplicate targets. */
@@ -130,9 +163,15 @@ export function ShotCard({
     modelKeyOverride ?? settings?.defaultImageModelKey ?? DEFAULT_MODEL_ID;
   const modelKey = getImageModel(desiredKey) ? desiredKey : DEFAULT_MODEL_ID;
   const [generating, setGenerating] = useState(false);
-  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  // Deep-link: when the queue links straight to one image/video (`?media=<id>`),
+  // open it in the matching lightbox on mount. Media ids are unique, so only the
+  // shot that owns the target ever resolves a non-null index. Computed once at
+  // mount so it never fights the user reopening / closing the lightbox after.
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(() =>
+    deepLinkImageIndex(shot.generations, highlightMediaId),
+  );
   const [videoLightboxIndex, setVideoLightboxIndex] = useState<number | null>(
-    null,
+    () => deepLinkVideoIndex(shot.generations, highlightMediaId),
   );
 
   // Deep-link: when this is the targeted shot, scroll it into view. The panel

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { format } from "date-fns";
@@ -72,13 +72,18 @@ export default function ShootEditorPage() {
 
   const [selectedLocIdRaw, setSelectedLocId] = useState<string | undefined>();
 
-  // Deep-link: `?shot=<id>` (from the queue / usage audit log) opens the source
-  // shot. Read once on mount; ShotCard scrolls to and rings the target.
-  const [targetShotId] = useState<string | null>(() =>
-    typeof window === "undefined"
-      ? null
-      : new URLSearchParams(window.location.search).get("shot"),
-  );
+  // Deep-link: `?shot=<id>&media=<id>` (from the queue / usage audit log) opens
+  // the source shot — ShotCard scrolls to and rings it — and, when a media id is
+  // given, pops that specific image/video in the lightbox.
+  //
+  // Read via `useSearchParams`, not `window.location.search`: on a client-side
+  // navigation the App Router commits the new URL from an insertion effect, so
+  // `window.location` still holds the *previous* page's query during render.
+  // `useSearchParams` is wired to the router's canonical URL, so it reflects the
+  // shoot's own `?shot=…&media=…` on the very first render.
+  const searchParams = useSearchParams();
+  const targetShotId = searchParams.get("shot");
+  const targetMediaId = searchParams.get("media");
   const targetLocId = useMemo(() => {
     if (!targetShotId || !shots) return undefined;
     return (shots as unknown as ShotDoc[]).find((s) => s._id === targetShotId)
@@ -302,6 +307,7 @@ export default function ShootEditorPage() {
               scheduledAt={shoot.scheduledAt}
               onRemoved={() => setSelectedLocId(undefined)}
               highlightShotId={targetShotId ?? undefined}
+              highlightMediaId={targetMediaId ?? undefined}
               shootId={shootId}
               shootLocationTargets={shootLocationTargets}
               libraryLocations={libraryLocationTargets}

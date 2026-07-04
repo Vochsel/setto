@@ -204,7 +204,9 @@ export default function QueuePage() {
                   key={it._id}
                   item={it}
                   onOpen={() =>
-                    router.push(`/shoots/${it.shootId}?shot=${it.shotId}`)
+                    router.push(
+                      `/shoots/${it.shootId}?shot=${it.shotId}&media=${it._id}`,
+                    )
                   }
                   onQuickLook={
                     mediaIndex !== undefined
