@@ -82,8 +82,7 @@ struct AnimateSheet: View {
         Task {
             defer { busy = false }
             do {
-                let c = ConvexClient(
-                    baseURL: Config.convexURL, token: auth.validToken())
+                let c = auth.client()
                 _ = try await c.generateVideo(
                     generationId: generationId, prompt: prompt,
                     modelKey: modelId, durationSeconds: duration)
@@ -166,8 +165,7 @@ struct VariationsSheet: View {
         Task {
             defer { busy = false }
             do {
-                let c = ConvexClient(
-                    baseURL: Config.convexURL, token: auth.validToken())
+                let c = auth.client()
                 _ = try await c.generateVariations(
                     generationId: generationId, prompt: prompt,
                     modelKey: modelId, count: count)

@@ -40,8 +40,7 @@ struct ModelsView: View {
         loading = true
         defer { loading = false }
         do {
-            let client = ConvexClient(
-                baseURL: Config.convexURL, token: auth.validToken())
+            let client = auth.client()
             models = try await client.call(
                 "models:list", .query, as: [ModelDoc].self)
             error = nil
@@ -57,7 +56,7 @@ private struct ModelRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            AsyncImage(url: model.thumbURL) { phase in
+            CachedAsyncImage(url: model.thumbURL) { phase in
                 if let image = phase.image {
                     image.resizable().scaledToFill()
                 } else {
@@ -147,8 +146,7 @@ struct ModelDetailView: View {
         loading = true
         defer { loading = false }
         do {
-            let client = ConvexClient(
-                baseURL: Config.convexURL, token: auth.validToken())
+            let client = auth.client()
             items = try await client.call(
                 "review:feed", .query,
                 args: ["modelId": model.id], as: [MediaItem].self)

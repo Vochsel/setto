@@ -30,7 +30,10 @@ final class AuthStore: NSObject, ObservableObject,
     /// True while silently resuming a remembered session on launch.
     @Published private(set) var resuming = false
     private var session: ASWebAuthenticationSession?
-    private var didTryResume = false
+    /// The in-flight silent refresh, if any. Concurrent callers (a pull-to-
+    /// refresh and a background reload firing at once) share this single web
+    /// session instead of each spawning their own.
+    private var refreshTask: Task<Void, Error>?
 
     private let tokenKey = "accessToken"
     private let expiryKey = "expiresAt"
@@ -47,22 +50,6 @@ final class AuthStore: NSObject, ObservableObject,
     /// app should resume the session rather than ask for credentials again.
     var needsResume: Bool { user != nil && validToken() == nil }
 
-    /// Resume a remembered session on launch by re-running the web bridge once.
-    /// WorkOS refreshes the access token server-side from its still-valid
-    /// session, so this completes without a login form while that session is
-    /// alive; if it's gone (or the user backs out), fall back to sign-in.
-    func resumeIfNeeded() async {
-        guard needsResume, !didTryResume, !resuming else { return }
-        didTryResume = true
-        resuming = true
-        defer { resuming = false }
-        do {
-            try await login()
-        } catch {
-            logout()
-        }
-    }
-
     /// A non-expired access token, or nil if the user must (re)authenticate.
     func validToken() -> String? {
         guard let token = Keychain.get(tokenKey) else { return nil }
@@ -72,6 +59,64 @@ final class AuthStore: NSObject, ObservableObject,
             return nil
         }
         return token
+    }
+
+    /// A valid access token, silently refreshing an expired one first. Data
+    /// loads and mutations go through this (via `client()`), so the session
+    /// stays alive across the short WorkOS access-token lifetime — the reason
+    /// the app used to "lose" auth after sitting idle or on pull-to-refresh.
+    /// Returns nil only when nobody is signed in or the WorkOS session itself
+    /// has ended (in which case the user is signed out).
+    func token() async -> String? {
+        if let token = validToken() { return token }
+        guard user != nil else { return nil }
+        try? await refresh()
+        return validToken()
+    }
+
+    /// A Convex client that resolves (and refreshes) the token per request.
+    func client() -> ConvexClient {
+        ConvexClient(
+            baseURL: Config.convexURL,
+            token: validToken(),
+            tokenProvider: { [weak self] in await self?.token() })
+    }
+
+    /// Silently re-run the web bridge to mint a fresh access token, coalescing
+    /// concurrent callers onto one session. WorkOS refreshes server-side from
+    /// its still-valid session cookie, so this usually completes without a login
+    /// form; if that session is gone the sign-in surfaces (or the caller backs
+    /// out) and we sign the user out so the UI asks again.
+    func refresh() async throws {
+        if let refreshTask { return try await refreshTask.value }
+        let task = Task {
+            do {
+                try await self.login()
+            } catch {
+                self.logout()
+                throw error
+            }
+        }
+        refreshTask = task
+        defer { refreshTask = nil }
+        try await task.value
+    }
+
+    /// Resume a remembered session on launch (drives `ResumingView`). Unlike the
+    /// old one-shot resume, this can run again every time the token lapses.
+    func resumeIfNeeded() async {
+        guard needsResume, refreshTask == nil else { return }
+        resuming = true
+        defer { resuming = false }
+        try? await refresh()
+    }
+
+    /// Refresh proactively when the app returns to the foreground so the token
+    /// is fresh before the user acts (e.g. pull-to-refresh) rather than lapsing
+    /// mid-request. No-op while valid or signed out.
+    func refreshIfExpired() async {
+        guard needsResume else { return }
+        try? await refresh()
     }
 
     func login() async throws {

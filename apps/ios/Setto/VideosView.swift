@@ -68,7 +68,7 @@ struct VideosView: View {
     }
 
     private func client() -> ConvexClient {
-        ConvexClient(baseURL: Config.convexURL, token: auth.validToken())
+        auth.client()
     }
 
     private func load() async {
@@ -103,7 +103,7 @@ private struct ProjectTile: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             ZStack(alignment: .bottomTrailing) {
-                AsyncImage(url: project.thumbURL) { phase in
+                CachedAsyncImage(url: project.thumbURL) { phase in
                     switch phase {
                     case .success(let image):
                         image.resizable().scaledToFill()
