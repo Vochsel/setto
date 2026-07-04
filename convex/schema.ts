@@ -215,7 +215,98 @@ export default defineSchema({
   settings: defineTable({
     orgId: v.string(),
     defaultImageModelKey: v.optional(v.string()),
+    // IANA timezone for scheduling social posts (default Australia/Sydney/AEST).
+    timezone: v.optional(v.string()),
   }).index("by_org", ["orgId"]),
+
+  // Printify products cached for the workspace (production cost vs. retail).
+  // Org-scoped so the whole workspace sees them; `syncedBy` records who synced.
+  printifyProducts: defineTable({
+    orgId: v.string(),
+    syncedBy: v.string(),
+    shopId: v.number(),
+    externalId: v.string(), // "printify:<productId>"
+    productId: v.string(),
+    title: v.string(),
+    images: v.optional(v.array(v.string())), // preview image URLs
+    variantCount: v.number(),
+    cost: v.optional(v.number()), // lowest production cost, minor units (cents)
+    price: v.optional(v.number()), // lowest retail price, minor units
+    currency: v.optional(v.string()),
+    visible: v.optional(v.boolean()),
+    syncedAt: v.number(),
+  })
+    .index("by_org", ["orgId"])
+    .index("by_org_external", ["orgId", "externalId"]),
+
+  // Printify orders cached for the workspace (costs, status, shipping/tracking).
+  printifyOrders: defineTable({
+    orgId: v.string(),
+    syncedBy: v.string(),
+    shopId: v.number(),
+    externalId: v.string(), // "printify:order:<id>"
+    orderId: v.string(),
+    status: v.optional(v.string()),
+    totalPrice: v.optional(v.number()), // what the customer paid, minor units
+    totalShipping: v.optional(v.number()),
+    productionCost: v.optional(v.number()), // sum of line-item costs, minor units
+    currency: v.optional(v.string()),
+    lineItemCount: v.number(),
+    shipments: v.optional(v.any()), // [{ carrier, number, url, deliveredAt }]
+    address: v.optional(v.any()), // { country, region, city }
+    placedAt: v.optional(v.string()), // Printify created_at
+    syncedAt: v.number(),
+  })
+    .index("by_org", ["orgId"])
+    .index("by_org_external", ["orgId", "externalId"]),
+
+  // Social posts composed from gallery media and pushed to Buffer. Org-scoped
+  // (a shared content calendar); `createdBy` records the author.
+  socialPosts: defineTable({
+    orgId: v.string(),
+    createdBy: v.string(),
+    provider: v.string(), // "buffer"
+    text: v.string(),
+    media: v.array(
+      v.object({
+        type: v.string(), // "image" | "video"
+        url: v.string(),
+        thumbnailUrl: v.optional(v.string()),
+      }),
+    ),
+    channelIds: v.array(v.string()),
+    scheduledAt: v.optional(v.number()), // when to publish; absent = draft/now
+    status: v.string(), // "draft" | "scheduled" | "sent" | "error"
+    externalIds: v.optional(v.array(v.string())), // Buffer post ids
+    error: v.optional(v.string()),
+    // Provenance: which shots/videos this post was built from.
+    sourceGenerationIds: v.optional(v.array(v.string())),
+    sourceVideoIds: v.optional(v.array(v.string())),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_org", ["orgId"]),
+
+  // Per-USER connections to external services (Shopify / Printify / Buffer).
+  // Credentials are personal: each member connects their own account. The
+  // secret is AES-256-GCM encrypted at rest (see convex/lib/crypto.ts) and only
+  // decrypted inside "use node" actions; it is never returned to the client or
+  // exposed via MCP. `meta` holds non-secret config (e.g. the Shopify domain).
+  integrations: defineTable({
+    orgId: v.string(), // workspace the connection lives in
+    userId: v.string(), // the member who connected (WorkOS user id)
+    provider: v.string(), // "shopify" | "printify" | "buffer"
+    label: v.optional(v.string()), // human name, e.g. the shop/store name
+    ciphertext: v.string(), // base64 AES-256-GCM ciphertext of the secret
+    iv: v.string(), // base64 96-bit IV
+    authTag: v.string(), // base64 GCM auth tag
+    meta: v.optional(v.any()), // non-secret config (shopify domain, shop id, …)
+    status: v.string(), // "unverified" | "connected" | "error"
+    lastError: v.optional(v.string()),
+    connectedAt: v.number(),
+    lastUsedAt: v.optional(v.number()),
+  })
+    .index("by_org_user", ["orgId", "userId"])
+    .index("by_org_user_provider", ["orgId", "userId", "provider"]),
 
   // --- Library: people ----------------------------------------------------
   models: defineTable({
@@ -275,7 +366,13 @@ export default defineSchema({
     images: v.optional(v.array(imageRef)),
     variations: v.optional(v.array(outfitVariation)),
     archived: v.optional(v.boolean()),
-  }).index("by_org", ["orgId"]),
+    // Provenance when imported from an external store, e.g. "shopify:8123456".
+    // Used to re-sync in place instead of creating duplicates.
+    externalId: v.optional(v.string()),
+    externalMeta: v.optional(v.any()), // { handle, productType, updatedAt, url }
+  })
+    .index("by_org", ["orgId"])
+    .index("by_org_external", ["orgId", "externalId"]),
 
   // --- Library: presets (photography style / camera / lighting) -----------
   presets: defineTable({

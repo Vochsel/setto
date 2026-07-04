@@ -29,7 +29,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { mainNav, libraryNav, settingsNav, type NavItem } from "@/lib/nav";
+import {
+  mainNav,
+  libraryNav,
+  commerceNav,
+  settingsNav,
+  type NavItem,
+} from "@/lib/nav";
 
 export interface SidebarUser {
   name?: string;
@@ -123,6 +129,7 @@ export function AppSidebar({ user }: { user: SidebarUser }) {
 
       <SidebarContent>
         <NavSection items={mainNav} pathname={pathname} />
+        <NavSection label="Commerce" items={commerceNav} pathname={pathname} />
         <NavSection label="Library" items={libraryNav} pathname={pathname} />
         <NavSection items={settingsNav} pathname={pathname} />
       </SidebarContent>

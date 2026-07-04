@@ -12,6 +12,7 @@ import {
   Trash2,
   Sparkles,
   Crop as CropIcon,
+  CalendarPlus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useMutation } from "convex/react";
@@ -24,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { AnimatePopover } from "@/components/animate-popover";
 import { VariationsPopover } from "@/components/variations-popover";
 import { ImageCropper } from "@/components/image-cropper";
+import { QuickSchedule } from "@/components/social/quick-schedule";
 import {
   ReviewControls,
   type ReviewStatus,
@@ -331,6 +333,26 @@ export function ImageLightbox({
                     }
                   />
                 )}
+                <QuickSchedule
+                  media={{
+                    type: isVideo ? "video" : "image",
+                    url: current.url!,
+                    thumbnailUrl: isVideo ? current.posterUrl : undefined,
+                  }}
+                >
+                  {(open) => (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className={CTRL}
+                      onClick={open}
+                      title="Schedule a social post"
+                    >
+                      <CalendarPlus className="h-4 w-4" />
+                    </Button>
+                  )}
+                </QuickSchedule>
                 {canCrop && (
                   <Button
                     type="button"

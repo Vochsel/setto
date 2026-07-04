@@ -149,6 +149,61 @@
     "returns": null
   },
   {
+    "path": "audioTracks:create",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "durationMs": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
+        "name": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        },
+        "storageId": {
+          "fieldType": {
+            "tableName": "_storage",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "audioTracks:list",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {}
+    },
+    "returns": null
+  },
+  {
+    "path": "audioTracks:remove",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "audioTracks",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
     "path": "campaignCreatives:listByCampaign",
     "type": "Query",
     "args": {
@@ -869,6 +924,23 @@
     "returns": null
   },
   {
+    "path": "files:getUrl",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "storageId": {
+          "fieldType": {
+            "tableName": "_storage",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
     "path": "generate:generateCreative",
     "type": "Action",
     "args": {
@@ -892,6 +964,57 @@
             "type": "string"
           },
           "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "generate:generateFromCapture",
+    "type": "Action",
+    "args": {
+      "type": "object",
+      "value": {
+        "modelId": {
+          "fieldType": {
+            "tableName": "models",
+            "type": "id"
+          },
+          "optional": true
+        },
+        "modelKey": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        },
+        "outfitId": {
+          "fieldType": {
+            "tableName": "outfits",
+            "type": "id"
+          },
+          "optional": true
+        },
+        "shootLocationId": {
+          "fieldType": {
+            "tableName": "shootLocations",
+            "type": "id"
+          },
+          "optional": true
+        },
+        "shotId": {
+          "fieldType": {
+            "tableName": "shots",
+            "type": "id"
+          },
+          "optional": true
+        },
+        "storageId": {
+          "fieldType": {
+            "tableName": "_storage",
+            "type": "id"
+          },
+          "optional": false
         }
       }
     },
@@ -939,6 +1062,21 @@
             }
           },
           "optional": true
+        },
+        "referenceStorageIds": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "string"
+            }
+          },
+          "optional": true
+        },
+        "resemblance": {
+          "fieldType": {
+            "type": "boolean"
+          },
+          "optional": true
         }
       }
     },
@@ -950,6 +1088,12 @@
     "args": {
       "type": "object",
       "value": {
+        "count": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
         "modelKey": {
           "fieldType": {
             "type": "string"
@@ -969,6 +1113,41 @@
             "value": {
               "type": "string"
             }
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "generate:generateVariations",
+    "type": "Action",
+    "args": {
+      "type": "object",
+      "value": {
+        "count": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
+        "generationId": {
+          "fieldType": {
+            "tableName": "generations",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "modelKey": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "prompt": {
+          "fieldType": {
+            "type": "string"
           },
           "optional": true
         }
@@ -1174,6 +1353,105 @@
     "returns": null
   },
   {
+    "path": "generations:replaceImage",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "generations",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "storageId": {
+          "fieldType": {
+            "tableName": "_storage",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "integrations:disconnect",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "provider": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "integrations:list",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {}
+    },
+    "returns": null
+  },
+  {
+    "path": "integrationsNode:connect",
+    "type": "Action",
+    "args": {
+      "type": "object",
+      "value": {
+        "label": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "meta": {
+          "fieldType": {
+            "type": "any"
+          },
+          "optional": true
+        },
+        "provider": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        },
+        "secret": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "integrationsNode:test",
+    "type": "Action",
+    "args": {
+      "type": "object",
+      "value": {
+        "provider": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
     "path": "locations:create",
     "type": "Mutation",
     "args": {
@@ -1254,6 +1532,18 @@
         "promptDescriptor": {
           "fieldType": {
             "type": "string"
+          },
+          "optional": true
+        },
+        "streetViewRadiusEnabled": {
+          "fieldType": {
+            "type": "boolean"
+          },
+          "optional": true
+        },
+        "streetViewRadiusMeters": {
+          "fieldType": {
+            "type": "number"
           },
           "optional": true
         },
@@ -1428,6 +1718,18 @@
         "promptDescriptor": {
           "fieldType": {
             "type": "string"
+          },
+          "optional": true
+        },
+        "streetViewRadiusEnabled": {
+          "fieldType": {
+            "type": "boolean"
+          },
+          "optional": true
+        },
+        "streetViewRadiusMeters": {
+          "fieldType": {
+            "type": "number"
           },
           "optional": true
         },
@@ -2353,6 +2655,62 @@
     "returns": null
   },
   {
+    "path": "printify:orders",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "limit": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "printify:products",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {}
+    },
+    "returns": null
+  },
+  {
+    "path": "printify:summary",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {}
+    },
+    "returns": null
+  },
+  {
+    "path": "printifyNode:sync",
+    "type": "Action",
+    "args": {
+      "type": "object",
+      "value": {
+        "maxOrders": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
+        "shopId": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
     "path": "review:favorites",
     "type": "Query",
     "args": {
@@ -2361,6 +2719,58 @@
         "limit": {
           "fieldType": {
             "type": "number"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "review:feed",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "favoritesOnly": {
+          "fieldType": {
+            "type": "boolean"
+          },
+          "optional": true
+        },
+        "kind": {
+          "fieldType": {
+            "type": "union",
+            "value": [
+              {
+                "type": "literal",
+                "value": "image"
+              },
+              {
+                "type": "literal",
+                "value": "video"
+              }
+            ]
+          },
+          "optional": true
+        },
+        "limit": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
+        "modelId": {
+          "fieldType": {
+            "tableName": "models",
+            "type": "id"
+          },
+          "optional": true
+        },
+        "shootId": {
+          "fieldType": {
+            "tableName": "shoots",
+            "type": "id"
           },
           "optional": true
         }
@@ -2394,6 +2804,10 @@
               },
               {
                 "tableName": "campaignCreatives",
+                "type": "id"
+              },
+              {
+                "tableName": "videoRenders",
                 "type": "id"
               }
             ]
@@ -2467,6 +2881,10 @@
               {
                 "tableName": "campaignCreatives",
                 "type": "id"
+              },
+              {
+                "tableName": "videoRenders",
+                "type": "id"
               }
             ]
           },
@@ -2492,6 +2910,22 @@
       "type": "object",
       "value": {
         "modelKey": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "settings:setTimezone",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "timezone": {
           "fieldType": {
             "type": "string"
           },
@@ -2809,9 +3243,53 @@
           },
           "optional": true
         },
+        "streetViewRadiusEnabled": {
+          "fieldType": {
+            "type": "boolean"
+          },
+          "optional": true
+        },
+        "streetViewRadiusMeters": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
         "timezone": {
           "fieldType": {
             "type": "string"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "shopify:products",
+    "type": "Action",
+    "args": {
+      "type": "object",
+      "value": {
+        "limit": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "shopify:sync",
+    "type": "Action",
+    "args": {
+      "type": "object",
+      "value": {
+        "limit": {
+          "fieldType": {
+            "type": "number"
           },
           "optional": true
         }
@@ -2861,6 +3339,13 @@
             "type": "id"
           },
           "optional": false
+        },
+        "shootLocationId": {
+          "fieldType": {
+            "tableName": "shootLocations",
+            "type": "id"
+          },
+          "optional": true
         }
       }
     },
@@ -2875,6 +3360,30 @@
         "shootId": {
           "fieldType": {
             "tableName": "shoots",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "shots:move",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "shots",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "shootLocationId": {
+          "fieldType": {
+            "tableName": "shootLocations",
             "type": "id"
           },
           "optional": false
@@ -2906,6 +3415,20 @@
     "args": {
       "type": "object",
       "value": {
+        "aspectRatio": {
+          "fieldType": {
+            "type": "union",
+            "value": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "optional": true
+        },
         "cameraFraming": {
           "fieldType": {
             "type": "any"
@@ -3032,6 +3555,335 @@
     "returns": null
   },
   {
+    "path": "social:addMedia",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "socialPosts",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "media": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "object",
+              "value": {
+                "thumbnailUrl": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "type": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": false
+                },
+                "url": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": false
+                }
+              }
+            }
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "social:posts",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {}
+    },
+    "returns": null
+  },
+  {
+    "path": "social:remove",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "socialPosts",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "social:saveDraft",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "channelIds": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "string"
+            }
+          },
+          "optional": true
+        },
+        "media": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "object",
+              "value": {
+                "thumbnailUrl": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "type": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": false
+                },
+                "url": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": false
+                }
+              }
+            }
+          },
+          "optional": false
+        },
+        "scheduledAt": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
+        "sourceGenerationIds": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "string"
+            }
+          },
+          "optional": true
+        },
+        "sourceVideoIds": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "string"
+            }
+          },
+          "optional": true
+        },
+        "text": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "social:update",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "channelIds": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "string"
+            }
+          },
+          "optional": true
+        },
+        "id": {
+          "fieldType": {
+            "tableName": "socialPosts",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "media": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "object",
+              "value": {
+                "thumbnailUrl": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "type": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": false
+                },
+                "url": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": false
+                }
+              }
+            }
+          },
+          "optional": true
+        },
+        "scheduledAt": {
+          "fieldType": {
+            "type": "union",
+            "value": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "optional": true
+        },
+        "text": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "socialNode:channels",
+    "type": "Action",
+    "args": {
+      "type": "object",
+      "value": {}
+    },
+    "returns": null
+  },
+  {
+    "path": "socialNode:publish",
+    "type": "Action",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "socialPosts",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "socialNode:schedule",
+    "type": "Action",
+    "args": {
+      "type": "object",
+      "value": {
+        "channelIds": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "string"
+            }
+          },
+          "optional": false
+        },
+        "media": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "object",
+              "value": {
+                "thumbnailUrl": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "type": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": false
+                },
+                "url": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": false
+                }
+              }
+            }
+          },
+          "optional": false
+        },
+        "scheduledAt": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
+        "sourceGenerationIds": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "string"
+            }
+          },
+          "optional": true
+        },
+        "sourceVideoIds": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "string"
+            }
+          },
+          "optional": true
+        },
+        "text": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
     "path": "streetview:capture",
     "type": "Action",
     "args": {
@@ -3060,6 +3912,12 @@
           "optional": false
         },
         "pitch": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
+        "radiusMeters": {
           "fieldType": {
             "type": "number"
           },
@@ -3189,6 +4047,988 @@
             "type": "string"
           },
           "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "videoProjects:addGenerations",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "generationIds": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "tableName": "generations",
+              "type": "id"
+            }
+          },
+          "optional": false
+        },
+        "projectId": {
+          "fieldType": {
+            "tableName": "videoProjects",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "videoProjects:addVideos",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "projectId": {
+          "fieldType": {
+            "tableName": "videoProjects",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "videoIds": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "tableName": "videos",
+              "type": "id"
+            }
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "videoProjects:create",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "name": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "shootId": {
+          "fieldType": {
+            "tableName": "shoots",
+            "type": "id"
+          },
+          "optional": true
+        },
+        "templateId": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "videoProjects:createFromGenerations",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "generationIds": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "tableName": "generations",
+              "type": "id"
+            }
+          },
+          "optional": false
+        },
+        "name": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "shootId": {
+          "fieldType": {
+            "tableName": "shoots",
+            "type": "id"
+          },
+          "optional": true
+        },
+        "templateId": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "videoProjects:createFromShots",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "name": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "shootId": {
+          "fieldType": {
+            "tableName": "shoots",
+            "type": "id"
+          },
+          "optional": true
+        },
+        "shotIds": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "tableName": "shots",
+              "type": "id"
+            }
+          },
+          "optional": false
+        },
+        "templateId": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "videoProjects:createFromVideos",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "name": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "shootId": {
+          "fieldType": {
+            "tableName": "shoots",
+            "type": "id"
+          },
+          "optional": true
+        },
+        "templateId": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "videoIds": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "tableName": "videos",
+              "type": "id"
+            }
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "videoProjects:get",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "videoProjects",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "videoProjects:list",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {}
+    },
+    "returns": null
+  },
+  {
+    "path": "videoProjects:listByShoot",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "shootId": {
+          "fieldType": {
+            "tableName": "shoots",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "videoProjects:remove",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "videoProjects",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "videoProjects:removeClip",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "clipId": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        },
+        "projectId": {
+          "fieldType": {
+            "tableName": "videoProjects",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "videoProjects:rename",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "name": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        },
+        "projectId": {
+          "fieldType": {
+            "tableName": "videoProjects",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "videoProjects:reorderClips",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "clipIds": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "string"
+            }
+          },
+          "optional": false
+        },
+        "projectId": {
+          "fieldType": {
+            "tableName": "videoProjects",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "videoProjects:setClipDuration",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "clipId": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        },
+        "durationMs": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": false
+        },
+        "projectId": {
+          "fieldType": {
+            "tableName": "videoProjects",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "videoProjects:setClipKenBurns",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "clipId": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        },
+        "enabled": {
+          "fieldType": {
+            "type": "boolean"
+          },
+          "optional": false
+        },
+        "projectId": {
+          "fieldType": {
+            "tableName": "videoProjects",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "videoProjects:setClipKenBurnsControls",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "clipId": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        },
+        "direction": {
+          "fieldType": {
+            "type": "union",
+            "value": [
+              {
+                "type": "literal",
+                "value": "in"
+              },
+              {
+                "type": "literal",
+                "value": "out"
+              }
+            ]
+          },
+          "optional": false
+        },
+        "focusX": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": false
+        },
+        "focusY": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": false
+        },
+        "projectId": {
+          "fieldType": {
+            "tableName": "videoProjects",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "zoom": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "videoProjects:setClips",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "clips": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "object",
+              "value": {
+                "caption": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "durationMs": {
+                  "fieldType": {
+                    "type": "number"
+                  },
+                  "optional": false
+                },
+                "effect": {
+                  "fieldType": {
+                    "type": "object",
+                    "value": {
+                      "fromScale": {
+                        "fieldType": {
+                          "type": "number"
+                        },
+                        "optional": true
+                      },
+                      "fromX": {
+                        "fieldType": {
+                          "type": "number"
+                        },
+                        "optional": true
+                      },
+                      "fromY": {
+                        "fieldType": {
+                          "type": "number"
+                        },
+                        "optional": true
+                      },
+                      "toScale": {
+                        "fieldType": {
+                          "type": "number"
+                        },
+                        "optional": true
+                      },
+                      "toX": {
+                        "fieldType": {
+                          "type": "number"
+                        },
+                        "optional": true
+                      },
+                      "toY": {
+                        "fieldType": {
+                          "type": "number"
+                        },
+                        "optional": true
+                      },
+                      "type": {
+                        "fieldType": {
+                          "type": "union",
+                          "value": [
+                            {
+                              "type": "literal",
+                              "value": "none"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "kenburns"
+                            }
+                          ]
+                        },
+                        "optional": false
+                      }
+                    }
+                  },
+                  "optional": true
+                },
+                "generationId": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "id": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": false
+                },
+                "layer": {
+                  "fieldType": {
+                    "type": "number"
+                  },
+                  "optional": true
+                },
+                "posterUrl": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "shotId": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "sourceType": {
+                  "fieldType": {
+                    "type": "union",
+                    "value": [
+                      {
+                        "type": "literal",
+                        "value": "image"
+                      },
+                      {
+                        "type": "literal",
+                        "value": "video"
+                      }
+                    ]
+                  },
+                  "optional": false
+                },
+                "transition": {
+                  "fieldType": {
+                    "type": "object",
+                    "value": {
+                      "durationMs": {
+                        "fieldType": {
+                          "type": "number"
+                        },
+                        "optional": false
+                      },
+                      "type": {
+                        "fieldType": {
+                          "type": "union",
+                          "value": [
+                            {
+                              "type": "literal",
+                              "value": "none"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "fade"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "dissolve"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "slide"
+                            },
+                            {
+                              "type": "literal",
+                              "value": "wipe"
+                            }
+                          ]
+                        },
+                        "optional": false
+                      }
+                    }
+                  },
+                  "optional": true
+                },
+                "trimStartMs": {
+                  "fieldType": {
+                    "type": "number"
+                  },
+                  "optional": true
+                },
+                "url": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": false
+                },
+                "videoId": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                }
+              }
+            }
+          },
+          "optional": false
+        },
+        "projectId": {
+          "fieldType": {
+            "tableName": "videoProjects",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "videoProjects:setClipTransition",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "clipId": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        },
+        "durationMs": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
+        "projectId": {
+          "fieldType": {
+            "tableName": "videoProjects",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "type": {
+          "fieldType": {
+            "type": "union",
+            "value": [
+              {
+                "type": "literal",
+                "value": "none"
+              },
+              {
+                "type": "literal",
+                "value": "fade"
+              },
+              {
+                "type": "literal",
+                "value": "dissolve"
+              },
+              {
+                "type": "literal",
+                "value": "slide"
+              },
+              {
+                "type": "literal",
+                "value": "wipe"
+              }
+            ]
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "videoProjects:setResolution",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "projectId": {
+          "fieldType": {
+            "tableName": "videoProjects",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "resolutionKey": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "videoProjects:updateSettings",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "audio": {
+          "fieldType": {
+            "type": "union",
+            "value": [
+              {
+                "type": "object",
+                "value": {
+                  "name": {
+                    "fieldType": {
+                      "type": "string"
+                    },
+                    "optional": true
+                  },
+                  "startMs": {
+                    "fieldType": {
+                      "type": "number"
+                    },
+                    "optional": true
+                  },
+                  "trackId": {
+                    "fieldType": {
+                      "type": "string"
+                    },
+                    "optional": true
+                  },
+                  "url": {
+                    "fieldType": {
+                      "type": "string"
+                    },
+                    "optional": false
+                  },
+                  "volume": {
+                    "fieldType": {
+                      "type": "number"
+                    },
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "optional": true
+        },
+        "background": {
+          "fieldType": {
+            "type": "union",
+            "value": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "optional": true
+        },
+        "backgroundGradient": {
+          "fieldType": {
+            "type": "union",
+            "value": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "optional": true
+        },
+        "backgroundImageUrl": {
+          "fieldType": {
+            "type": "union",
+            "value": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "optional": true
+        },
+        "fps": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
+        "height": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
+        "name": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "projectId": {
+          "fieldType": {
+            "tableName": "videoProjects",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "stackAnimate": {
+          "fieldType": {
+            "type": "boolean"
+          },
+          "optional": true
+        },
+        "stackAspect": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "stackScale": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
+        "stackScatter": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
+        "stackStaggerMs": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
+        "templateId": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "width": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "videoRenders:get",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "videoRenders",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "videoRenders:listByOrg",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "limit": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "videoRenders:listByProject",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "projectId": {
+          "fieldType": {
+            "tableName": "videoProjects",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "videoRenders:remove",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "videoRenders",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "videoRenders:start",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "projectId": {
+          "fieldType": {
+            "tableName": "videoProjects",
+            "type": "id"
+          },
+          "optional": false
         }
       }
     },
