@@ -30,6 +30,7 @@ import {
   getImageModel,
   type ImageProvider,
 } from "@/convex/lib/imageModels";
+import { TIMEZONES, DEFAULT_TZ, tzAbbrev } from "@/lib/timezone";
 
 const THEMES = [
   { value: "light", label: "Light", icon: Sun },
@@ -42,9 +43,11 @@ export default function SettingsPage() {
 
   const settings = useQuery(api.settings.get, {});
   const setDefaultModel = useMutation(api.settings.setDefaultImageModel);
+  const setTimezone = useMutation(api.settings.setTimezone);
 
   const desiredKey = settings?.defaultImageModelKey ?? DEFAULT_MODEL_ID;
   const modelKey = getImageModel(desiredKey) ? desiredKey : DEFAULT_MODEL_ID;
+  const timezone = settings?.timezone ?? DEFAULT_TZ;
 
   return (
     <>
@@ -107,6 +110,34 @@ export default function SettingsPage() {
                       </SelectItem>
                     ))}
                   </SelectGroup>
+                ))}
+              </SelectContent>
+            </Select>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Scheduling</CardTitle>
+            <CardDescription>
+              Timezone used for the social calendar and scheduled posts.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Select
+              value={timezone}
+              onValueChange={(v) => {
+                setTimezone({ timezone: v }).catch(() => {});
+              }}
+            >
+              <SelectTrigger className="w-full sm:w-80">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TIMEZONES.map((tz) => (
+                  <SelectItem key={tz} value={tz}>
+                    {tz.replace(/_/g, " ")} ({tzAbbrev(tz)})
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>

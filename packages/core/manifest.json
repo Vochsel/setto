@@ -2920,6 +2920,22 @@
     "returns": null
   },
   {
+    "path": "settings:setTimezone",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "timezone": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
     "path": "shootLocations:add",
     "type": "Mutation",
     "args": {
@@ -3539,6 +3555,52 @@
     "returns": null
   },
   {
+    "path": "social:addMedia",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "socialPosts",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "media": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "object",
+              "value": {
+                "thumbnailUrl": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "type": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": false
+                },
+                "url": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": false
+                }
+              }
+            }
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
     "path": "social:posts",
     "type": "Query",
     "args": {
@@ -3643,11 +3705,103 @@
     "returns": null
   },
   {
+    "path": "social:update",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "channelIds": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "string"
+            }
+          },
+          "optional": true
+        },
+        "id": {
+          "fieldType": {
+            "tableName": "socialPosts",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "media": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "type": "object",
+              "value": {
+                "thumbnailUrl": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "type": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": false
+                },
+                "url": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": false
+                }
+              }
+            }
+          },
+          "optional": true
+        },
+        "scheduledAt": {
+          "fieldType": {
+            "type": "union",
+            "value": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "optional": true
+        },
+        "text": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
     "path": "socialNode:channels",
     "type": "Action",
     "args": {
       "type": "object",
       "value": {}
+    },
+    "returns": null
+  },
+  {
+    "path": "socialNode:publish",
+    "type": "Action",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "socialPosts",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
     },
     "returns": null
   },

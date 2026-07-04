@@ -215,6 +215,8 @@ export default defineSchema({
   settings: defineTable({
     orgId: v.string(),
     defaultImageModelKey: v.optional(v.string()),
+    // IANA timezone for scheduling social posts (default Australia/Sydney/AEST).
+    timezone: v.optional(v.string()),
   }).index("by_org", ["orgId"]),
 
   // Printify products cached for the workspace (production cost vs. retail).

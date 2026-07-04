@@ -5,7 +5,12 @@
  *
  * Public tools: social:posts, social:saveDraft, social:remove.
  */
-import { query, mutation, internalMutation } from "./_generated/server";
+import {
+  query,
+  mutation,
+  internalQuery,
+  internalMutation,
+} from "./_generated/server";
 import { v } from "convex/values";
 import { getScope, assertOrg } from "./lib/auth";
 
@@ -59,6 +64,41 @@ export const saveDraft = mutation({
   },
 });
 
+/** Edit a post's caption, schedule, channels, or status. */
+export const update = mutation({
+  args: {
+    id: v.id("socialPosts"),
+    text: v.optional(v.string()),
+    channelIds: v.optional(v.array(v.string())),
+    scheduledAt: v.optional(v.union(v.number(), v.null())),
+    media: v.optional(v.array(mediaItem)),
+  },
+  handler: async (ctx, { id, scheduledAt, ...rest }) => {
+    const scope = await getScope(ctx);
+    assertOrg(await ctx.db.get(id), scope);
+    const patch: Record<string, unknown> = { updatedAt: Date.now() };
+    for (const [k, val] of Object.entries(rest)) {
+      if (val !== undefined) patch[k] = val;
+    }
+    if (scheduledAt !== undefined)
+      patch.scheduledAt = scheduledAt ?? undefined;
+    await ctx.db.patch(id, patch);
+  },
+});
+
+/** Append media (e.g. another shoot image) to an existing post. */
+export const addMedia = mutation({
+  args: { id: v.id("socialPosts"), media: v.array(mediaItem) },
+  handler: async (ctx, { id, media }) => {
+    const scope = await getScope(ctx);
+    const doc = assertOrg(await ctx.db.get(id), scope);
+    // De-dupe by url so quick-adding the same image twice is a no-op.
+    const seen = new Set(doc.media.map((m) => m.url));
+    const merged = [...doc.media, ...media.filter((m) => !seen.has(m.url))];
+    await ctx.db.patch(id, { media: merged, updatedAt: Date.now() });
+  },
+});
+
 /** Delete a post record (does not unschedule on Buffer). */
 export const remove = mutation({
   args: { id: v.id("socialPosts") },
@@ -92,6 +132,16 @@ export const create = internalMutation({
       createdAt: now,
       updatedAt: now,
     });
+  },
+});
+
+/** Load a post for the publish action (org-scoped). */
+export const get = internalQuery({
+  args: { id: v.id("socialPosts"), orgId: v.string() },
+  handler: async (ctx, { id, orgId }) => {
+    const doc = await ctx.db.get(id);
+    if (!doc || doc.orgId !== orgId) return null;
+    return doc;
   },
 });
 

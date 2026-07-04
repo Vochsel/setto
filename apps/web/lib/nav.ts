@@ -12,6 +12,8 @@ import {
   SlidersHorizontal,
   Settings,
   Activity,
+  ShoppingBag,
+  Send,
   type LucideIcon,
 } from "lucide-react";
 
@@ -41,4 +43,9 @@ export const libraryNav: NavItem[] = [
   { title: "Wardrobe", href: "/outfits", icon: Shirt },
   { title: "Locations", href: "/locations", icon: MapPin },
   { title: "Presets", href: "/presets", icon: SlidersHorizontal },
+];
+
+export const commerceNav: NavItem[] = [
+  { title: "Store", href: "/store", icon: ShoppingBag },
+  { title: "Social", href: "/social", icon: Send },
 ];
