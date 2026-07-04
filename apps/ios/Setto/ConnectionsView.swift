@@ -88,10 +88,7 @@ private struct ProviderRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: provider.symbol)
-                .font(.title3)
-                .foregroundStyle(.tint)
-                .frame(width: 32)
+            BrandBadge(provider: provider.rawValue, size: 36)
             VStack(alignment: .leading, spacing: 2) {
                 Text(provider.title).font(.body.weight(.medium))
                 Text(connection?.label ?? provider.blurb)
