@@ -344,6 +344,30 @@ export default defineSchema({
     archived: v.optional(v.boolean()),
   }).index("by_org", ["orgId"]),
 
+  // --- Street View cache --------------------------------------------------
+  // Deduplicated Google Street View Static API captures, keyed by the exact
+  // request parameters (rounded coords + heading/pitch/fov/size). Repeat
+  // captures of the same spot reuse the stored frame instead of re-billing the
+  // Google API. Rows are org-agnostic (a public panorama is the same for
+  // everyone) and their storage files are shared by every location that
+  // references them, so removing a location's ref never deletes the cached
+  // file. See `convex/streetview.ts`.
+  streetViewCache: defineTable({
+    key: v.string(), // `${lat}|${lng}|${heading}|${pitch}|${fov}|${size}`
+    storageId: v.id("_storage"),
+    createdAt: v.number(),
+  }).index("by_key", ["key"]),
+
+  // Cache of positive imagery-availability probes, keyed by rounded coords: a
+  // row's presence means "Street View exists here", letting a repeat capture
+  // skip the metadata round-trip. Negatives are intentionally not cached —
+  // imagery only gets added to a spot over time, so "no imagery" stays
+  // re-probeable.
+  streetViewMetaCache: defineTable({
+    key: v.string(), // `${lat}|${lng}`
+    createdAt: v.number(),
+  }).index("by_key", ["key"]),
+
   // --- Library: outfit categories (editable taxonomy) ---------------------
   outfitCategories: defineTable({
     orgId: v.string(),
