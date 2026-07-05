@@ -15,7 +15,7 @@ import {
   CalendarPlus,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useMutation } from "convex/react";
+import { useAction } from "convex/react";
 import {
   Dialog,
   DialogContent,
@@ -24,7 +24,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { AnimatePopover } from "@/components/animate-popover";
 import { VariationsPopover } from "@/components/variations-popover";
-import { ImageCropper } from "@/components/image-cropper";
+import { ImageCropper, type CropRect } from "@/components/image-cropper";
 import { QuickSchedule } from "@/components/social/quick-schedule";
 import {
   ReviewControls,
@@ -177,12 +177,11 @@ export function ImageLightbox({
   const hasPrev = open && index > 0;
   const hasNext = open && index < images.length - 1;
 
-  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
-  const replaceImage = useMutation(api.generations.replaceImage);
+  const cropImage = useAction(api.generate.cropImage);
   const [cropping, setCropping] = useState(false);
   const [cropBusy, setCropBusy] = useState(false);
-  // A local object-URL preview of a just-cropped image, shown instantly until
-  // Convex reactivity flows the new URL back through `images`.
+  // The just-cropped image URL, shown immediately once the server returns it,
+  // until Convex reactivity flows the same URL back through `images`.
   const [localSrc, setLocalSrc] = useState<string | null>(null);
   const canCrop = !isVideo && !!current?.generationId && !!current?.url;
   const displaySrc = localSrc ?? current?.url;
@@ -218,10 +217,7 @@ export function ImageLightbox({
   // Clear crop mode + any local preview when leaving an item (nav / close).
   function resetCrop() {
     setCropping(false);
-    setLocalSrc((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return null;
-    });
+    setLocalSrc(null);
   }
   function go(i: number) {
     resetCrop();
@@ -233,22 +229,15 @@ export function ImageLightbox({
     onClose();
   }
 
-  async function handleCrop(blob: Blob) {
+  async function handleCrop(rect: CropRect) {
     if (!current?.generationId) return;
     setCropBusy(true);
     try {
-      const uploadUrl = await generateUploadUrl();
-      const res = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": blob.type },
-        body: blob,
-      });
-      const { storageId } = await res.json();
-      await replaceImage({
+      const { url } = await cropImage({
         id: current.generationId as Id<"generations">,
-        storageId,
+        rect,
       });
-      setLocalSrc(URL.createObjectURL(blob));
+      if (url) setLocalSrc(url);
       setCropping(false);
       toast.success("Image cropped");
     } catch (e) {
@@ -272,10 +261,7 @@ export function ImageLightbox({
       if (cropping) return; // let the cropper own the keyboard while active
       const move = (to: number) => {
         setCropping(false);
-        setLocalSrc((prev) => {
-          if (prev) URL.revokeObjectURL(prev);
-          return null;
-        });
+        setLocalSrc(null);
         viewedKey.current = itemKey(images[to]);
         onIndexChange(to);
       };

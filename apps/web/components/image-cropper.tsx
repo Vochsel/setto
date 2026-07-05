@@ -5,7 +5,8 @@ import { X, Loader2, Crop as CropIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-type Rect = { x: number; y: number; w: number; h: number };
+export type CropRect = { x: number; y: number; w: number; h: number };
+type Rect = CropRect;
 type Handle = "move" | "nw" | "ne" | "sw" | "se";
 
 const MIN = 0.05; // smallest crop, as a fraction of the image
@@ -13,8 +14,10 @@ const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
 
 /**
  * A free-form crop overlay. Renders the image with a draggable / resizable crop
- * box (rule-of-thirds guides + corner handles). On Apply it fetches the source
- * bytes, crops to the selected region on a canvas, and hands back a Blob.
+ * box (rule-of-thirds guides + corner handles). On Apply it hands back the
+ * selected region as a normalized rectangle (fractions 0..1); the actual crop
+ * runs server-side so it works on R2 images and stays fast (no full-image
+ * download / re-encode / re-upload in the browser).
  */
 export function ImageCropper({
   src,
@@ -25,7 +28,7 @@ export function ImageCropper({
   src: string;
   busy?: boolean;
   onCancel: () => void;
-  onApply: (blob: Blob) => void | Promise<void>;
+  onApply: (rect: CropRect) => void | Promise<void>;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [rect, setRect] = useState<Rect>({ x: 0.08, y: 0.08, w: 0.84, h: 0.84 });
@@ -80,34 +83,6 @@ export function ImageCropper({
     drag.current = { handle, start: rect, ptr: frac(e) };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", endDrag);
-  }
-
-  async function apply() {
-    const res = await fetch(src);
-    const blob = await res.blob();
-    const bmp = await createImageBitmap(blob);
-    const sx = Math.round(rect.x * bmp.width);
-    const sy = Math.round(rect.y * bmp.height);
-    const sw = Math.max(1, Math.round(rect.w * bmp.width));
-    const sh = Math.max(1, Math.round(rect.h * bmp.height));
-    const canvas = document.createElement("canvas");
-    canvas.width = sw;
-    canvas.height = sh;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) {
-      bmp.close();
-      return;
-    }
-    ctx.drawImage(bmp, sx, sy, sw, sh, 0, 0, sw, sh);
-    bmp.close();
-    const type =
-      blob.type === "image/png" || blob.type === "image/webp"
-        ? blob.type
-        : "image/jpeg";
-    const out = await new Promise<Blob | null>((r) =>
-      canvas.toBlob(r, type, 0.95),
-    );
-    if (out) await onApply(out);
   }
 
   const pct = (n: number) => `${n * 100}%`;
@@ -169,13 +144,13 @@ export function ImageCropper({
         <Button variant="secondary" onClick={onCancel} disabled={busy}>
           <X className="h-4 w-4" /> Cancel
         </Button>
-        <Button onClick={apply} disabled={busy}>
+        <Button onClick={() => onApply(rect)} disabled={busy}>
           {busy ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <CropIcon className="h-4 w-4" />
           )}
-          Apply crop
+          {busy ? "Cropping…" : "Apply crop"}
         </Button>
       </div>
     </div>

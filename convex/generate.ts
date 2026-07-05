@@ -11,6 +11,8 @@ import {
   BASE_VARIATION_ID,
 } from "./lib/prompt";
 import {
+  fetchBytes,
+  cropImageBytes,
   storeImageFromUrl,
   storeImageWithThumbnail,
   type StoredImage,
@@ -422,6 +424,59 @@ export const generateShot = action({
       }
     }
     return { generationIds };
+  },
+});
+
+/**
+ * Crop a generation's image, server-side. The client sends only a normalized
+ * rectangle; we fetch the current image (works for both R2 and Convex storage
+ * with no browser cross-origin canvas read), crop + regenerate the WebP
+ * thumbnail with sharp, store the result (R2 when configured, else Convex), and
+ * repoint the generation. Returns the new image URL.
+ *
+ * This keeps crop working under R2 (public buckets don't serve CORS headers, so
+ * a client-side `fetch(url)` + canvas crop fails) and is faster for the user:
+ * they upload a tiny rect instead of downloading the full image and re-uploading
+ * megabytes. Used by the fullscreen crop tool.
+ */
+export const cropImage = action({
+  args: {
+    id: v.id("generations"),
+    // Crop rectangle as fractions (0..1) of the displayed image.
+    rect: v.object({
+      x: v.number(),
+      y: v.number(),
+      w: v.number(),
+      h: v.number(),
+    }),
+  },
+  handler: async (ctx, { id, rect }): Promise<{ url: string | null }> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const userId = identity.subject;
+    const orgId = (identity.org_id as string | undefined) ?? `user:${userId}`;
+
+    const src = await ctx.runQuery(internal.generations.cropSource, { id });
+    if (src.orgId !== orgId) throw new Error("Not found");
+    if (!src.url) throw new Error("Image not available");
+
+    const { bytes, contentType } = await fetchBytes(src.url);
+    const cropped = await cropImageBytes(bytes, contentType, rect);
+    const stored = await storeImageWithThumbnail(
+      ctx,
+      cropped.bytes,
+      cropped.contentType,
+    );
+    await ctx.runMutation(internal.generations.applyCrop, {
+      id,
+      imageUrl: stored.url,
+      storageId: stored.storageId,
+      thumbnailUrl: stored.thumbnailUrl ?? stored.url,
+      thumbStorageId: stored.thumbStorageId,
+      freeStorageId: src.storageId,
+      freeThumbStorageId: src.thumbStorageId,
+    });
+    return { url: stored.url };
   },
 });
 

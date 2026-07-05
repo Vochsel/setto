@@ -78,6 +78,67 @@ export async function storeFromUrl(
   return { ...stored, bytes, contentType };
 }
 
+/** A crop rectangle as fractions of the (displayed, EXIF-oriented) image. */
+export interface CropRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/**
+ * Crop image bytes to a normalized rectangle and re-encode, preserving PNG/WebP
+ * (else JPEG). The rect is in the coordinate space of the *displayed* image, so
+ * EXIF orientation is baked in first when present — otherwise a rotated phone
+ * photo would crop the wrong region. Done server-side so crop works on R2 images
+ * without any browser cross-origin canvas read. Throws on undecodable input.
+ */
+export async function cropImageBytes(
+  bytes: Buffer,
+  contentType: string,
+  rect: CropRect,
+): Promise<{ bytes: Buffer; contentType: string }> {
+  const meta = await sharp(bytes).metadata();
+  // EXIF orientations 5–8 are 90°/270° rotations, which swap width/height as
+  // displayed. Only re-encode to an upright buffer when rotation is actually
+  // needed — the common case (AI-generated images, orientation 1) stays a
+  // single decode/encode.
+  let img: Buffer = bytes;
+  let W = meta.width ?? 0;
+  let H = meta.height ?? 0;
+  if ((meta.orientation ?? 1) !== 1) {
+    const upright = await sharp(bytes)
+      .rotate()
+      .toBuffer({ resolveWithObject: true });
+    img = upright.data;
+    W = upright.info.width;
+    H = upright.info.height;
+  }
+  if (!W || !H) throw new Error("Unreadable image dimensions");
+
+  const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
+  const left = Math.min(W - 1, Math.round(clamp01(rect.x) * W));
+  const top = Math.min(H - 1, Math.round(clamp01(rect.y) * H));
+  const width = Math.max(1, Math.min(W - left, Math.round(clamp01(rect.w) * W)));
+  const height = Math.max(1, Math.min(H - top, Math.round(clamp01(rect.h) * H)));
+
+  const pipeline = sharp(img).extract({ left, top, width, height });
+  const type = contentType.split(";")[0].trim();
+  if (type === "image/png") {
+    return { bytes: await pipeline.png().toBuffer(), contentType: "image/png" };
+  }
+  if (type === "image/webp") {
+    return {
+      bytes: await pipeline.webp({ quality: 95 }).toBuffer(),
+      contentType: "image/webp",
+    };
+  }
+  return {
+    bytes: await pipeline.jpeg({ quality: 95 }).toBuffer(),
+    contentType: "image/jpeg",
+  };
+}
+
 /** Resize image bytes to a small WebP thumbnail. Throws on undecodable input. */
 export async function makeThumbnail(bytes: Buffer): Promise<Buffer> {
   return await sharp(bytes)

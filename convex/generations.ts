@@ -566,16 +566,85 @@ export const replaceImage = mutation({
   handler: async (ctx, { id, storageId }) => {
     const scope = await getScope(ctx);
     const gen = assertOrg(await ctx.db.get(id), scope);
-    // Free the previous stored file (best effort) — the crop is destructive.
-    if (gen.storageId && gen.storageId !== storageId) {
-      try {
-        await ctx.storage.delete(gen.storageId);
-      } catch {
-        // Old file may already be gone; ignore.
+    // Free the previous stored file + its thumbnail (best effort) — the crop is
+    // destructive.
+    for (const old of [gen.storageId, gen.thumbStorageId]) {
+      if (old && old !== storageId) {
+        try {
+          await ctx.storage.delete(old);
+        } catch {
+          // Old file may already be gone; ignore.
+        }
       }
     }
-    await ctx.db.patch(id, { storageId, imageUrl: undefined });
+    // Clear the external/R2 imageUrl and the now-stale thumbnail so the cropped
+    // image resolves from the new storage id, and grids fall back to it rather
+    // than showing the old uncropped thumbnail.
+    await ctx.db.patch(id, {
+      storageId,
+      imageUrl: undefined,
+      thumbnailUrl: undefined,
+      thumbStorageId: undefined,
+    });
     const url = await ctx.storage.getUrl(storageId);
     return { url: url ?? null };
+  },
+});
+
+/**
+ * Resolve a generation's current full-res image URL + the storage ids backing
+ * it, for the server-side crop action ({@link api.generate.cropImage}). The
+ * caller (an action) enforces access using the returned `orgId`.
+ */
+export const cropSource = internalQuery({
+  args: { id: v.id("generations") },
+  handler: async (ctx, { id }) => {
+    const gen = await ctx.db.get(id);
+    if (!gen) throw new Error("Not found");
+    let url = gen.imageUrl;
+    if (!url && gen.storageId) {
+      url = (await ctx.storage.getUrl(gen.storageId)) ?? undefined;
+    }
+    return {
+      orgId: gen.orgId,
+      url,
+      storageId: gen.storageId,
+      thumbStorageId: gen.thumbStorageId,
+    };
+  },
+});
+
+/**
+ * Commit a crop: repoint the generation at the freshly-stored cropped image +
+ * thumbnail, and free the previous Convex-stored files (best effort). R2 objects
+ * are content-immutable (fresh UUID keys) and left to bucket lifecycle rules.
+ */
+export const applyCrop = internalMutation({
+  args: {
+    id: v.id("generations"),
+    imageUrl: v.optional(v.string()),
+    storageId: v.optional(v.id("_storage")),
+    thumbnailUrl: v.optional(v.string()),
+    thumbStorageId: v.optional(v.id("_storage")),
+    freeStorageId: v.optional(v.id("_storage")),
+    freeThumbStorageId: v.optional(v.id("_storage")),
+  },
+  handler: async (ctx, args) => {
+    const { id, freeStorageId, freeThumbStorageId, ...fields } = args;
+    await ctx.db.patch(id, {
+      imageUrl: fields.imageUrl,
+      storageId: fields.storageId,
+      thumbnailUrl: fields.thumbnailUrl,
+      thumbStorageId: fields.thumbStorageId,
+    });
+    for (const old of [freeStorageId, freeThumbStorageId]) {
+      if (old && old !== fields.storageId && old !== fields.thumbStorageId) {
+        try {
+          await ctx.storage.delete(old);
+        } catch {
+          // Already gone; ignore.
+        }
+      }
+    }
   },
 });
