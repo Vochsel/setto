@@ -70,6 +70,9 @@ enum IntegrationProvider: String, CaseIterable, Identifiable {
     }
     /// Shopify also needs its store domain (stored in `meta.domain`).
     var needsDomain: Bool { self == .shopify }
+    /// Shopify authenticates via the Setto app's server-side credentials, so it
+    /// has no user-pasted secret — the connect form asks only for the domain.
+    var needsSecret: Bool { self != .shopify }
 }
 
 // MARK: - Store (Printify)

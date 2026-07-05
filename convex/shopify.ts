@@ -56,8 +56,8 @@ function mapProduct(p: ShopifyProduct, domain: string) {
 export const products = action({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, { limit }) => {
-    const { scope, secret, meta } = await loadConnection(ctx, "shopify");
-    const raw = await shopifyListProducts(secret, meta, limit ?? 50);
+    const { scope, meta } = await loadConnection(ctx, "shopify");
+    const raw = await shopifyListProducts(meta, limit ?? 50);
     await markUsed(ctx, scope, "shopify");
     return raw.map((p) => ({
       externalId: `shopify:${p.id}`,
@@ -80,9 +80,9 @@ export interface SyncResult {
 export const sync = action({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, { limit }): Promise<SyncResult> => {
-    const { scope, secret, meta } = await loadConnection(ctx, "shopify");
+    const { scope, meta } = await loadConnection(ctx, "shopify");
     const domain = shopifyDomain(meta);
-    const raw = await shopifyListProducts(secret, meta, limit);
+    const raw = await shopifyListProducts(meta, limit);
     const mapped = raw.map((p) => mapProduct(p, domain));
     const result = await ctx.runMutation(internal.shopifyData.applyProducts, {
       products: mapped,

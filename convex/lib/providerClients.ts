@@ -33,20 +33,68 @@ function shopifyApiVersion(meta: Record<string, unknown>): string {
   return String(meta.apiVersion ?? SHOPIFY_API_VERSION);
 }
 
+/**
+ * Mint a Shopify Admin API access token via the client-credentials grant.
+ *
+ * Since Jan 2026 the legacy "paste a permanent shpat_ token" custom-app flow is
+ * gone — Dev Dashboard apps exchange the app's Client ID + Secret for a 24h
+ * token (`expires_in: 86399`). We hold those app-level credentials in env
+ * (SHOPIFY_CLIENT_ID / SHOPIFY_SECRET) and mint a fresh token per operation, so
+ * there is no token to store or refresh. Only works when the app and the store
+ * belong to the same Shopify organization.
+ * See https://shopify.dev/docs/apps/build/dev-dashboard/get-api-access-tokens
+ */
+export async function shopifyAccessToken(
+  meta: Record<string, unknown>,
+): Promise<string> {
+  const domain = shopifyDomain(meta);
+  const clientId = process.env.SHOPIFY_CLIENT_ID;
+  const clientSecret = process.env.SHOPIFY_SECRET;
+  if (!clientId || !clientSecret) {
+    throw new Error(
+      "Shopify app credentials not configured (SHOPIFY_CLIENT_ID / SHOPIFY_SECRET).",
+    );
+  }
+  const res = await fetch(`https://${domain}/admin/oauth/access_token`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "application/json",
+    },
+    body: new URLSearchParams({
+      grant_type: "client_credentials",
+      client_id: clientId,
+      client_secret: clientSecret,
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(
+      res.status === 401 || res.status === 403
+        ? "Shopify rejected the app credentials (check SHOPIFY_CLIENT_ID/SHOPIFY_SECRET, the store domain, and that the Setto app is installed on this store)."
+        : `Shopify token exchange failed (${res.status}): ${body.slice(0, 200)}`,
+    );
+  }
+  const { access_token } = (await res.json()) as { access_token?: string };
+  if (!access_token)
+    throw new Error("Shopify token exchange returned no access_token.");
+  return access_token;
+}
+
 /** Authenticated Shopify Admin REST request. Returns parsed JSON. */
 export async function shopifyFetch<T = unknown>(
-  secret: string,
   meta: Record<string, unknown>,
   path: string,
   init?: RequestInit,
 ): Promise<T> {
   const domain = shopifyDomain(meta);
   const version = shopifyApiVersion(meta);
+  const token = await shopifyAccessToken(meta);
   const url = `https://${domain}/admin/api/${version}/${path.replace(/^\//, "")}`;
   const res = await fetch(url, {
     ...init,
     headers: {
-      "X-Shopify-Access-Token": secret,
+      "X-Shopify-Access-Token": token,
       "Content-Type": "application/json",
       Accept: "application/json",
       ...(init?.headers ?? {}),
@@ -92,12 +140,13 @@ export interface ShopifyProduct {
  * (the `Link` header). Stops at `max` products if given.
  */
 export async function shopifyListProducts(
-  secret: string,
   meta: Record<string, unknown>,
   max?: number,
 ): Promise<ShopifyProduct[]> {
   const domain = shopifyDomain(meta);
   const version = shopifyApiVersion(meta);
+  // Mint one token and reuse it across every page of the pagination loop.
+  const token = await shopifyAccessToken(meta);
   const out: ShopifyProduct[] = [];
   let url:
     | string
@@ -105,7 +154,7 @@ export async function shopifyListProducts(
   while (url) {
     const res: Response = await fetch(url, {
       headers: {
-        "X-Shopify-Access-Token": secret,
+        "X-Shopify-Access-Token": token,
         Accept: "application/json",
       },
     });
@@ -409,8 +458,9 @@ export async function verifyProvider(
 ): Promise<VerifyOk> {
   switch (provider) {
     case "shopify": {
+      // Shopify auths via the env app credentials (minted inside shopifyFetch),
+      // not the per-connection `secret` — that arg is unused for this provider.
       const { shop } = await shopifyFetch<{ shop: { name?: string } }>(
-        secret,
         meta,
         "shop.json",
       );

@@ -45,8 +45,10 @@ type ProviderDef = {
   id: "shopify" | "printify" | "buffer";
   name: string;
   blurb: string;
-  secretLabel: string;
-  secretPlaceholder: string;
+  /** Providers that authenticate via app-level env credentials need no pasted token. */
+  secretless?: boolean;
+  secretLabel?: string;
+  secretPlaceholder?: string;
   metaFields: Field[];
   help: { label: string; url: string };
 };
@@ -56,8 +58,8 @@ const PROVIDERS: ProviderDef[] = [
     id: "shopify",
     name: "Shopify",
     blurb: "Sync your product catalog in as wardrobe to shoot.",
-    secretLabel: "Admin API access token",
-    secretPlaceholder: "shpat_…",
+    // Shopify auths via the Setto app's credentials (server env) — no token to paste.
+    secretless: true,
     metaFields: [
       {
         key: "domain",
@@ -67,8 +69,8 @@ const PROVIDERS: ProviderDef[] = [
       },
     ],
     help: {
-      label: "Create a custom app",
-      url: "https://help.shopify.com/en/manual/apps/app-types/custom-apps",
+      label: "Find your store domain",
+      url: "https://help.shopify.com/en/manual/domains",
     },
   },
   {
@@ -176,12 +178,13 @@ function ProviderRow({
       (f) => f.required && !meta[f.key]?.trim(),
     );
     if (missing) return toast.error(`${missing.label} is required`);
-    if (!secret.trim()) return toast.error(`${def.secretLabel} is required`);
+    if (!def.secretless && !secret.trim())
+      return toast.error(`${def.secretLabel} is required`);
     setBusy(true);
     try {
       const res = await connect({
         provider: def.id,
-        secret: secret.trim(),
+        secret: def.secretless ? "" : secret.trim(),
         meta,
       });
       if (res.ok) {
@@ -288,15 +291,24 @@ function ProviderRow({
                 </div>
               ))}
               <div className="space-y-1.5">
-                <Label htmlFor={`${def.id}-secret`}>{def.secretLabel}</Label>
-                <Input
-                  id={`${def.id}-secret`}
-                  type="password"
-                  autoComplete="off"
-                  placeholder={def.secretPlaceholder}
-                  value={secret}
-                  onChange={(e) => setSecret(e.target.value)}
-                />
+                {def.secretless ? (
+                  <p className="text-muted-foreground text-xs">
+                    No token needed — Setto connects with the Setto app&apos;s
+                    credentials. Just enter your store domain.
+                  </p>
+                ) : (
+                  <>
+                    <Label htmlFor={`${def.id}-secret`}>{def.secretLabel}</Label>
+                    <Input
+                      id={`${def.id}-secret`}
+                      type="password"
+                      autoComplete="off"
+                      placeholder={def.secretPlaceholder}
+                      value={secret}
+                      onChange={(e) => setSecret(e.target.value)}
+                    />
+                  </>
+                )}
                 <a
                   href={def.help.url}
                   target="_blank"

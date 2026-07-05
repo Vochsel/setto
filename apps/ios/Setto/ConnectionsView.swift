@@ -157,7 +157,8 @@ private struct ConnectSheet: View {
     @State private var error: String?
 
     private var canConnect: Bool {
-        !secret.trimmingCharacters(in: .whitespaces).isEmpty
+        (!provider.needsSecret
+            || !secret.trimmingCharacters(in: .whitespaces).isEmpty)
             && (!provider.needsDomain
                 || !domain.trimmingCharacters(in: .whitespaces).isEmpty)
     }
@@ -173,10 +174,19 @@ private struct ConnectSheet: View {
                             .keyboardType(.URL)
                     }
                 }
-                Section(provider.secretLabel) {
-                    SecureField("Paste your key", text: $secret)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
+                if provider.needsSecret {
+                    Section(provider.secretLabel) {
+                        SecureField("Paste your key", text: $secret)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                    }
+                } else {
+                    Section {
+                        Text(
+                            "No token needed — Setto connects with the app's credentials."
+                        )
+                        .font(.footnote).foregroundStyle(.secondary)
+                    }
                 }
                 if let error {
                     Section {
