@@ -19,6 +19,8 @@ export interface MasonryPhoto {
   imageUrl?: string; // image url (kind "image")
   videoUrl?: string; // video url (kind "video")
   posterUrl?: string; // poster frame for a video tile
+  /** Small WebP thumbnail for the grid tile (full-res still opens in lightbox). */
+  thumbnailUrl?: string;
   caption?: string;
   /** Source generation id for an image — enables "Animate" in the lightbox. */
   generationId?: string;
@@ -37,6 +39,7 @@ type ImageRow = ReviewRow & {
   _id: string;
   _creationTime: number;
   imageUrl?: string;
+  thumbnailUrl?: string;
   modelLabel?: string;
 };
 type VideoRow = ReviewRow & {
@@ -44,6 +47,7 @@ type VideoRow = ReviewRow & {
   _creationTime: number;
   videoUrl?: string;
   posterUrl?: string;
+  thumbnailUrl?: string;
   modelLabel?: string;
 };
 
@@ -64,6 +68,7 @@ export function mergeMedia(
         _id: p._id,
         kind: "image" as const,
         imageUrl: p.imageUrl,
+        thumbnailUrl: p.thumbnailUrl,
         caption: p.modelLabel,
         generationId: p._id, // image rows come from `generations`
         rating: p.rating,
@@ -78,6 +83,7 @@ export function mergeMedia(
         kind: "video" as const,
         videoUrl: v.videoUrl,
         posterUrl: v.posterUrl,
+        thumbnailUrl: v.thumbnailUrl,
         caption: v.modelLabel,
         rating: v.rating,
         reviewStatus: v.reviewStatus,
@@ -89,9 +95,12 @@ export function mergeMedia(
     .map((x) => x.photo);
 }
 
-/** The thumbnail a tile renders: the image, or a video's poster frame. */
+/** The thumbnail a tile renders: prefer the small WebP thumbnail, then fall
+ * back to the full image / video poster. */
 function thumbOf(p: MasonryPhoto): string | undefined {
-  return p.kind === "video" ? p.posterUrl : p.imageUrl;
+  return (
+    p.thumbnailUrl ?? (p.kind === "video" ? p.posterUrl : p.imageUrl)
+  );
 }
 
 /** Whether a photo has the media it needs to be shown. */
@@ -162,7 +171,7 @@ function MasonryTile({
             // fullscreen player (with sound). Poster covers initial load.
             <video
               src={photo.videoUrl}
-              poster={photo.posterUrl}
+              poster={thumb}
               autoPlay
               muted
               loop
@@ -170,10 +179,10 @@ function MasonryTile({
               preload="metadata"
               className="pointer-events-none w-full"
             />
-          ) : photo.posterUrl ? (
+          ) : thumb ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={photo.posterUrl}
+              src={thumb}
               alt={photo.caption ?? ""}
               loading="lazy"
               className="w-full"

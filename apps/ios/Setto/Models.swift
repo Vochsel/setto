@@ -115,6 +115,8 @@ struct MediaItem: Identifiable, Decodable, Equatable {
     let kind: String  // "image" | "video"
     var url: String
     let posterUrl: String?
+    /// Small WebP thumbnail for grids (falls back to poster / full url).
+    let thumbnailUrl: String?
     var rating: Int?
     var reviewStatus: String?  // "approved" | "rejected" | "needs_changes"
     var favorite: Bool
@@ -124,13 +126,16 @@ struct MediaItem: Identifiable, Decodable, Equatable {
     let shootId: String?
 
     var isVideo: Bool { kind == "video" }
-    /// What a tile shows: the image, or a video's poster frame.
-    var thumbURL: URL? { URL(string: isVideo ? (posterUrl ?? url) : url) }
+    /// What a grid tile loads: the small thumbnail if present, else the video
+    /// poster / full image. The full-screen reel uses `url` directly.
+    var thumbURL: URL? {
+        URL(string: thumbnailUrl ?? (isVideo ? (posterUrl ?? url) : url))
+    }
 
     enum CodingKeys: String, CodingKey {
         case id = "_id"
-        case kind, url, posterUrl, rating, reviewStatus, favorite, modelLabel,
-            prompt, modelId, shootId
+        case kind, url, posterUrl, thumbnailUrl, rating, reviewStatus, favorite,
+            modelLabel, prompt, modelId, shootId
     }
 }
 

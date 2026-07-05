@@ -6,6 +6,11 @@ import { v } from "convex/values";
 import { fal } from "@fal-ai/client";
 import { buildPrompt, buildCreativePrompt, BASE_VARIATION_ID } from "./lib/prompt";
 import {
+  storeImageFromUrl,
+  storeImageWithThumbnail,
+  type StoredImage,
+} from "./lib/media";
+import {
   getImageModel,
   buildFalInput,
   referenceGuidance,
@@ -727,12 +732,24 @@ export const runOne = internalAction({
           },
         });
         const data = result?.data ?? result;
-        const imageUrl = data?.images?.[0]?.url ?? data?.image?.url ?? data?.url;
-        if (!imageUrl) throw new Error("fal returned no image URL");
+        const falUrl = data?.images?.[0]?.url ?? data?.image?.url ?? data?.url;
+        if (!falUrl) throw new Error("fal returned no image URL");
+        // Own the bytes: download fal's output into Convex storage + make a
+        // thumbnail. If that fails, fall back to serving the fal URL directly so
+        // a storage hiccup never loses a successful generation.
+        let stored: StoredImage | null = null;
+        try {
+          stored = await storeImageFromUrl(ctx, falUrl);
+        } catch {
+          stored = null;
+        }
         await ctx.runMutation(internal.generations.attachResult, {
           id: args.genId,
           status: "succeeded",
-          imageUrl,
+          imageUrl: stored?.url ?? falUrl,
+          storageId: stored?.storageId,
+          thumbnailUrl: stored?.thumbnailUrl ?? stored?.url ?? falUrl,
+          thumbStorageId: stored?.thumbStorageId,
           seed: typeof data?.seed === "number" ? data.seed : undefined,
           falRequestId: result?.requestId,
         });
@@ -753,18 +770,16 @@ export const runOne = internalAction({
                 referenceImageUrls: args.referenceImageUrls,
                 aspectRatio: args.aspectRatio,
               });
-        const blob = new Blob([Buffer.from(out.b64, "base64")], {
-          type: out.mime,
-        });
-        const storageId = await ctx.storage.store(blob);
-        // Resolve the URL now and persist it so the UI never depends on a
-        // query-time getUrl (which can briefly return null right after store).
-        const imageUrl = (await ctx.storage.getUrl(storageId)) ?? undefined;
+        const bytes = Buffer.from(out.b64, "base64");
+        // Store the original + a WebP thumbnail (thumbnail is best-effort).
+        const stored = await storeImageWithThumbnail(ctx, bytes, out.mime);
         await ctx.runMutation(internal.generations.attachResult, {
           id: args.genId,
           status: "succeeded",
-          storageId,
-          imageUrl,
+          storageId: stored.storageId,
+          imageUrl: stored.url,
+          thumbnailUrl: stored.thumbnailUrl ?? stored.url,
+          thumbStorageId: stored.thumbStorageId,
         });
         await ctx.runMutation(internal.usage.recordForGeneration, {
           generationId: args.genId,

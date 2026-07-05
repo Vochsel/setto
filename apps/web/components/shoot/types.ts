@@ -36,6 +36,7 @@ export interface VideoDoc extends ReviewFields {
   status: "queued" | "generating" | "succeeded" | "failed";
   videoUrl?: string;
   posterUrl?: string;
+  thumbnailUrl?: string;
   modelKey: string;
   modelLabel?: string;
   prompt: string;
@@ -49,6 +50,7 @@ export interface GenerationDoc extends ReviewFields {
   _id: Id<"generations">;
   status: "queued" | "generating" | "succeeded" | "failed";
   imageUrl?: string;
+  thumbnailUrl?: string;
   variationId?: string;
   modelLabel?: string;
   modelKey: string;

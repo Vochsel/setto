@@ -94,6 +94,7 @@ export const favorites = query({
       _creationTime: number;
       url: string;
       posterUrl?: string;
+      thumbnailUrl?: string;
       rating?: number;
       reviewStatus?: "approved" | "rejected" | "needs_changes";
       favorite: boolean;
@@ -113,6 +114,7 @@ export const favorites = query({
         _id: g._id,
         _creationTime: g._creationTime,
         url,
+        thumbnailUrl: g.thumbnailUrl,
         rating: g.rating,
         reviewStatus: g.reviewStatus,
         favorite: true,
@@ -128,6 +130,7 @@ export const favorites = query({
         _creationTime: vd._creationTime,
         url: vd.videoUrl,
         posterUrl: vd.posterUrl,
+        thumbnailUrl: vd.thumbnailUrl ?? vd.posterUrl,
         rating: vd.rating,
         reviewStatus: vd.reviewStatus,
         favorite: true,
@@ -148,6 +151,7 @@ type FeedItem = {
   _creationTime: number;
   url: string;
   posterUrl?: string;
+  thumbnailUrl?: string;
   rating?: number;
   reviewStatus?: "approved" | "rejected" | "needs_changes";
   favorite: boolean;
@@ -213,6 +217,7 @@ export const feed = query({
           _id: g._id,
           _creationTime: g._creationTime,
           url,
+          thumbnailUrl: g.thumbnailUrl,
           rating: g.rating,
           reviewStatus: g.reviewStatus,
           favorite: g.favorite ?? false,
@@ -233,6 +238,7 @@ export const feed = query({
           _creationTime: vd._creationTime,
           url: vd.videoUrl,
           posterUrl: vd.posterUrl,
+          thumbnailUrl: vd.thumbnailUrl ?? vd.posterUrl,
           rating: vd.rating,
           reviewStatus: vd.reviewStatus,
           favorite: vd.favorite ?? false,

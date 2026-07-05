@@ -10,6 +10,8 @@
 
 import type * as ads from "../ads.js";
 import type * as audioTracks from "../audioTracks.js";
+import type * as backfillMedia from "../backfillMedia.js";
+import type * as backfillMediaData from "../backfillMediaData.js";
 import type * as campaignCreatives from "../campaignCreatives.js";
 import type * as campaigns from "../campaigns.js";
 import type * as copyChat from "../copyChat.js";
@@ -25,6 +27,7 @@ import type * as lib_auth from "../lib/auth.js";
 import type * as lib_connection from "../lib/connection.js";
 import type * as lib_crypto from "../lib/crypto.js";
 import type * as lib_imageModels from "../lib/imageModels.js";
+import type * as lib_media from "../lib/media.js";
 import type * as lib_openai from "../lib/openai.js";
 import type * as lib_prompt from "../lib/prompt.js";
 import type * as lib_providerClients from "../lib/providerClients.js";
@@ -63,6 +66,8 @@ import type {
 declare const fullApi: ApiFromModules<{
   ads: typeof ads;
   audioTracks: typeof audioTracks;
+  backfillMedia: typeof backfillMedia;
+  backfillMediaData: typeof backfillMediaData;
   campaignCreatives: typeof campaignCreatives;
   campaigns: typeof campaigns;
   copyChat: typeof copyChat;
@@ -78,6 +83,7 @@ declare const fullApi: ApiFromModules<{
   "lib/connection": typeof lib_connection;
   "lib/crypto": typeof lib_crypto;
   "lib/imageModels": typeof lib_imageModels;
+  "lib/media": typeof lib_media;
   "lib/openai": typeof lib_openai;
   "lib/prompt": typeof lib_prompt;
   "lib/providerClients": typeof lib_providerClients;
