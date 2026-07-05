@@ -48,6 +48,7 @@ export const generate = mutation({
     modelKey: v.optional(v.string()),
     prompt: v.string(),
     durationSeconds: v.optional(v.number()),
+    generateAudio: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const scope = await getScope(ctx);
@@ -65,6 +66,10 @@ export const generate = mutation({
     const duration = model.durations.includes(requested)
       ? requested
       : model.defaultDuration;
+
+    // Audio only applies to models with a toggle; ignore the flag otherwise so
+    // the stored value and cost estimate stay accurate.
+    const generateAudio = model.supportsAudio ? !!args.generateAudio : undefined;
 
     const prompt = args.prompt.trim();
     if (!prompt) throw new Error("A prompt is required to animate an image");
@@ -91,6 +96,7 @@ export const generate = mutation({
       modelLabel: model.label,
       prompt,
       durationSeconds: duration,
+      generateAudio,
       status: "queued",
       progress: 0,
       progressLabel: "Queued",
@@ -103,6 +109,7 @@ export const generate = mutation({
       prompt,
       imageUrl: posterUrl,
       durationSeconds: duration,
+      generateAudio,
     });
 
     return { videoId };

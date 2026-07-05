@@ -722,6 +722,9 @@ export default defineSchema({
     modelLabel: v.optional(v.string()),
     prompt: v.string(),
     durationSeconds: v.number(), // chosen duration — drives cost
+    // Whether a synchronized audio track was requested (models with an audio
+    // toggle, e.g. Veo 3). Drives the higher audio-on cost estimate.
+    generateAudio: v.optional(v.boolean()),
     status: v.union(
       v.literal("queued"),
       v.literal("generating"),

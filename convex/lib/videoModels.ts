@@ -30,6 +30,12 @@ export interface VideoModel {
   /** Suffix some models want on the duration value, e.g. Luma wants "5s". */
   durationSuffix?: string;
   /**
+   * Send `duration` as a JSON number instead of a string. A few endpoints
+   * (e.g. Grok Imagine) type it as an integer; most fal i2v models want a
+   * string enum ("5"/"10"). Ignored when `durationSuffix` is set.
+   */
+  durationAsNumber?: boolean;
+  /**
    * Frame-based models (e.g. LTXV) take num_frames + frame_rate instead of a
    * duration. Set these and we derive num_frames = round(duration × fps).
    */
@@ -37,6 +43,24 @@ export interface VideoModel {
   frameRateParam?: string;
   fps?: number;
   falDefaultParams?: Record<string, unknown>;
+
+  // ── Audio ────────────────────────────────────────────────────────────────
+  /**
+   * This model exposes a toggle to generate a synchronized audio track
+   * (dialogue / ambience / SFX). We send `audioParam` and, when audio is on,
+   * bill at `audioPricePerSecond`. Veo 3 is the canonical example.
+   */
+  supportsAudio?: boolean;
+  /** The fal param that toggles audio, e.g. "generate_audio". */
+  audioParam?: string;
+  /** USD per second when audio is on (Veo 3 roughly doubles vs. audio off). */
+  audioPricePerSecond?: number;
+  /**
+   * Audio is native and always present (no toggle) — e.g. Grok Imagine bakes
+   * synchronized audio into every clip. `pricePerSecond` already includes it;
+   * the UI shows an "audio" badge rather than a switch.
+   */
+  audioAlwaysOn?: boolean;
 }
 
 export const VIDEO_MODELS: VideoModel[] = [
@@ -52,6 +76,67 @@ export const VIDEO_MODELS: VideoModel[] = [
     durations: [5, 10],
     defaultDuration: 5,
     durationParam: "duration",
+  },
+  {
+    id: "xai/grok-imagine-video/v1.5/image-to-video",
+    provider: "fal",
+    label: "Grok Imagine 1.5 — audio",
+    description:
+      "xAI Grok Imagine — lively, expressive motion with synchronized native audio (dialogue, ambience, SFX) baked into every clip.",
+    falEndpoint: "xai/grok-imagine-video/v1.5/image-to-video",
+    falImageParam: "image_url",
+    pricePerSecond: 0.07, // 720p, audio included
+    durations: [6],
+    defaultDuration: 6,
+    durationParam: "duration",
+    durationAsNumber: true, // Grok types duration as an integer
+    falDefaultParams: { resolution: "720p" },
+    audioAlwaysOn: true,
+  },
+  {
+    id: "fal-ai/veo3/image-to-video",
+    provider: "fal",
+    label: "Veo 3 — audio optional",
+    description:
+      "Google Veo 3 at full quality with an optional native audio track (dialogue, ambience, SFX). Top-tier realism; premium price, higher with audio.",
+    falEndpoint: "fal-ai/veo3/image-to-video",
+    falImageParam: "image_url",
+    pricePerSecond: 0.2, // 720p, audio off
+    durations: [4, 6, 8],
+    defaultDuration: 8,
+    durationParam: "duration",
+    durationSuffix: "s", // "4s" | "6s" | "8s"
+    supportsAudio: true,
+    audioParam: "generate_audio",
+    audioPricePerSecond: 0.4, // 720p, audio on
+  },
+  {
+    id: "fal-ai/bytedance/seedance/v1/pro/image-to-video",
+    provider: "fal",
+    label: "Seedance 1.0 Pro",
+    description:
+      "ByteDance Seedance 1.0 Pro — crisp, cinematic 1080p motion with strong subject stability and prompt adherence.",
+    falEndpoint: "fal-ai/bytedance/seedance/v1/pro/image-to-video",
+    falImageParam: "image_url",
+    pricePerSecond: 0.15, // ~$0.74 / 5s at 1080p
+    durations: [5, 10],
+    defaultDuration: 5,
+    durationParam: "duration", // "5" | "10"
+    falDefaultParams: { resolution: "1080p" },
+  },
+  {
+    id: "fal-ai/wan-25-preview/image-to-video",
+    provider: "fal",
+    label: "Wan 2.5",
+    description:
+      "Alibaba Wan 2.5 — high visual quality and diverse, natural motion at a low price. Great value at 720p.",
+    falEndpoint: "fal-ai/wan-25-preview/image-to-video",
+    falImageParam: "image_url",
+    pricePerSecond: 0.1, // 720p ($0.05/s 480p, $0.15/s 1080p)
+    durations: [5, 10],
+    defaultDuration: 5,
+    durationParam: "duration", // "5" | "10"
+    falDefaultParams: { resolution: "720p" },
   },
   {
     id: "fal-ai/pixverse/v4.5/image-to-video",
@@ -117,11 +202,24 @@ export function getVideoModel(id: string): VideoModel | undefined {
   return VIDEO_MODELS.find((m) => m.id === id);
 }
 
-/** Estimated USD cost for a video of `seconds` from this model (0 if unknown). */
-export function estimateVideoCost(modelKey: string, seconds: number): number {
+/**
+ * Estimated USD cost for a video of `seconds` from this model (0 if unknown).
+ * When `withAudio` is set and the model has a paid audio toggle, bills at the
+ * higher audio rate; native-audio models already price audio into
+ * `pricePerSecond`, so they're unaffected.
+ */
+export function estimateVideoCost(
+  modelKey: string,
+  seconds: number,
+  withAudio = false,
+): number {
   const m = getVideoModel(modelKey);
   if (!m) return 0;
-  return m.pricePerSecond * seconds;
+  const perSecond =
+    withAudio && m.supportsAudio && m.audioPricePerSecond != null
+      ? m.audioPricePerSecond
+      : m.pricePerSecond;
+  return perSecond * seconds;
 }
 
 /** Compact per-second price, e.g. "$0.07/s". Reuses imageModels' formatPrice. */
@@ -134,7 +232,14 @@ export function formatPricePerSecond(usd: number | undefined): string {
 /** Build the request body a fal i2v endpoint expects. */
 export function buildFalVideoInput(
   model: VideoModel,
-  args: { prompt: string; imageUrl: string; duration: number; seed?: number },
+  args: {
+    prompt: string;
+    imageUrl: string;
+    duration: number;
+    seed?: number;
+    /** Toggle audio on `supportsAudio` models (ignored otherwise). */
+    generateAudio?: boolean;
+  },
 ): Record<string, unknown> {
   const input: Record<string, unknown> = {
     prompt: args.prompt,
@@ -148,8 +253,17 @@ export function buildFalVideoInput(
     input[model.framesParam] = Math.round(args.duration * fps);
     if (model.frameRateParam) input[model.frameRateParam] = fps;
   } else if (model.durationParam) {
-    // fal i2v models take duration as a string, sometimes with a unit suffix.
-    input[model.durationParam] = `${args.duration}${model.durationSuffix ?? ""}`;
+    // Most fal i2v models take duration as a string enum ("5"/"10"), sometimes
+    // with a unit suffix ("5s"); a few (Grok) type it as an integer.
+    input[model.durationParam] =
+      model.durationAsNumber && !model.durationSuffix
+        ? args.duration
+        : `${args.duration}${model.durationSuffix ?? ""}`;
+  }
+  // Audio toggle (only for models that expose one). Native-audio models leave
+  // this unset — audio is always on and already priced in.
+  if (model.supportsAudio && model.audioParam) {
+    input[model.audioParam] = !!args.generateAudio;
   }
   return input;
 }

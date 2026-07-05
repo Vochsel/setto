@@ -183,7 +183,7 @@ export const recordForVideo = internalMutation({
       status,
       cost:
         status === "succeeded"
-          ? estimateVideoCost(g.modelKey, g.durationSeconds)
+          ? estimateVideoCost(g.modelKey, g.durationSeconds, g.generateAudio)
           : 0,
       durationSeconds: g.durationSeconds,
       videoId,

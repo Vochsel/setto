@@ -19,6 +19,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Volume2 } from "lucide-react";
 import { formatPrice } from "@/convex/lib/imageModels";
 import {
   VIDEO_MODELS,
@@ -52,6 +55,7 @@ export function AnimatePopover({
   const [open, setOpen] = useState(false);
   const [modelKey, setModelKey] = useState(DEFAULT_VIDEO_MODEL_ID);
   const [prompt, setPrompt] = useState(DEFAULT_MOTION_PROMPT);
+  const [generateAudio, setGenerateAudio] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const model = getVideoModel(modelKey) ?? VIDEO_MODELS[0];
@@ -60,6 +64,7 @@ export function AnimatePopover({
   const effectiveDuration = model.durations.includes(duration)
     ? duration
     : model.defaultDuration;
+  const audioOn = model.supportsAudio ? generateAudio : false;
 
   async function run() {
     if (!prompt.trim()) {
@@ -73,6 +78,7 @@ export function AnimatePopover({
         modelKey,
         prompt: prompt.trim(),
         durationSeconds: effectiveDuration,
+        generateAudio: audioOn,
       });
       toast.success("Animating image…");
       setOpen(false);
@@ -104,9 +110,12 @@ export function AnimatePopover({
           <SelectContent>
             {VIDEO_MODELS.map((m) => (
               <SelectItem key={m.id} value={m.id}>
-                <span className="flex w-full items-center justify-between gap-3">
+                <span className="flex w-full items-center gap-2">
                   <span className="truncate">{m.label}</span>
-                  <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
+                  {(m.audioAlwaysOn || m.supportsAudio) && (
+                    <Volume2 className="text-muted-foreground size-3 shrink-0" />
+                  )}
+                  <span className="text-muted-foreground ml-auto shrink-0 text-xs tabular-nums">
                     {formatPricePerSecond(m.pricePerSecond)}
                   </span>
                 </span>
@@ -114,6 +123,31 @@ export function AnimatePopover({
             ))}
           </SelectContent>
         </Select>
+
+        {/* Audio toggle — only for models that offer a paid audio track. Native-
+            audio models (Grok) show a static note instead. */}
+        {model.supportsAudio && (
+          <div className="flex items-center justify-between gap-2">
+            <Label
+              htmlFor="animate-audio"
+              className="flex items-center gap-1.5 text-xs font-normal"
+            >
+              <Volume2 className="size-3.5" />
+              Generate audio
+            </Label>
+            <Switch
+              id="animate-audio"
+              checked={generateAudio}
+              onCheckedChange={setGenerateAudio}
+            />
+          </div>
+        )}
+        {model.audioAlwaysOn && (
+          <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+            <Volume2 className="size-3.5" />
+            Includes synchronized audio
+          </p>
+        )}
 
         <div className="flex items-center gap-2">
           <Select
@@ -132,7 +166,9 @@ export function AnimatePopover({
             </SelectContent>
           </Select>
           <span className="text-muted-foreground text-xs tabular-nums">
-            Est. ~{formatPrice(estimateVideoCost(modelKey, effectiveDuration))}
+            Est. ~
+            {formatPrice(estimateVideoCost(modelKey, effectiveDuration, audioOn))}
+            {audioOn ? " (with audio)" : ""}
           </span>
         </div>
 

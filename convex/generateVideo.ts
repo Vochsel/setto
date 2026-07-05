@@ -19,6 +19,7 @@ export const runVideo = internalAction({
     prompt: v.string(),
     imageUrl: v.string(),
     durationSeconds: v.number(),
+    generateAudio: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const fail = async (error: string) => {
@@ -48,6 +49,7 @@ export const runVideo = internalAction({
         prompt: args.prompt,
         imageUrl: args.imageUrl,
         duration: args.durationSeconds,
+        generateAudio: args.generateAudio,
       });
 
       // Stream coarse progress back to the row as the fal queue advances. The
