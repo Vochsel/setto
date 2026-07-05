@@ -259,6 +259,8 @@ export const attachResult = internalMutation({
     status: v.union(v.literal("succeeded"), v.literal("failed")),
     imageUrl: v.optional(v.string()),
     storageId: v.optional(v.id("_storage")),
+    thumbnailUrl: v.optional(v.string()),
+    thumbStorageId: v.optional(v.id("_storage")),
     seed: v.optional(v.number()),
     falRequestId: v.optional(v.string()),
     error: v.optional(v.string()),
@@ -299,7 +301,7 @@ export const queueFeed = query({
 
     const page = await Promise.all(
       result.page.map(async (g) => {
-        let thumbUrl = g.imageUrl;
+        let thumbUrl = g.thumbnailUrl ?? g.imageUrl;
         if (!thumbUrl && g.storageId) {
           thumbUrl = (await ctx.storage.getUrl(g.storageId)) ?? undefined;
         }
@@ -350,6 +352,7 @@ export const listByOrg = query({
           _id: g._id,
           _creationTime: g._creationTime,
           imageUrl,
+          thumbnailUrl: g.thumbnailUrl ?? imageUrl,
           shootId: g.shootId,
           shotId: g.shotId,
           prompt: g.prompt,

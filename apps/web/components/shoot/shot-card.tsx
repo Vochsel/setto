@@ -660,7 +660,7 @@ function GenerationTile({
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={gen.imageUrl}
+            src={gen.thumbnailUrl ?? gen.imageUrl}
             alt=""
             className="h-full w-full object-cover"
           />
@@ -772,10 +772,10 @@ function VideoTile({
           onClick={onOpen}
           className="relative block h-full w-full cursor-pointer"
         >
-          {video.posterUrl ? (
+          {video.thumbnailUrl ?? video.posterUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={video.posterUrl}
+              src={video.thumbnailUrl ?? video.posterUrl}
               alt=""
               className="h-full w-full object-cover"
             />

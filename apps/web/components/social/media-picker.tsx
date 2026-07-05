@@ -38,19 +38,19 @@ export function MediaPicker({
       .filter((v) => v.videoUrl)
       .map((v) => ({
         key: `v:${v._id}`,
-        thumb: v.posterUrl,
+        thumb: v.thumbnailUrl ?? v.posterUrl,
         isVideo: true,
         media: {
           type: "video" as const,
           url: v.videoUrl!,
-          thumbnailUrl: v.posterUrl,
+          thumbnailUrl: v.thumbnailUrl ?? v.posterUrl,
         },
       })),
     ...(images ?? [])
       .filter((g) => g.imageUrl)
       .map((g) => ({
         key: `i:${g._id}`,
-        thumb: g.imageUrl,
+        thumb: g.thumbnailUrl ?? g.imageUrl,
         isVideo: false,
         media: { type: "image" as const, url: g.imageUrl! },
       })),

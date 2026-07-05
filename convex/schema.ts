@@ -647,6 +647,9 @@ export default defineSchema({
     progressLabel: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
     storageId: v.optional(v.id("_storage")),
+    // Small WebP thumbnail (~600px) for grids; falls back to imageUrl if absent.
+    thumbnailUrl: v.optional(v.string()),
+    thumbStorageId: v.optional(v.id("_storage")),
     seed: v.optional(v.number()),
     params: v.optional(v.any()),
     falRequestId: v.optional(v.string()),
@@ -686,9 +689,12 @@ export default defineSchema({
     ),
     progress: v.optional(v.number()), // 0..1
     progressLabel: v.optional(v.string()), // "In queue (3)", "Rendering…"
-    videoUrl: v.optional(v.string()), // fal-hosted url (kept directly)
+    videoUrl: v.optional(v.string()), // Convex storage url (synced from fal)
     posterUrl: v.optional(v.string()), // source image url, for thumbnail/poster
-    storageId: v.optional(v.id("_storage")), // parity; unused by default
+    // Small WebP poster thumbnail for grids; falls back to posterUrl if absent.
+    thumbnailUrl: v.optional(v.string()),
+    thumbStorageId: v.optional(v.id("_storage")),
+    storageId: v.optional(v.id("_storage")), // Convex storage id for the video
     seed: v.optional(v.number()),
     params: v.optional(v.any()),
     falRequestId: v.optional(v.string()),

@@ -1,9 +1,11 @@
 "use node";
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import { fal } from "@fal-ai/client";
 import { getVideoModel, buildFalVideoInput } from "./lib/videoModels";
+import { storeFromUrl, thumbnailFromUrl } from "./lib/media";
 
 /**
  * Execute a single queued video render against its fal i2v endpoint and store
@@ -79,17 +81,34 @@ export const runVideo = internalAction({
       });
 
       const data = result?.data ?? result;
-      const videoUrl =
+      const falUrl =
         data?.video?.url ??
         data?.video_url ??
         data?.videos?.[0]?.url ??
         data?.url;
-      if (!videoUrl) throw new Error("fal returned no video URL");
+      if (!falUrl) throw new Error("fal returned no video URL");
+
+      // Own the bytes: pull the fal video into Convex storage; fall back to the
+      // fal URL if that fails so a storage hiccup never loses the render.
+      let videoUrl = falUrl;
+      let storageId: Id<"_storage"> | undefined;
+      try {
+        const stored = await storeFromUrl(ctx, falUrl);
+        videoUrl = stored.url;
+        storageId = stored.storageId;
+      } catch {
+        // keep the fal URL
+      }
+      // A small WebP poster thumbnail from the source image, for grids.
+      const thumb = await thumbnailFromUrl(ctx, args.imageUrl);
 
       await ctx.runMutation(internal.videos.attachResult, {
         id: args.videoId,
         status: "succeeded",
         videoUrl,
+        storageId,
+        thumbnailUrl: thumb?.url,
+        thumbStorageId: thumb?.storageId,
         seed: typeof data?.seed === "number" ? data.seed : undefined,
         falRequestId: result?.requestId,
       });
