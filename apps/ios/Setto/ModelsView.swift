@@ -87,6 +87,7 @@ struct ModelDetailView: View {
     @State private var loading = false
     @State private var swipeStart: SwipeAnchor?
     @State private var headerHidden = false
+    @State private var showQuick = false
 
     var body: some View {
         Group {
@@ -134,11 +135,27 @@ struct ModelDetailView: View {
         .navigationTitle(model.name ?? "Model")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(headerHidden ? .hidden : .visible, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    showQuick = true
+                } label: {
+                    Image(systemName: "sparkles")
+                }
+            }
+        }
         .refreshable { await load() }
         .task { await load() }
         .fullScreenCover(item: $swipeStart) { anchor in
             SwipeFeedView(items: $items, startId: anchor.id)
                 .environmentObject(auth)
+        }
+        .sheet(isPresented: $showQuick) {
+            QuickCaptureView(
+                anchor: .model(id: model.id, name: model.name ?? "Model"),
+                onStarted: { Task { await load() } }
+            )
+            .environmentObject(auth)
         }
     }
 
