@@ -657,6 +657,163 @@ export const generateVariations = action({
 });
 
 /**
+ * "Quick capture": generate a photo tagged straight to a location, product
+ * (outfit) or model — with NO shoot. Two modes:
+ *  - "prompt":  text-only, like `generateShot` but sourced from the library
+ *               entity you're on (batch of `count`, reshuffled grounding).
+ *  - "capture": a real uploaded photo is the scene reference (like
+ *               `generateFromCapture`), composited into a single generation.
+ * The produced generation(s) carry the frozen model/outfit/location ids so the
+ * entity's gallery attributes them, but set no shotId/shootId.
+ */
+export const generateQuick = action({
+  args: {
+    mode: v.union(v.literal("prompt"), v.literal("capture")),
+    locationId: v.optional(v.id("locations")),
+    outfitId: v.optional(v.id("outfits")),
+    modelId: v.optional(v.id("models")),
+    variationId: v.optional(v.string()),
+    modelKey: v.optional(v.string()),
+    aspectRatio: v.optional(v.string()),
+    count: v.optional(v.number()),
+    posePrompt: v.optional(v.string()),
+    clothingPrompt: v.optional(v.string()),
+    extraPrompt: v.optional(v.string()),
+    captureStorageId: v.optional(v.id("_storage")),
+  },
+  handler: async (ctx, args): Promise<{ generationIds: string[] }> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const userId = identity.subject;
+    const orgId = (identity.org_id as string | undefined) ?? `user:${userId}`;
+
+    if (!args.locationId && !args.outfitId && !args.modelId) {
+      throw new Error("Pick a location, product, or model to tag the photo");
+    }
+
+    const modelKey = args.modelKey ?? DEFAULT_MODEL_ID;
+    const model = getImageModel(modelKey);
+    if (!model) throw new Error(`Unknown model: ${modelKey}`);
+
+    // Capture mode needs the uploaded scene photo (never stored as its own
+    // image — only fed to the model as the scene reference).
+    let sceneUrl: string | null = null;
+    if (args.mode === "capture") {
+      if (!args.captureStorageId) {
+        throw new Error("A captured photo is required");
+      }
+      sceneUrl = await ctx.storage.getUrl(args.captureStorageId);
+      if (!sceneUrl) throw new Error("Captured image not found");
+    }
+
+    const c = await ctx.runQuery(internal.generations.quickContext, {
+      orgId,
+      modelId: args.modelId,
+      outfitId: args.outfitId,
+      locationId: args.locationId,
+      variationId: args.variationId,
+    });
+
+    const assembled = buildPrompt({
+      shot: {
+        posePrompt: args.posePrompt,
+        clothingPrompt: args.clothingPrompt,
+        extraPrompt: args.extraPrompt,
+        cameraFraming: null,
+      },
+      model: c.model,
+      outfit: c.outfit,
+      variation: c.variation,
+      location: c.location,
+      style: null,
+      camera: null,
+      lighting: null,
+      scheduledAt: null,
+      timezone: null,
+    });
+
+    const outfitImgs =
+      (c.variation?.imageUrls?.length
+        ? c.variation.imageUrls
+        : c.outfit?.imageUrls) ?? [];
+    const modelImgs = c.model?.imageUrls ?? [];
+    const locationShots = [
+      ...(c.location?.streetViewUrls ?? []),
+      ...(c.location?.imageUrls ?? []),
+    ];
+    const identityNote = modelImgs.length
+      ? " The person reference is a neutral studio model sheet — use it only " +
+        "for the subject's facial identity and body proportions; do not copy " +
+        "its plain clothing, T-pose, panel layout, or background."
+      : "";
+
+    const generationIds: string[] = [];
+    const createAndRun = async (references: string[], promptText: string) => {
+      const genId = await ctx.runMutation(internal.generations.create, {
+        orgId,
+        createdBy: userId,
+        // No shot/shoot — standalone capture, tagged only by frozen ids.
+        variationId: args.variationId ?? undefined,
+        modelId: args.modelId ?? undefined,
+        outfitId: args.outfitId ?? undefined,
+        locationId: args.locationId ?? undefined,
+        provider: model.provider,
+        modelKey,
+        modelLabel: model.label,
+        prompt: promptText,
+        negativePrompt: assembled.negativePrompt,
+      });
+      generationIds.push(genId);
+      await ctx.scheduler.runAfter(0, internal.generate.runOne, {
+        genId,
+        modelKey,
+        prompt: promptText,
+        referenceImageUrls: references,
+        aspectRatio: args.aspectRatio,
+      });
+    };
+
+    if (args.mode === "capture" && sceneUrl) {
+      const references = Array.from(
+        new Set([
+          sceneUrl,
+          ...outfitImgs.slice(0, 2),
+          ...modelImgs.slice(0, 2),
+          ...locationShots.slice(0, 1),
+        ]),
+      );
+      const sceneNote =
+        " The FIRST reference image is a real photo of the exact location/scene " +
+        "— place the subject naturally into that setting, matching its " +
+        "perspective, lighting, framing and background.";
+      const promptText = `${assembled.prompt}\n\n${referenceGuidance(model)}${sceneNote}${identityNote}`;
+      await createAndRun(references, promptText);
+    } else {
+      // Prompt mode: batch `count` images, reshuffling location grounding so a
+      // batch varies instead of repeating one framing.
+      const copies = Math.max(1, Math.min(6, Math.round(args.count ?? 1)));
+      for (let copy = 0; copy < copies; copy++) {
+        const shuffledLoc = shuffle(locationShots);
+        const references = Array.from(
+          new Set([
+            ...outfitImgs.slice(0, 2),
+            ...shuffledLoc.slice(0, 1),
+            ...modelImgs.slice(0, 2),
+            ...shuffledLoc.slice(1, 3),
+          ]),
+        );
+        const promptText = references.length
+          ? `${assembled.prompt}\n\n${referenceGuidance(model)}${identityNote}`
+          : assembled.prompt;
+        await createAndRun(references, promptText);
+      }
+    }
+
+    return { generationIds };
+  },
+});
+
+/**
  * Execute a single queued generation against its provider and store the
  * result. Scheduled (one per variation) by `generateShot` so generations run
  * concurrently and never block the request.

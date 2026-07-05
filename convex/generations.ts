@@ -136,6 +136,86 @@ export const context = internalQuery({
 });
 
 /**
+ * Resolve a location / product (outfit) / model — plus an optional outfit
+ * variation — straight from the library into the shape `buildPrompt` and the
+ * reference assembler need, WITHOUT a shot. Powers "quick capture": generating
+ * a photo tagged to one of those entities with no shoot. Internal-only.
+ */
+export const quickContext = internalQuery({
+  args: {
+    orgId: v.string(),
+    modelId: v.optional(v.id("models")),
+    outfitId: v.optional(v.id("outfits")),
+    locationId: v.optional(v.id("locations")),
+    variationId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const resolveUrls = async (
+      imgs: { storageId?: string; url?: string }[] | undefined,
+    ) => {
+      const out: string[] = [];
+      for (const i of imgs ?? []) {
+        let u = i.url;
+        if (i.storageId) {
+          const r = await ctx.storage.getUrl(i.storageId as never);
+          if (r) u = r;
+        }
+        if (u) out.push(u);
+      }
+      return out;
+    };
+
+    const model = args.modelId ? await ctx.db.get(args.modelId) : null;
+    const outfit = args.outfitId ? await ctx.db.get(args.outfitId) : null;
+    const location = args.locationId ? await ctx.db.get(args.locationId) : null;
+    // Every provided entity must belong to the caller's org.
+    for (const doc of [model, outfit, location]) {
+      if (doc && doc.orgId !== args.orgId) throw new Error("Not found");
+    }
+    const variationDoc =
+      outfit && args.variationId
+        ? (outfit.variations ?? []).find((x) => x.id === args.variationId)
+        : undefined;
+
+    return {
+      orgId: args.orgId,
+      model: model
+        ? {
+            name: model.name,
+            promptDescriptor: model.promptDescriptor,
+            attributes: model.attributes ?? null,
+            imageUrls: await resolveUrls(model.images),
+          }
+        : null,
+      outfit: outfit
+        ? {
+            name: outfit.name,
+            promptDescriptor: outfit.promptDescriptor,
+            imageUrls: await resolveUrls(outfit.images),
+          }
+        : null,
+      variation: variationDoc
+        ? {
+            id: variationDoc.id,
+            name: variationDoc.name,
+            promptDescriptor: variationDoc.promptDescriptor,
+            imageUrls: await resolveUrls(variationDoc.images),
+          }
+        : null,
+      location: location
+        ? {
+            name: location.name,
+            address: location.address,
+            promptDescriptor: location.promptDescriptor,
+            streetViewUrls: await resolveUrls(location.streetViewRefs),
+            imageUrls: await resolveUrls(location.images),
+          }
+        : null,
+    };
+  },
+});
+
+/**
  * Resolve a source generation into everything needed to spin off realistic
  * variations of it: the org (for the auth check), the shot/shoot it belongs to,
  * the frozen recipe snapshot (so variations inherit per-model / per-location
@@ -153,7 +233,8 @@ export const variationSource = internalQuery({
     if (!imageUrl && g.storageId) {
       imageUrl = (await ctx.storage.getUrl(g.storageId)) ?? undefined;
     }
-    const shot = await ctx.db.get(g.shotId);
+    // Standalone (shoot-less) captures have no shot — only their frozen recipe.
+    const shot = g.shotId ? await ctx.db.get(g.shotId) : null;
 
     // The product photo this frame was generated from, read straight off the
     // generation's frozen recipe metadata (outfitId + variationId). Prefer the
@@ -209,8 +290,9 @@ export const create = internalMutation({
   args: {
     orgId: v.string(),
     createdBy: v.string(),
-    shotId: v.id("shots"),
-    shootId: v.id("shoots"),
+    // Omitted for standalone (shoot-less) quick captures — see `generateQuick`.
+    shotId: v.optional(v.id("shots")),
+    shootId: v.optional(v.id("shoots")),
     variationId: v.optional(v.string()),
     modelId: v.optional(v.id("models")),
     outfitId: v.optional(v.id("outfits")),
@@ -387,9 +469,12 @@ export const listByModel = query({
       .withIndex("by_org", (q) => q.eq("orgId", scope.orgId))
       .collect();
 
-    // Resolve a fallback model only for legacy rows missing the snapshot.
+    // Resolve a fallback model only for legacy rows missing the snapshot that
+    // still have a shot (standalone captures carry the frozen id directly).
     const legacyShotIds = new Set(
-      gens.filter((g) => g.modelId === undefined).map((g) => g.shotId),
+      gens
+        .filter((g) => g.modelId === undefined && g.shotId !== undefined)
+        .map((g) => g.shotId!),
     );
     const shotModel = new Map<string, string | undefined>();
     await Promise.all(
@@ -400,7 +485,7 @@ export const listByModel = query({
     );
 
     const effectiveModelId = (g: Doc<"generations">) =>
-      g.modelId ?? shotModel.get(g.shotId);
+      g.modelId ?? (g.shotId ? shotModel.get(g.shotId) : undefined);
     return shapeSucceeded(
       ctx,
       gens.filter((g) => effectiveModelId(g) === modelId),
@@ -425,9 +510,11 @@ export const listByLocation = query({
       .withIndex("by_org", (q) => q.eq("orgId", scope.orgId))
       .collect();
 
-    // For legacy rows, resolve location via shot -> shootLocation.
+    // For legacy rows with a shot, resolve location via shot -> shootLocation.
     const legacyShotIds = new Set(
-      gens.filter((g) => g.locationId === undefined).map((g) => g.shotId),
+      gens
+        .filter((g) => g.locationId === undefined && g.shotId !== undefined)
+        .map((g) => g.shotId!),
     );
     const shotLocation = new Map<string, string | undefined>();
     await Promise.all(
@@ -439,7 +526,7 @@ export const listByLocation = query({
     );
 
     const effectiveLocationId = (g: Doc<"generations">) =>
-      g.locationId ?? shotLocation.get(g.shotId);
+      g.locationId ?? (g.shotId ? shotLocation.get(g.shotId) : undefined);
     return shapeSucceeded(
       ctx,
       gens.filter((g) => effectiveLocationId(g) === locationId),
@@ -465,7 +552,9 @@ export const listByOutfit = query({
       .collect();
 
     const legacyShotIds = new Set(
-      gens.filter((g) => g.outfitId === undefined).map((g) => g.shotId),
+      gens
+        .filter((g) => g.outfitId === undefined && g.shotId !== undefined)
+        .map((g) => g.shotId!),
     );
     const shotOutfit = new Map<string, string | undefined>();
     await Promise.all(
@@ -476,7 +565,7 @@ export const listByOutfit = query({
     );
 
     const effectiveOutfitId = (g: Doc<"generations">) =>
-      g.outfitId ?? shotOutfit.get(g.shotId);
+      g.outfitId ?? (g.shotId ? shotOutfit.get(g.shotId) : undefined);
     return shapeSucceeded(
       ctx,
       gens.filter((g) => effectiveOutfitId(g) === outfitId),

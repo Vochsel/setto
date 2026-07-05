@@ -658,8 +658,11 @@ export default defineSchema({
   generations: defineTable({
     orgId: v.string(),
     createdBy: v.string(),
-    shotId: v.id("shots"),
-    shootId: v.id("shoots"),
+    // Shot/shoot are optional: "quick capture" produces standalone photos that
+    // are tagged straight to a location/product/model (frozen ids below) with
+    // no shoot. Normal shot generations always set both.
+    shotId: v.optional(v.id("shots")),
+    shootId: v.optional(v.id("shoots")),
     variationId: v.optional(v.string()), // which outfit variation (null => base)
     // Snapshot of the shot's recipe at generation time. A shot can later be
     // re-cast (different model/outfit/location/presets), so these frozen ids —
@@ -711,8 +714,10 @@ export default defineSchema({
     orgId: v.string(),
     createdBy: v.string(),
     generationId: v.id("generations"), // the source image
-    shotId: v.id("shots"),
-    shootId: v.id("shoots"),
+    // Optional: a video animating a standalone (shoot-less) quick-capture image
+    // inherits no shot/shoot. Videos off a normal shot image set both.
+    shotId: v.optional(v.id("shots")),
+    shootId: v.optional(v.id("shoots")),
     // Frozen recipe snapshot copied from the source generation, so per-model /
     // per-location galleries attribute videos correctly (mirrors generations).
     modelId: v.optional(v.id("models")),

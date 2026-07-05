@@ -4,11 +4,12 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { Pencil, ArrowLeft, Camera } from "lucide-react";
+import { Pencil, ArrowLeft, Camera, Sparkles } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LocationEditor } from "@/components/location-editor";
+import { QuickCaptureModal } from "@/components/quick-capture-modal";
 import { BackdropGenerator } from "@/components/backdrop-generator";
 import { PhotoMasonry, mergeMedia } from "@/components/photo-masonry";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -56,6 +57,14 @@ export default function LocationDetailPage() {
             <ArrowLeft className="h-4 w-4" /> Locations
           </Link>
         </Button>
+        <QuickCaptureModal
+          anchor={{ type: "location", id, name: location.name }}
+          trigger={
+            <Button variant="outline" size="sm">
+              <Sparkles className="h-4 w-4" /> Quick capture
+            </Button>
+          }
+        />
         <LocationEditor
           location={location}
           trigger={

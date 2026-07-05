@@ -4,13 +4,14 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { Pencil, Shirt, ArrowLeft } from "lucide-react";
+import { Pencil, Shirt, ArrowLeft, Sparkles } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { MakeVideoButton } from "@/components/video/make-video-button";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { OutfitEditor } from "@/components/outfit-editor";
+import { QuickCaptureModal } from "@/components/quick-capture-modal";
 import { PhotoMasonry, mergeMedia } from "@/components/photo-masonry";
 import type { Id } from "@/convex/_generated/dataModel";
 
@@ -64,6 +65,14 @@ export default function OutfitDetailPage() {
             size="sm"
           />
         )}
+        <QuickCaptureModal
+          anchor={{ type: "outfit", id, name: outfit.name }}
+          trigger={
+            <Button variant="outline" size="sm">
+              <Sparkles className="h-4 w-4" /> Quick capture
+            </Button>
+          }
+        />
         <OutfitEditor
           outfit={outfit}
           trigger={

@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { Pencil, Users, ArrowLeft, Wand2 } from "lucide-react";
+import { Pencil, Users, ArrowLeft, Wand2, Sparkles } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
+import { QuickCaptureModal } from "@/components/quick-capture-modal";
 import { MakeVideoButton } from "@/components/video/make-video-button";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -80,6 +81,14 @@ export default function ModelDetailPage() {
             size="sm"
           />
         )}
+        <QuickCaptureModal
+          anchor={{ type: "model", id, name: model.name }}
+          trigger={
+            <Button variant="outline" size="sm">
+              <Sparkles className="h-4 w-4" /> Quick capture
+            </Button>
+          }
+        />
         <ModelEditor
           model={model}
           trigger={

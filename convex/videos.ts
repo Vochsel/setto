@@ -275,7 +275,9 @@ export const listByOutfit = query({
       .withIndex("by_org", (q) => q.eq("orgId", scope.orgId))
       .collect();
     const legacyShotIds = new Set(
-      gens.filter((g) => g.outfitId === undefined).map((g) => g.shotId),
+      gens
+        .filter((g) => g.outfitId === undefined && g.shotId !== undefined)
+        .map((g) => g.shotId!),
     );
     const shotOutfit = new Map<string, string | undefined>();
     await Promise.all(
@@ -286,7 +288,11 @@ export const listByOutfit = query({
     );
     const genIds = new Set(
       gens
-        .filter((g) => (g.outfitId ?? shotOutfit.get(g.shotId)) === outfitId)
+        .filter(
+          (g) =>
+            (g.outfitId ?? (g.shotId ? shotOutfit.get(g.shotId) : undefined)) ===
+            outfitId,
+        )
         .map((g) => g._id),
     );
 
