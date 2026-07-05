@@ -2,6 +2,7 @@
 
 import { ReactNode, useCallback, useEffect, useState } from "react";
 import { useAction, useMutation } from "convex/react";
+import { useRouter } from "next/navigation";
 import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
 import {
@@ -21,10 +22,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { ImageUploader } from "@/components/image-uploader";
 import {
   MapProvider,
   MapsUnavailable,
@@ -33,6 +37,11 @@ import {
   useMapColorScheme,
 } from "@/components/map/map-provider";
 import { PlaceSearch, type PickedPlace } from "@/components/map/place-search";
+import { cleanImageRefs, type ImageRef } from "@/lib/types";
+import { convexErrorMessage } from "@/lib/utils";
+
+/** Called when a location has been created; `navigate` opens its detail page. */
+type Finish = (id?: string, navigate?: boolean) => void;
 
 function PanTo({ target }: { target: PickedPlace | null }) {
   const map = useMap();
@@ -45,7 +54,8 @@ function PanTo({ target }: { target: PickedPlace | null }) {
   return null;
 }
 
-function PickerInner({ onDone }: { onDone: (id?: string) => void }) {
+/** Map tab — pin a real place; Street View is captured server-side. */
+function MapInner({ onDone }: { onDone: Finish }) {
   const create = useMutation(api.locations.create);
   const capture = useAction(api.streetview.capture);
   const geocoding = useMapsLibrary("geocoding");
@@ -75,7 +85,6 @@ function PickerInner({ onDone }: { onDone: (id?: string) => void }) {
       if (!ll) return;
       const address = await reverseGeocode(ll.lat, ll.lng);
       setPlace({ lat: ll.lat, lng: ll.lng, address });
-      // Auto-name an unnamed pin from its address.
       if (address) setName((n) => n || address);
     },
     [reverseGeocode],
@@ -83,12 +92,10 @@ function PickerInner({ onDone }: { onDone: (id?: string) => void }) {
 
   function handlePlace(p: PickedPlace) {
     setPlace(p);
-    // Prefer the place's name (nearest named location), fall back to address.
     setName((n) => n || p.name || p.address || "");
   }
 
   async function save() {
-    // Fall back to the nearest named place, then the address, if left blank.
     const finalName =
       name.trim() || place?.name?.trim() || place?.address?.trim() || "";
     if (!finalName) {
@@ -185,6 +192,156 @@ function PickerInner({ onDone }: { onDone: (id?: string) => void }) {
   );
 }
 
+/** Prompt tab — name it, describe the scene, and generate backdrops async. The
+ * location is created immediately and you pick candidates on its page. */
+function PromptInner({ onDone }: { onDone: Finish }) {
+  const create = useMutation(api.locations.create);
+  const generate = useAction(api.generate.generateBackdrops);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [interior, setInterior] = useState(true);
+  const [creating, setCreating] = useState(false);
+
+  async function go() {
+    const finalName =
+      name.trim() ||
+      description.trim().split(/[.,\n]/)[0]?.trim().slice(0, 60) ||
+      "";
+    if (!finalName) {
+      toast.error("Give the location a name");
+      return;
+    }
+    setCreating(true);
+    try {
+      const id = await create({
+        name: finalName,
+        promptDescriptor: description.trim() || undefined,
+      });
+      await generate({
+        locationId: id,
+        description: description.trim() || undefined,
+        interior,
+        count: 4,
+      });
+      toast.success("Generating backdrops…");
+      onDone(id, true);
+    } catch (e) {
+      toast.error(convexErrorMessage(e, "Could not start generation"));
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="grid gap-2">
+        <Label htmlFor="pl-name">Name</Label>
+        <Input
+          id="pl-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Scandi living room"
+        />
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor="pl-desc">Describe the scene</Label>
+        <Textarea
+          id="pl-desc"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="a sunlit Scandinavian living room with oak floors, a linen sofa and tall windows…"
+          rows={4}
+        />
+      </div>
+      <label className="flex items-center gap-2 text-sm">
+        <Switch checked={interior} onCheckedChange={setInterior} />
+        Interior scene
+      </label>
+      <p className="text-muted-foreground text-xs">
+        We&apos;ll generate 4 candidates you can pick from — and you can keep
+        generating more on the location&apos;s page.
+      </p>
+      <div className="flex justify-end">
+        <Button onClick={go} disabled={creating}>
+          {creating && <Loader2 className="h-4 w-4 animate-spin" />}
+          Generate backdrops
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** Upload tab — create a location straight from your own (interior) photos. */
+function UploadInner({ onDone }: { onDone: Finish }) {
+  const create = useMutation(api.locations.create);
+  const [name, setName] = useState("");
+  const [descriptor, setDescriptor] = useState("");
+  const [images, setImages] = useState<ImageRef[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    if (!name.trim()) {
+      toast.error("Give the location a name");
+      return;
+    }
+    if (!images.length) {
+      toast.error("Add at least one photo");
+      return;
+    }
+    setSaving(true);
+    try {
+      const id = await create({
+        name: name.trim(),
+        promptDescriptor: descriptor.trim() || undefined,
+        images: cleanImageRefs(images),
+      });
+      toast.success("Location saved");
+      onDone(id);
+    } catch {
+      toast.error("Could not save location");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="grid gap-2">
+        <Label htmlFor="ul-name">Name</Label>
+        <Input
+          id="ul-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Studio loft"
+        />
+      </div>
+      <div className="grid gap-2">
+        <Label>Photos</Label>
+        <ImageUploader value={images} onChange={setImages} />
+        <p className="text-muted-foreground text-xs">
+          Upload interior shots (or paste them). These ground the backdrop when
+          you generate shots here.
+        </p>
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor="ul-desc">Prompt descriptor</Label>
+        <Textarea
+          id="ul-desc"
+          value={descriptor}
+          onChange={(e) => setDescriptor(e.target.value)}
+          placeholder="a warm concrete loft with big industrial windows…"
+        />
+      </div>
+      <div className="flex justify-end">
+        <Button onClick={save} disabled={saving}>
+          {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+          Save location
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function LocationPickerDialog({
   trigger,
   onCreated,
@@ -193,6 +350,16 @@ export function LocationPickerDialog({
   onCreated?: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const router = useRouter();
+
+  const finish: Finish = (id, navigate) => {
+    setOpen(false);
+    if (id) {
+      onCreated?.(id);
+      if (navigate) router.push(`/locations/${id}`);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
@@ -200,22 +367,36 @@ export function LocationPickerDialog({
         <DialogHeader>
           <DialogTitle>New location</DialogTitle>
           <DialogDescription>
-            Pick a real place — we’ll pull Street View references to ground the
-            backdrop.
+            Pin a real place, prompt an interior scene, or upload your own
+            photos.
           </DialogDescription>
         </DialogHeader>
-        {MAPS_API_KEY ? (
-          <MapProvider>
-            <PickerInner
-              onDone={(id) => {
-                setOpen(false);
-                if (id) onCreated?.(id);
-              }}
-            />
-          </MapProvider>
-        ) : (
-          <MapsUnavailable />
-        )}
+
+        <Tabs defaultValue="map">
+          <TabsList className="w-full">
+            <TabsTrigger value="map">Map</TabsTrigger>
+            <TabsTrigger value="prompt">Prompt</TabsTrigger>
+            <TabsTrigger value="upload">Upload</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="map" className="mt-4">
+            {MAPS_API_KEY ? (
+              <MapProvider>
+                <MapInner onDone={finish} />
+              </MapProvider>
+            ) : (
+              <MapsUnavailable />
+            )}
+          </TabsContent>
+
+          <TabsContent value="prompt" className="mt-4">
+            <PromptInner onDone={finish} />
+          </TabsContent>
+
+          <TabsContent value="upload" className="mt-4">
+            <UploadInner onDone={finish} />
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );

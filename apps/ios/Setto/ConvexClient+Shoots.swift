@@ -10,14 +10,26 @@ extension ConvexClient {
             "shoots:create", .mutation, args: ["name": name], as: String.self)
     }
 
-    /// Create a location; returns its id. Coordinates enable Street View capture.
+    /// Create a location; returns its id. Coordinates enable Street View capture;
+    /// `promptDescriptor` seeds prompted backdrops; `imageStorageIds` attaches
+    /// already-uploaded photos as reference images (the "upload" flow).
     func createLocation(
-        name: String, address: String?, lat: Double?, lng: Double?
+        name: String, address: String? = nil, lat: Double? = nil,
+        lng: Double? = nil, promptDescriptor: String? = nil,
+        imageStorageIds: [String]? = nil
     ) async throws -> String {
         var args: [String: Any] = ["name": name]
         if let address { args["address"] = address }
         if let lat { args["lat"] = lat }
         if let lng { args["lng"] = lng }
+        if let promptDescriptor, !promptDescriptor.isEmpty {
+            args["promptDescriptor"] = promptDescriptor
+        }
+        if let imageStorageIds, !imageStorageIds.isEmpty {
+            args["images"] = imageStorageIds.map {
+                ["storageId": $0, "source": "upload"]
+            }
+        }
         return try await call(
             "locations:create", .mutation, args: args, as: String.self)
     }

@@ -2,9 +2,15 @@ import CoreLocation
 import MapKit
 import SwiftUI
 
+/// Which "Add location" flow is active: pin a real place, prompt an interior
+/// scene, or upload your own photos.
+enum AddLocationMode: Hashable { case map, prompt, upload }
+
 /// Add a location to a shoot without leaving the phone: center on where you are,
 /// tap a nearby place or drop a pin, name it, and save. Coordinates trigger a
 /// server-side Street View capture so the location comes with reference imagery.
+/// The Prompt and Upload modes (see `GenerateLocationView`) create a location
+/// from a text description or your own interior photos instead.
 struct AddLocationView: View {
     @EnvironmentObject var auth: AuthStore
     @Environment(\.dismiss) private var dismiss
@@ -24,39 +30,61 @@ struct AddLocationView: View {
     @State private var centeredOnce = false
     @State private var saved: [LocationDoc] = []
     @State private var savedOpen = false
+    @State private var mode: AddLocationMode = .map
 
     var body: some View {
         NavigationStack {
-            ZStack(alignment: .bottom) {
-                map
-                if locator.isDenied && selection == nil {
-                    deniedNote
+            VStack(spacing: 0) {
+                Picker("Mode", selection: $mode) {
+                    Text("Map").tag(AddLocationMode.map)
+                    Text("Prompt").tag(AddLocationMode.prompt)
+                    Text("Upload").tag(AddLocationMode.upload)
                 }
-                if selection != nil {
-                    selectionCard
+                .pickerStyle(.segmented)
+                .padding([.horizontal, .top])
+
+                switch mode {
+                case .map:
+                    ZStack(alignment: .bottom) {
+                        map
+                        if locator.isDenied && selection == nil {
+                            deniedNote
+                        }
+                        if selection != nil {
+                            selectionCard
+                        }
+                    }
+                    .ignoresSafeArea(edges: .bottom)
+                case .prompt:
+                    PromptLocationForm(shootId: shootId) { await onAdded() }
+                        .environmentObject(auth)
+                case .upload:
+                    UploadLocationForm(shootId: shootId) { await onAdded() }
+                        .environmentObject(auth)
                 }
             }
-            .ignoresSafeArea(edges: .bottom)
             .navigationTitle("Add location")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
-                ToolbarItem(placement: .topBarLeading) {
-                    if !saved.isEmpty {
-                        Button("Saved") { savedOpen = true }
-                    }
-                }
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        if let c = mapCenter { Task { await searchNearby(c) } }
-                    } label: {
-                        if searching { ProgressView() } else {
-                            Label("Search here", systemImage: "magnifyingglass")
+                if mode == .map {
+                    ToolbarItem(placement: .topBarLeading) {
+                        if !saved.isEmpty {
+                            Button("Saved") { savedOpen = true }
                         }
                     }
-                    .disabled(searching)
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            if let c = mapCenter { Task { await searchNearby(c) } }
+                        } label: {
+                            if searching { ProgressView() } else {
+                                Label("Search here", systemImage: "magnifyingglass")
+                            }
+                        }
+                        .disabled(searching)
+                    }
                 }
             }
             .sheet(isPresented: $savedOpen) {

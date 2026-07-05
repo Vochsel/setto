@@ -236,6 +236,39 @@ export function buildPrompt(inputs: PromptInputs): AssembledPrompt {
   };
 }
 
+/* ─────────────────────────── Location backdrops ──────────────────────────
+ * A "backdrop" is an empty establishing photograph of a place, generated from a
+ * text description and kept as a location reference image. Downstream shot
+ * generation treats a location's reference photos as inspiration for the setting
+ * (see buildPrompt's "Setting" section), so a backdrop must read as a real,
+ * unpopulated scene — no people, no props staged for a subject — that the model
+ * can then place a subject into. Interiors are the primary use case (Street View
+ * rarely reaches inside), so the wording leans that way but works for exteriors.
+ */
+export interface BackdropPromptInputs {
+  /** The user's free description of the place. */
+  description?: string | null;
+  /** Fallback name when there's no description. */
+  name?: string | null;
+  /** Interior scene (default) vs. an outdoor/exterior location. */
+  interior?: boolean;
+}
+
+export function buildBackdropPrompt(inputs: BackdropPromptInputs): string {
+  const desc = (inputs.description ?? inputs.name ?? "").trim();
+  const kind = inputs.interior === false ? "location" : "interior space";
+  return (
+    `A photorealistic photograph of an empty ${kind} — no people, no models, ` +
+    "and no one in frame. A wide, well-composed establishing shot that captures " +
+    "the whole setting, its architecture, materials, furnishings and natural " +
+    "light, suitable as a location backdrop reference for a photoshoot. " +
+    (desc ? `The place: ${desc}. ` : "") +
+    "Realistic, true-to-life lighting and perspective, sharp focus, high " +
+    "dynamic range, natural colour. Absolutely no people, no text, no captions, " +
+    "no watermark, no logos or signatures anywhere in the image."
+  );
+}
+
 /* ───────────────────────── Campaign ad creatives ─────────────────────────
  * A campaign creative composes a finished advertisement: it takes the chosen
  * shoot photos as the hero imagery, follows the look/layout of the uploaded

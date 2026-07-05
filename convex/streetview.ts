@@ -2,6 +2,7 @@ import {
   action,
   internalMutation,
   internalQuery,
+  type ActionCtx,
 } from "./_generated/server";
 import { internal, api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
@@ -22,6 +23,51 @@ const TILE_SIZE = "640x640";
  * image fetch use the same value so an OK probe always yields a frame.
  */
 const SNAP_RADIUS_M = 400;
+
+/** How many Google Places photos to pull for a pinned place (see below). */
+const MAX_PLACE_PHOTOS = 4;
+
+/**
+ * Best-effort: fetch a few Google Places photos for a pinned place and store
+ * them in Convex. For businesses (cafés, shops, restaurants) these are often
+ * *interior* shots — exactly what Street View's outdoor panoramas miss — so
+ * they give interior locations real grounding. Needs the Places API enabled on
+ * the key; any failure (API disabled, no photos) yields an empty list, never an
+ * error. Uses the legacy Places Photo endpoint, which 302-redirects to bytes.
+ */
+async function fetchPlacePhotos(
+  ctx: ActionCtx,
+  placeId: string,
+  key: string,
+  max: number,
+): Promise<{ storageId: Id<"_storage">; source: string; caption: string }[]> {
+  const out: { storageId: Id<"_storage">; source: string; caption: string }[] =
+    [];
+  try {
+    const detailsRes = await fetch(
+      `https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(
+        placeId,
+      )}&fields=photos&key=${key}`,
+    );
+    const details = (await detailsRes.json()) as {
+      result?: { photos?: { photo_reference?: string }[] };
+    };
+    const photos = details.result?.photos ?? [];
+    for (const p of photos.slice(0, max)) {
+      if (!p.photo_reference) continue;
+      const photoRes = await fetch(
+        `https://maps.googleapis.com/maps/api/place/photo?maxwidth=1600&photo_reference=${p.photo_reference}&key=${key}`,
+      );
+      if (!photoRes.ok) continue;
+      const blob = await photoRes.blob();
+      const storageId = await ctx.storage.store(blob);
+      out.push({ storageId, source: "places", caption: "Place photo" });
+    }
+  } catch {
+    // Places API may be disabled on the key — grounding is a nice-to-have.
+  }
+  return out;
+}
 
 /**
  * Quantize a coordinate for use in a cache key. Six decimals is ~0.11m — far
@@ -147,17 +193,30 @@ export const capture = action({
       return ok;
     };
 
-    if (!(await hasImagery(loc.lat, loc.lng))) {
-      throw new ConvexError(
-        `No Street View imagery within ${SNAP_RADIUS_M}m of this pin. Try moving it closer to a street.`,
-      );
-    }
-
     const refs: {
       storageId: Id<"_storage">;
       source: string;
       caption: string;
     }[] = [];
+
+    // Best-effort real place photos (often interiors) for a pinned business.
+    // Fetched up front so an interior-only place with no Street View coverage
+    // still gets grounded instead of failing outright. Skipped once the location
+    // already has them, so a repeated "Recapture" doesn't pile up duplicates.
+    const alreadyHasPlacePhotos = (loc.streetViewRefs ?? []).some(
+      (r) => r.source === "places",
+    );
+    const placePhotos =
+      loc.googlePlaceId && !alreadyHasPlacePhotos
+        ? await fetchPlacePhotos(ctx, loc.googlePlaceId, key, MAX_PLACE_PHOTOS)
+        : [];
+
+    const hasCenter = await hasImagery(loc.lat, loc.lng);
+    if (!hasCenter && placePhotos.length === 0) {
+      throw new ConvexError(
+        `No Street View or place imagery within ${SNAP_RADIUS_M}m of this pin. Try moving it closer to a street.`,
+      );
+    }
 
     /** Grab one frame at a point/heading and queue it as a stored ref. */
     const grab = async (
@@ -192,26 +251,33 @@ export const capture = action({
       refs.push({ storageId, source: "street_view", caption });
     };
 
-    // Centre point — the full heading set, as before.
-    for (const heading of headings) {
-      await grab(loc.lat, loc.lng, heading, `Street View · ${heading}°`);
-    }
+    // Street View frames only when the pin actually has panorama coverage. A
+    // pin with none (a set-back interior) still returns via the place photos.
+    if (hasCenter) {
+      // Centre point — the full heading set, as before.
+      for (const heading of headings) {
+        await grab(loc.lat, loc.lng, heading, `Street View · ${heading}°`);
+      }
 
-    // Nearby points — a couple of frames each, at random offsets within the
-    // radius, so the pool picks up real surroundings a short walk away.
-    if (radius > 0) {
-      for (let i = 0; i < NEARBY_POINTS; i++) {
-        const dist = radius * (0.35 + Math.random() * 0.65);
-        const bearing = Math.random() * 360;
-        const p = offset(loc.lat, loc.lng, dist, bearing);
-        if (!(await hasImagery(p.lat, p.lng))) continue;
-        const h1 = Math.round(Math.random() * 360);
-        const h2 = (h1 + 90 + Math.round(Math.random() * 180)) % 360;
-        const m = Math.round(dist);
-        await grab(p.lat, p.lng, h1, `Nearby · ~${m}m · ${h1}°`);
-        await grab(p.lat, p.lng, h2, `Nearby · ~${m}m · ${h2}°`);
+      // Nearby points — a couple of frames each, at random offsets within the
+      // radius, so the pool picks up real surroundings a short walk away.
+      if (radius > 0) {
+        for (let i = 0; i < NEARBY_POINTS; i++) {
+          const dist = radius * (0.35 + Math.random() * 0.65);
+          const bearing = Math.random() * 360;
+          const p = offset(loc.lat, loc.lng, dist, bearing);
+          if (!(await hasImagery(p.lat, p.lng))) continue;
+          const h1 = Math.round(Math.random() * 360);
+          const h2 = (h1 + 90 + Math.round(Math.random() * 180)) % 360;
+          const m = Math.round(dist);
+          await grab(p.lat, p.lng, h1, `Nearby · ~${m}m · ${h1}°`);
+          await grab(p.lat, p.lng, h2, `Nearby · ~${m}m · ${h2}°`);
+        }
       }
     }
+
+    // Add the place photos (interiors) alongside any Street View frames.
+    refs.push(...placePhotos);
 
     if (refs.length) {
       await ctx.runMutation(internal.streetview.appendRefs, {

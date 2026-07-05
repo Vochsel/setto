@@ -345,6 +345,47 @@ export default defineSchema({
     archived: v.optional(v.boolean()),
   }).index("by_org", ["orgId"]),
 
+  // --- Prompted location backdrops ---------------------------------------
+  // Candidate backdrop images for a location, generated from a text prompt (an
+  // empty establishing scene — great for interiors, where Street View coverage
+  // is thin). Mirrors the `generations` queue/poll pattern: a row is created up
+  // front (status "queued"), a scheduled worker fills it in, and clients stream
+  // the grid via a reactive query. `kept` marks a candidate the user picked into
+  // the location's reference `images` (which is what shot generation actually
+  // uses). Unkept rows are just candidates and can be pruned.
+  locationBackdrops: defineTable({
+    orgId: v.string(),
+    createdBy: v.string(),
+    locationId: v.id("locations"),
+    // The raw user description (so "generate more" can reuse it) and the full
+    // assembled prompt actually sent to the model.
+    userPrompt: v.optional(v.string()),
+    prompt: v.string(),
+    interior: v.optional(v.boolean()),
+    provider: v.string(),
+    modelKey: v.string(),
+    modelLabel: v.optional(v.string()),
+    status: v.union(
+      v.literal("queued"),
+      v.literal("generating"),
+      v.literal("succeeded"),
+      v.literal("failed"),
+    ),
+    progress: v.optional(v.number()),
+    progressLabel: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
+    storageId: v.optional(v.id("_storage")),
+    thumbnailUrl: v.optional(v.string()),
+    thumbStorageId: v.optional(v.id("_storage")),
+    // Set when the user keeps this candidate as a location reference image.
+    kept: v.optional(v.boolean()),
+    seed: v.optional(v.number()),
+    falRequestId: v.optional(v.string()),
+    error: v.optional(v.string()),
+  })
+    .index("by_location", ["locationId"])
+    .index("by_org", ["orgId"]),
+
   // --- Street View cache --------------------------------------------------
   // Deduplicated Google Street View Static API captures, keyed by the exact
   // request parameters (rounded coords + heading/pitch/fov/size). Repeat
@@ -808,6 +849,7 @@ export default defineSchema({
       v.literal("model_portrait"), // new model portrait (model editor)
       v.literal("model_sheet"), // standardized neutral model reference sheet
       v.literal("model_variation"), // legacy: random resemblance variation
+      v.literal("location_backdrop"), // prompted location backdrop image
       v.literal("campaign_copy"), // GPT ad-copy generation
       v.literal("campaign_creative"), // ad-creative image generation
       v.literal("video"), // image-to-video render

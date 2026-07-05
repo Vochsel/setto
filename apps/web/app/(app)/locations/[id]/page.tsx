@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LocationEditor } from "@/components/location-editor";
+import { BackdropGenerator } from "@/components/backdrop-generator";
 import { PhotoMasonry, mergeMedia } from "@/components/photo-masonry";
 import type { Id } from "@/convex/_generated/dataModel";
 
@@ -84,6 +85,19 @@ export default function LocationDetailPage() {
             </div>
           </section>
         )}
+
+        <section className="space-y-3">
+          <h2 className="text-sm font-medium">Backdrops</h2>
+          <p className="text-muted-foreground text-sm">
+            Prompt interior (or exterior) scenes for this place. Keep the
+            candidates you like — they ground the backdrop when you generate
+            shots here.
+          </p>
+          <BackdropGenerator
+            locationId={id}
+            defaultPrompt={location.promptDescriptor}
+          />
+        </section>
 
         <section className="space-y-3">
           <h2 className="text-sm font-medium">

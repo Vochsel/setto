@@ -11,6 +11,7 @@ const kindV = v.union(
   v.literal("model_portrait"),
   v.literal("model_sheet"),
   v.literal("model_variation"),
+  v.literal("location_backdrop"),
   v.literal("campaign_copy"),
   v.literal("campaign_creative"),
   v.literal("video"),
