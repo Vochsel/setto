@@ -5,7 +5,7 @@ import {
 } from "./_generated/server";
 import { internal, api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 
 /** Default "nearby" expansion radius (metres) when enabled without a value. */
 export const DEFAULT_STREETVIEW_RADIUS_M = 150;
@@ -13,6 +13,15 @@ export const DEFAULT_STREETVIEW_RADIUS_M = 150;
 const NEARBY_POINTS = 3;
 /** Frame dimensions we request from the Street View Static API. */
 const TILE_SIZE = "640x640";
+/**
+ * How far Google may look for the nearest panorama when a pin isn't sitting
+ * exactly on Street View coverage. The Static/metadata APIs default to 50m,
+ * which fails a lot of real pins (rooftops, courtyards, set-back buildings);
+ * widening to a few hundred metres snaps to the nearest street with imagery so
+ * capture "just works" for most locations. Both the metadata probe and the
+ * image fetch use the same value so an OK probe always yields a frame.
+ */
+const SNAP_RADIUS_M = 400;
 
 /**
  * Quantize a coordinate for use in a cache key. Six decimals is ~0.11m — far
@@ -89,12 +98,12 @@ export const capture = action({
   handler: async (ctx, args) => {
     const loc = await ctx.runQuery(api.locations.get, { id: args.locationId });
     if (loc.lat == null || loc.lng == null) {
-      throw new Error("This location has no map coordinates yet.");
+      throw new ConvexError("This location has no map coordinates yet.");
     }
     const key =
       process.env.GOOGLE_MAPS_API_KEY ?? process.env.GOOGLE_API_KEY ?? "";
     if (!key) {
-      throw new Error(
+      throw new ConvexError(
         "GOOGLE_MAPS_API_KEY is not set in the Convex deployment. Run: npx convex env set GOOGLE_MAPS_API_KEY <key>",
       );
     }
@@ -128,7 +137,7 @@ export const capture = action({
         return true;
       }
       const res = await fetch(
-        `https://maps.googleapis.com/maps/api/streetview/metadata?location=${lat},${lng}&key=${key}`,
+        `https://maps.googleapis.com/maps/api/streetview/metadata?location=${lat},${lng}&radius=${SNAP_RADIUS_M}&key=${key}`,
       );
       const meta = (await res.json()) as { status?: string };
       const ok = meta.status === "OK";
@@ -139,7 +148,9 @@ export const capture = action({
     };
 
     if (!(await hasImagery(loc.lat, loc.lng))) {
-      throw new Error("No Street View imagery available here.");
+      throw new ConvexError(
+        `No Street View imagery within ${SNAP_RADIUS_M}m of this pin. Try moving it closer to a street.`,
+      );
     }
 
     const refs: {
@@ -168,7 +179,8 @@ export const capture = action({
       }
       const url =
         `https://maps.googleapis.com/maps/api/streetview?size=${TILE_SIZE}` +
-        `&location=${lat},${lng}&heading=${heading}&pitch=${pitch}&fov=${fov}&key=${key}`;
+        `&location=${lat},${lng}&radius=${SNAP_RADIUS_M}` +
+        `&heading=${heading}&pitch=${pitch}&fov=${fov}&key=${key}`;
       const res = await fetch(url);
       if (!res.ok) return;
       const blob = await res.blob();

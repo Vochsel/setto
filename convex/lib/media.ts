@@ -15,12 +15,17 @@
 import type { ActionCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import sharp from "sharp";
+import { r2Enabled, putToR2 } from "./r2";
 
 /** Longest-edge size (px) for grid thumbnails. */
 const THUMB_MAX = 600;
 
+/** R2 key folders per media kind. */
+const FOLDER = { image: "img", thumb: "thumb", video: "vid" } as const;
+
 export interface StoredMedia {
-  storageId: Id<"_storage">;
+  /** Convex storage id — undefined when the bytes live in R2 instead. */
+  storageId?: Id<"_storage">;
   url: string;
 }
 export interface StoredImage extends StoredMedia {
@@ -40,12 +45,21 @@ export async function fetchBytes(url: string): Promise<{
   return { bytes, contentType };
 }
 
-/** Store a blob in Convex and resolve its public URL. The R2-swap seam. */
+/**
+ * Store a blob and resolve its public URL. Writes to R2 when configured, else
+ * Convex file storage. This is the single storage seam — the only place that
+ * decides where bytes live. `kind` picks the R2 key folder.
+ */
 export async function storeBlob(
   ctx: ActionCtx,
   bytes: Buffer,
   contentType: string,
+  kind: keyof typeof FOLDER = "image",
 ): Promise<StoredMedia> {
+  if (r2Enabled()) {
+    const { url } = await putToR2(bytes, contentType, FOLDER[kind]);
+    return { url };
+  }
   // Copy into a fresh ArrayBuffer-backed view so it's a valid BlobPart.
   const blob = new Blob([Uint8Array.from(bytes)], { type: contentType });
   const storageId = await ctx.storage.store(blob);
@@ -53,13 +67,14 @@ export async function storeBlob(
   return { storageId, url };
 }
 
-/** Download a URL's bytes and store them in Convex. */
+/** Download a URL's bytes and store them (R2 or Convex). */
 export async function storeFromUrl(
   ctx: ActionCtx,
   url: string,
+  kind: keyof typeof FOLDER = "video",
 ): Promise<StoredMedia & { bytes: Buffer; contentType: string }> {
   const { bytes, contentType } = await fetchBytes(url);
-  const stored = await storeBlob(ctx, bytes, contentType);
+  const stored = await storeBlob(ctx, bytes, contentType, kind);
   return { ...stored, bytes, contentType };
 }
 
@@ -85,10 +100,10 @@ export async function storeImageWithThumbnail(
   bytes: Buffer,
   contentType: string,
 ): Promise<StoredImage> {
-  const original = await storeBlob(ctx, bytes, contentType);
+  const original = await storeBlob(ctx, bytes, contentType, "image");
   try {
     const thumb = await makeThumbnail(bytes);
-    const storedThumb = await storeBlob(ctx, thumb, "image/webp");
+    const storedThumb = await storeBlob(ctx, thumb, "image/webp", "thumb");
     return {
       ...original,
       thumbStorageId: storedThumb.storageId,
@@ -116,7 +131,7 @@ export async function thumbnailFromUrl(
   try {
     const { bytes } = await fetchBytes(url);
     const thumb = await makeThumbnail(bytes);
-    return await storeBlob(ctx, thumb, "image/webp");
+    return await storeBlob(ctx, thumb, "image/webp", "thumb");
   } catch {
     return null;
   }

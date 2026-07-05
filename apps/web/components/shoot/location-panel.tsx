@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useAction, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
+import { convexErrorMessage } from "@/lib/utils";
 import {
   Plus,
   MapPin,
@@ -95,7 +96,7 @@ export function LocationPanel({
         r.added ? `Captured ${r.added} Street View frames` : "No new frames",
       );
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Capture failed");
+      toast.error(convexErrorMessage(e, "Capture failed"));
     } finally {
       setCapturing(false);
     }

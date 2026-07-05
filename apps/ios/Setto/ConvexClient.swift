@@ -61,8 +61,15 @@ struct ConvexClient {
             ?? [:]
 
         guard (json["status"] as? String) == "success" else {
-            throw ConvexError.server(
-                json["errorMessage"] as? String ?? "Request failed")
+            // A `ConvexError` (application error) returns its payload in
+            // `errorData` — the clean, user-facing string. Prefer it over the
+            // wrapped `errorMessage` ("Uncaught ConvexError: …"), which for a
+            // plain server fault is redacted to "Server Error" in prod anyway.
+            let message =
+                (json["errorData"] as? String)
+                ?? (json["errorMessage"] as? String)
+                ?? "Request failed"
+            throw ConvexError.server(message)
         }
 
         // Re-serialize the `value` and decode it into the requested type.
