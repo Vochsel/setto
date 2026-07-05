@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LocationEditor } from "@/components/location-editor";
+import { LocationRescan } from "@/components/location-rescan";
 import { QuickCaptureModal } from "@/components/quick-capture-modal";
 import { BackdropGenerator } from "@/components/backdrop-generator";
 import { PhotoMasonry, mergeMedia } from "@/components/photo-masonry";
@@ -48,6 +49,9 @@ export default function LocationDetailPage() {
   const streetView = location.streetViewUrls ?? [];
   const ownImages = location.imageUrls ?? [];
   const refs = [...streetView, ...ownImages];
+  // Street View capture snaps to the location's coordinates, so only offer
+  // expand/rescan when we have them.
+  const hasCoords = location.lat != null && location.lng != null;
 
   return (
     <>
@@ -76,22 +80,29 @@ export default function LocationDetailPage() {
       </PageHeader>
 
       <div className="space-y-6 p-4 md:p-6">
-        {refs.length > 0 && (
+        {(refs.length > 0 || hasCoords) && (
           <section className="space-y-2">
             <h2 className="text-muted-foreground text-sm font-medium">
               References ({refs.length})
             </h2>
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {refs.map((r, i) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  key={i}
-                  src={r.url}
-                  alt=""
-                  className="h-28 w-40 shrink-0 rounded-lg border object-cover"
-                />
-              ))}
-            </div>
+            {hasCoords && (
+              <div className="max-w-md">
+                <LocationRescan location={location} />
+              </div>
+            )}
+            {refs.length > 0 && (
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {refs.map((r, i) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={i}
+                    src={r.url}
+                    alt=""
+                    className="h-28 w-40 shrink-0 rounded-lg border object-cover"
+                  />
+                ))}
+              </div>
+            )}
           </section>
         )}
 
