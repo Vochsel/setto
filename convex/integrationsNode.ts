@@ -60,7 +60,11 @@ export const connect = action({
     await getScope(ctx); // ensure authenticated
     assertProvider(provider);
     const trimmed = secret.trim();
-    if (!trimmed) throw new Error("Secret is required");
+    // Shopify authenticates via the app-level env credentials
+    // (SHOPIFY_CLIENT_ID/SECRET), so there is no per-user secret to paste — the
+    // connection carries only the store domain in `meta`. We still encrypt a
+    // placeholder to satisfy the row's ciphertext/iv/authTag columns.
+    if (!trimmed && provider !== "shopify") throw new Error("Secret is required");
 
     await ctx.runMutation(internal.integrations.upsert, {
       provider,

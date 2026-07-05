@@ -4,7 +4,12 @@ import { internal, api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import { fal } from "@fal-ai/client";
-import { buildPrompt, buildCreativePrompt, BASE_VARIATION_ID } from "./lib/prompt";
+import {
+  buildPrompt,
+  buildCreativePrompt,
+  buildBackdropPrompt,
+  BASE_VARIATION_ID,
+} from "./lib/prompt";
 import {
   storeImageFromUrl,
   storeImageWithThumbnail,
@@ -798,6 +803,199 @@ export const runOne = internalAction({
         status: "failed",
         error,
       });
+    }
+  },
+});
+
+// ── Prompted location backdrops ────────────────────────────────────────────
+// Generate empty establishing scenes for a location from a text description —
+// the "prompt a location" flow (interiors especially, where Street View is
+// thin). Candidates are produced async and streamed into a picker via
+// `locations.listBackdrops`; the user keeps the ones they like as location
+// reference images. Mirrors the generateShot → runOne queue/poll pattern.
+
+/** Wide establishing shot — matches the location tile's video aspect. */
+const BACKDROP_ASPECT = "16:9";
+
+/**
+ * Run one text-to-image backdrop against its provider and store the result with
+ * a WebP thumbnail. No reference images — backdrops are generated purely from
+ * the description so a batch yields diverse candidates (references would make
+ * every candidate a near-copy of the same photo).
+ */
+async function generateBackdropImage(
+  ctx: ActionCtx,
+  model: ImageModel,
+  apiKey: string,
+  args: { prompt: string; aspectRatio?: string },
+): Promise<StoredImage & { seed?: number; falRequestId?: string }> {
+  if (model.provider === "fal") {
+    fal.config({ credentials: apiKey });
+    const input = buildFalInput(model, {
+      prompt: args.prompt,
+      aspectRatio: args.aspectRatio,
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result: any = await fal.subscribe(model.falEndpoint!, { input });
+    const data = result?.data ?? result;
+    const falUrl = data?.images?.[0]?.url ?? data?.image?.url ?? data?.url;
+    if (!falUrl) throw new Error("fal returned no image URL");
+    let stored: StoredImage;
+    try {
+      stored = await storeImageFromUrl(ctx, falUrl);
+    } catch {
+      const r = await fetch(falUrl);
+      const blob = await r.blob();
+      const storageId = await ctx.storage.store(blob);
+      stored = { storageId, url: (await ctx.storage.getUrl(storageId)) ?? falUrl };
+    }
+    return {
+      ...stored,
+      seed: typeof data?.seed === "number" ? data.seed : undefined,
+      falRequestId: result?.requestId,
+    };
+  }
+  const out =
+    model.provider === "openai"
+      ? await callOpenAI(model, apiKey, {
+          prompt: args.prompt,
+          referenceImageUrls: [],
+          aspectRatio: args.aspectRatio,
+        })
+      : await callGoogle(model, apiKey, {
+          prompt: args.prompt,
+          referenceImageUrls: [],
+          aspectRatio: args.aspectRatio,
+        });
+  const bytes = Buffer.from(out.b64, "base64");
+  return await storeImageWithThumbnail(ctx, bytes, out.mime);
+}
+
+/**
+ * Queue N backdrop candidates for a location from a text description. Creates a
+ * row per candidate immediately (status "queued") and hands each to a scheduled
+ * worker, so this returns right away and the user can keep prompting. The user
+ * then picks favourites via `locations.keepBackdrop`.
+ */
+export const generateBackdrops = action({
+  args: {
+    locationId: v.id("locations"),
+    description: v.optional(v.string()),
+    interior: v.optional(v.boolean()),
+    modelKey: v.optional(v.string()),
+    count: v.optional(v.number()),
+  },
+  handler: async (ctx, args): Promise<{ backdropIds: Id<"locationBackdrops">[] }> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const userId = identity.subject;
+    const orgId = (identity.org_id as string | undefined) ?? `user:${userId}`;
+
+    // Asserts org membership (throws if the location isn't in this workspace).
+    const loc = await ctx.runQuery(api.locations.get, { id: args.locationId });
+
+    const modelKey = args.modelKey ?? DEFAULT_MODEL_ID;
+    const model = getImageModel(modelKey);
+    if (!model) throw new Error(`Unknown model: ${modelKey}`);
+
+    const interior = args.interior ?? true;
+    const description =
+      (args.description ?? loc.promptDescriptor ?? "").trim() || undefined;
+    const prompt = buildBackdropPrompt({
+      description,
+      name: loc.name,
+      interior,
+    });
+
+    const count = Math.max(1, Math.min(8, Math.round(args.count ?? 4)));
+    const backdropIds: Id<"locationBackdrops">[] = [];
+    for (let i = 0; i < count; i++) {
+      const backdropId = await ctx.runMutation(
+        internal.locations.createBackdrop,
+        {
+          orgId,
+          createdBy: userId,
+          locationId: args.locationId,
+          userPrompt: description,
+          prompt,
+          interior,
+          provider: model.provider,
+          modelKey,
+          modelLabel: model.label,
+        },
+      );
+      backdropIds.push(backdropId);
+      await ctx.scheduler.runAfter(0, internal.generate.runOneBackdrop, {
+        backdropId,
+        orgId,
+        userId,
+        modelKey,
+        prompt,
+      });
+    }
+    return { backdropIds };
+  },
+});
+
+/** Background worker: produce one queued backdrop and attach the result. */
+export const runOneBackdrop = internalAction({
+  args: {
+    backdropId: v.id("locationBackdrops"),
+    orgId: v.string(),
+    userId: v.string(),
+    modelKey: v.string(),
+    prompt: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const model = getImageModel(args.modelKey);
+    const logUsage = (status: "succeeded" | "failed", error?: string) =>
+      ctx.runMutation(internal.usage.record, {
+        orgId: args.orgId,
+        userId: args.userId,
+        kind: "location_backdrop" as const,
+        provider: model?.provider ?? "unknown",
+        modelKey: args.modelKey,
+        modelLabel: model?.label,
+        status,
+        error,
+      });
+    const fail = async (error: string) => {
+      await ctx.runMutation(internal.locations.attachBackdropResult, {
+        id: args.backdropId,
+        status: "failed",
+        error,
+      });
+      await logUsage("failed", error);
+    };
+
+    if (!model) return fail(`Unknown model: ${args.modelKey}`);
+    const apiKey = providerKey(model.provider);
+    if (!apiKey) return fail(missingKeyMessage(model.provider));
+
+    try {
+      await ctx.runMutation(internal.locations.setBackdropProgress, {
+        id: args.backdropId,
+        status: "generating",
+        progress: 0.5,
+        progressLabel: "Generating…",
+      });
+      const stored = await generateBackdropImage(ctx, model, apiKey, {
+        prompt: args.prompt,
+        aspectRatio: BACKDROP_ASPECT,
+      });
+      await ctx.runMutation(internal.locations.attachBackdropResult, {
+        id: args.backdropId,
+        status: "succeeded",
+        imageUrl: stored.url || undefined,
+        storageId: stored.storageId,
+        thumbnailUrl: stored.thumbnailUrl ?? stored.url ?? undefined,
+        thumbStorageId: stored.thumbStorageId,
+        seed: stored.seed,
+        falRequestId: stored.falRequestId,
+      });
+      await logUsage("succeeded");
+    } catch (e) {
+      await fail(e instanceof Error ? e.message : String(e));
     }
   },
 });
