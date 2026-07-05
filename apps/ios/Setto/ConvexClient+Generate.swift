@@ -75,13 +75,14 @@ extension ConvexClient {
     @discardableResult
     func generateVideo(
         generationId: String, prompt: String, modelKey: String? = nil,
-        durationSeconds: Int? = nil
+        durationSeconds: Int? = nil, generateAudio: Bool? = nil
     ) async throws -> String {
         var args: [String: Any] = [
             "generationId": generationId, "prompt": prompt,
         ]
         if let modelKey { args["modelKey"] = modelKey }
         if let durationSeconds { args["durationSeconds"] = durationSeconds }
+        if let generateAudio { args["generateAudio"] = generateAudio }
         let ack = try await call(
             "videos:generate", .mutation, args: args, as: VideoIdAck.self)
         return ack.videoId

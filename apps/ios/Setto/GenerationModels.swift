@@ -61,27 +61,73 @@ struct VideoGenModel: Identifiable, Hashable {
     let label: String
     let durations: [Int]
     let defaultDuration: Int
+    /// USD per second of output at the default resolution (audio off).
+    var pricePerSecond: Double = 0
+    /// Model exposes an audio toggle; `audioPricePerSecond` applies when on.
+    var supportsAudio: Bool = false
+    /// USD per second when audio is on (nil = audio doesn't change the price).
+    var audioPricePerSecond: Double? = nil
+    /// Audio is native / always on (no toggle) — price already includes it.
+    var audioAlwaysOn: Bool = false
 }
 
+/// Mirror of web `VIDEO_MODELS` (convex/lib/videoModels.ts) — keep in sync.
 let videoGenModels: [VideoGenModel] = [
     .init(
         id: "fal-ai/kling-video/v2.5-turbo/pro/image-to-video",
-        label: "Kling 2.5 Turbo Pro", durations: [5, 10], defaultDuration: 5),
+        label: "Kling 2.5 Turbo Pro", durations: [5, 10], defaultDuration: 5,
+        pricePerSecond: 0.07),
+    .init(
+        id: "xai/grok-imagine-video/v1.5/image-to-video",
+        label: "Grok Imagine 1.5 — audio", durations: [6], defaultDuration: 6,
+        pricePerSecond: 0.07, audioAlwaysOn: true),
+    .init(
+        id: "fal-ai/veo3/image-to-video",
+        label: "Veo 3 — audio optional", durations: [4, 6, 8], defaultDuration: 8,
+        pricePerSecond: 0.2, supportsAudio: true, audioPricePerSecond: 0.4),
+    .init(
+        id: "fal-ai/bytedance/seedance/v1/pro/image-to-video",
+        label: "Seedance 1.0 Pro", durations: [5, 10], defaultDuration: 5,
+        pricePerSecond: 0.15),
+    .init(
+        id: "fal-ai/wan-25-preview/image-to-video",
+        label: "Wan 2.5", durations: [5, 10], defaultDuration: 5,
+        pricePerSecond: 0.1),
     .init(
         id: "fal-ai/pixverse/v4.5/image-to-video",
-        label: "PixVerse v4.5", durations: [5, 8], defaultDuration: 5),
+        label: "PixVerse v4.5", durations: [5, 8], defaultDuration: 5,
+        pricePerSecond: 0.03),
     .init(
         id: "fal-ai/minimax/hailuo-02/standard/image-to-video",
-        label: "MiniMax Hailuo 02", durations: [6, 10], defaultDuration: 6),
+        label: "MiniMax Hailuo 02", durations: [6, 10], defaultDuration: 6,
+        pricePerSecond: 0.045),
     .init(
         id: "fal-ai/luma-dream-machine/ray-2/image-to-video",
-        label: "Luma Ray 2", durations: [5, 9], defaultDuration: 5),
+        label: "Luma Ray 2", durations: [5, 9], defaultDuration: 5,
+        pricePerSecond: 0.1),
     .init(
         id: "fal-ai/veo3/fast/image-to-video",
-        label: "Veo 3 Fast", durations: [8], defaultDuration: 8),
+        label: "Veo 3 Fast", durations: [8], defaultDuration: 8,
+        pricePerSecond: 0.1),
 ]
 
 let defaultVideoGenModelId = "fal-ai/kling-video/v2.5-turbo/pro/image-to-video"
+
+/// Estimated USD cost for a `seconds`-long clip (mirrors web `estimateVideoCost`).
+/// Bills the audio rate only for toggle models with audio on; native-audio
+/// models already price audio into `pricePerSecond`.
+func estimateVideoCost(_ modelKey: String, seconds: Int, withAudio: Bool = false)
+    -> Double
+{
+    guard let m = videoGenModels.first(where: { $0.id == modelKey }) else { return 0 }
+    let perSecond =
+        withAudio && m.supportsAudio && m.audioPricePerSecond != nil
+        ? m.audioPricePerSecond! : m.pricePerSecond
+    return perSecond * Double(seconds)
+}
+
+/// Compact per-second price, e.g. "$0.07/s" (mirrors web `formatPricePerSecond`).
+func formatPricePerSecond(_ usd: Double) -> String { "\(formatModelPrice(usd))/s" }
 
 // MARK: - Video-editor presets
 

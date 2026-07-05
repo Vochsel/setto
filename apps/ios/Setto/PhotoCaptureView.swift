@@ -17,6 +17,14 @@ enum CaptureModel: String, CaseIterable, Identifiable {
         case .nanoBananaPro: return "Nano Banana Pro"
         }
     }
+    /// Approx USD per generated image (mirrors the image-model registry prices).
+    var price: Double {
+        switch self {
+        case .nanoBanana2: return 0.08
+        case .gptImage2: return 0.25
+        case .nanoBananaPro: return 0.134
+        }
+    }
 }
 
 /// "Photo mode": pick a location within a shoot, the model and product, then
@@ -151,7 +159,7 @@ struct PhotoCaptureView: View {
             Section {
                 Picker("AI model", selection: $aiModel) {
                     ForEach(CaptureModel.allCases) { m in
-                        Text(m.label).tag(m)
+                        Text("\(m.label) · \(formatModelPrice(m.price))").tag(m)
                     }
                 }
             } header: {

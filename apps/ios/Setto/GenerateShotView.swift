@@ -136,7 +136,7 @@ struct GenerateShotView: View {
             Section("Output") {
                 Picker("AI model", selection: $imageModelId) {
                     ForEach(imageGenModels) { m in
-                        Text(m.label).tag(m.id)
+                        Text("\(m.label) · \(formatModelPrice(m.price))").tag(m.id)
                     }
                 }
                 Picker("Aspect ratio", selection: $aspect) {

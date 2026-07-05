@@ -12,12 +12,17 @@ struct AnimateSheet: View {
     @State private var prompt = "Subtle, natural motion — keep it realistic."
     @State private var modelId = defaultVideoGenModelId
     @State private var duration = 5
+    @State private var generateAudio = false
     @State private var busy = false
     @State private var error: String?
     @State private var started = false
 
     private var model: VideoGenModel? {
         videoGenModels.first { $0.id == modelId }
+    }
+    private var audioOn: Bool { (model?.supportsAudio ?? false) && generateAudio }
+    private var estCost: Double {
+        estimateVideoCost(modelId, seconds: duration, withAudio: audioOn)
     }
 
     var body: some View {
@@ -39,7 +44,8 @@ struct AnimateSheet: View {
                     Section("Model") {
                         Picker("Model", selection: $modelId) {
                             ForEach(videoGenModels) { m in
-                                Text(m.label).tag(m.id)
+                                Text("\(m.label) · \(formatPricePerSecond(m.pricePerSecond))")
+                                    .tag(m.id)
                             }
                         }
                         .onChange(of: modelId) { _, _ in
@@ -51,6 +57,20 @@ struct AnimateSheet: View {
                             ForEach(model?.durations ?? [5], id: \.self) { d in
                                 Text("\(d)s").tag(d)
                             }
+                        }
+                        // Audio: a toggle for models that offer a paid track,
+                        // a static note for native-audio models (Grok).
+                        if model?.supportsAudio == true {
+                            Toggle("Generate audio", isOn: $generateAudio)
+                        } else if model?.audioAlwaysOn == true {
+                            Label("Includes synchronized audio", systemImage: "speaker.wave.2.fill")
+                                .foregroundStyle(.secondary)
+                                .font(.footnote)
+                        }
+                        LabeledContent("Est. cost") {
+                            Text("~\(formatModelPrice(estCost))\(audioOn ? " (with audio)" : "")")
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
                         }
                     }
                     if let error {
@@ -85,7 +105,8 @@ struct AnimateSheet: View {
                 let c = auth.client()
                 _ = try await c.generateVideo(
                     generationId: generationId, prompt: prompt,
-                    modelKey: modelId, durationSeconds: duration)
+                    modelKey: modelId, durationSeconds: duration,
+                    generateAudio: audioOn)
                 started = true
             } catch {
                 self.error = error.localizedDescription
