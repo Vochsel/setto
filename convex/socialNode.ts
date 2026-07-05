@@ -46,10 +46,27 @@ async function pushToBuffer(
   const dueAt = post.scheduledAt
     ? new Date(post.scheduledAt).toISOString()
     : undefined;
+
+  // Map each channel to its service (instagram/tiktok/…) so we can attach the
+  // per-service `metadata` Buffer requires (e.g. Instagram's post type). Use the
+  // channels cached on the connection at verify; fall back to a live fetch if a
+  // target isn't covered (older connections stored no service).
+  const cached = Array.isArray(meta.channels)
+    ? (meta.channels as Array<{ id?: string; service?: string }>)
+    : [];
+  let serviceById = new Map<string, string | undefined>(
+    cached.filter((c) => c.id).map((c) => [c.id as string, c.service]),
+  );
+  if (post.channelIds.some((id) => !serviceById.has(id))) {
+    const live = await bufferChannels(secret, meta);
+    serviceById = new Map(live.map((c) => [c.id, c.service]));
+  }
+
   const ids: string[] = [];
   for (const channelId of post.channelIds) {
     const res = await bufferCreatePost(secret, meta, {
       channelId,
+      service: serviceById.get(channelId),
       text: post.text,
       assets,
       dueAt,

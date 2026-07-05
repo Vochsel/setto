@@ -323,25 +323,55 @@ type BufferPostResult = {
 };
 
 /**
+ * Per-channel `metadata` some services require. Instagram won't accept a post
+ * without a `type` (post/reel/story) and `shouldShareToFeed`; we pick reel for
+ * video, post for images, and always surface it in the feed. Other services
+ * either need no metadata or accept the post as-is.
+ */
+function bufferMetadataFor(
+  service: string | undefined,
+  hasVideo: boolean,
+): Record<string, unknown> | undefined {
+  switch (service) {
+    case "instagram":
+      return {
+        instagram: {
+          type: hasVideo ? "reel" : "post",
+          shouldShareToFeed: true,
+        },
+      };
+    case "facebook":
+      return { facebook: { type: hasVideo ? "reel" : "post" } };
+    default:
+      return undefined;
+  }
+}
+
+/**
  * Create a post on one channel. With `dueAt` (ISO) it schedules for that time;
  * without, it posts now. `schedulingType: automatic` makes Buffer publish it
- * (vs. a mobile reminder). Throws with the typed error message on failure.
+ * (vs. a mobile reminder). `service` drives the channel-specific `metadata`
+ * (e.g. Instagram's required post type). Throws the typed error on failure.
  */
 export async function bufferCreatePost(
   secret: string,
   meta: Record<string, unknown>,
   input: {
     channelId: string;
+    service?: string;
     text: string;
     assets?: BufferAsset[];
     dueAt?: string;
   },
 ): Promise<{ id?: string; status?: string }> {
+  const hasVideo = (input.assets ?? []).some((a) => a.video);
+  const metadata = bufferMetadataFor(input.service, hasVideo);
   const postInput: Record<string, unknown> = {
     channelId: input.channelId,
     text: input.text,
     assets: input.assets ?? [],
     schedulingType: "automatic",
+    ...(metadata ? { metadata } : {}),
     ...(input.dueAt
       ? { dueAt: input.dueAt, mode: "customScheduled" }
       : { mode: "shareNow" }),
