@@ -18,8 +18,8 @@ struct RootView: View {
                     .tabItem { Label("Favorites", systemImage: "heart") }
                 ModelsView()
                     .tabItem { Label("Models", systemImage: "person.crop.square") }
-                AccountView()
-                    .tabItem { Label("Account", systemImage: "person.circle") }
+                MoreView()
+                    .tabItem { Label("More", systemImage: "ellipsis.circle") }
             }
         } else if auth.needsResume || auth.resuming {
             ResumingView()
@@ -95,12 +95,33 @@ struct LoginView: View {
     }
 }
 
-struct AccountView: View {
+/// The "More" hub: commerce (Store, Social), connections, and account settings —
+/// destinations that don't warrant their own tab given the 5-tab bar.
+struct MoreView: View {
     @EnvironmentObject var auth: AuthStore
 
     var body: some View {
         NavigationStack {
             List {
+                Section("Commerce") {
+                    NavigationLink {
+                        StoreView().environmentObject(auth)
+                    } label: {
+                        Label("Store", systemImage: "bag")
+                    }
+                    NavigationLink {
+                        SocialView().environmentObject(auth)
+                    } label: {
+                        Label("Social", systemImage: "paperplane")
+                    }
+                }
+                Section("Integrations") {
+                    NavigationLink {
+                        ConnectionsView().environmentObject(auth)
+                    } label: {
+                        Label("Connections", systemImage: "link")
+                    }
+                }
                 Section("Signed in as") {
                     Text(auth.user?.name ?? auth.user?.email ?? auth.user?.id ?? "—")
                     if let email = auth.user?.email {
@@ -115,7 +136,7 @@ struct AccountView: View {
                     Button("Sign out", role: .destructive) { auth.logout() }
                 }
             }
-            .navigationTitle("Account")
+            .navigationTitle("More")
         }
     }
 }

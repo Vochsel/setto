@@ -28,6 +28,7 @@ struct GenerateShotView: View {
     @State private var loading = true
     @State private var generating = false
     @State private var error: String?
+    @State private var addingLocation = false
 
     private let aspects: [(String, String)] = [
         ("auto", "Auto"), ("4:5", "4:5 portrait"), ("9:16", "9:16 vertical"),
@@ -46,12 +47,14 @@ struct GenerateShotView: View {
                 if loading {
                     ProgressView()
                 } else if locations.isEmpty {
-                    ContentUnavailableView(
-                        "No locations in this shoot",
-                        systemImage: "mappin.slash",
-                        description: Text(
-                            "Add a location to the shoot first, then generate shots for it."
-                        ))
+                    ContentUnavailableView {
+                        Label("No locations yet", systemImage: "mappin.slash")
+                    } description: {
+                        Text("Add a location so you can generate shots for it.")
+                    } actions: {
+                        Button("Add location") { addingLocation = true }
+                            .buttonStyle(.borderedProminent)
+                    }
                 } else {
                     form
                 }
@@ -64,6 +67,10 @@ struct GenerateShotView: View {
                 }
             }
             .task { await load() }
+            .sheet(isPresented: $addingLocation) {
+                AddLocationView(shootId: shoot.id) { await load() }
+                    .environmentObject(auth)
+            }
         }
     }
 
@@ -76,6 +83,11 @@ struct GenerateShotView: View {
                     }
                 }
                 .onChange(of: locationId) { _, _ in defaultModelForLocation() }
+                Button {
+                    addingLocation = true
+                } label: {
+                    Label("Add location", systemImage: "mappin.and.ellipse")
+                }
             }
 
             Section("Model") {

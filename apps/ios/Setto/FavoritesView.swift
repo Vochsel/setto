@@ -5,14 +5,17 @@ import SwiftUI
 /// favorite). Backed by `review:favorites`.
 struct FavoritesView: View {
     @EnvironmentObject var auth: AuthStore
+    @Environment(\.displayScale) private var displayScale
     @State private var items: [MediaItem] = []
     @State private var error: String?
     @State private var loading = false
+    @State private var limit = 60
     @State private var swipeStart: SwipeAnchor?
     @State private var headerHidden = false
 
     /// Drop items unfavorited inside the swipe reel without needing a reload.
     private var favorites: [MediaItem] { items.filter { $0.favorite } }
+    private var canLoadMore: Bool { items.count >= limit }
 
     var body: some View {
         NavigationStack {
@@ -33,8 +36,21 @@ struct FavoritesView: View {
                         ))
                 } else {
                     AutoHidingScroll(headerHidden: $headerHidden) {
-                        MasonryGrid(items: favorites) { item in
-                            swipeStart = SwipeAnchor(id: item.id)
+                        VStack(spacing: 0) {
+                            MasonryGrid(items: favorites) { item in
+                                swipeStart = SwipeAnchor(id: item.id)
+                            }
+                            if canLoadMore {
+                                Button {
+                                    Task { limit += 60; await load() }
+                                } label: {
+                                    if loading { ProgressView() } else {
+                                        Text("Load more")
+                                    }
+                                }
+                                .buttonStyle(.bordered)
+                                .padding(.vertical, 16)
+                            }
                         }
                     }
                 }
@@ -52,7 +68,7 @@ struct FavoritesView: View {
                 }
             }
             .refreshable { await load() }
-            .task { await load() }
+            .task { if items.isEmpty { await load() } }
             .fullScreenCover(item: $swipeStart) { anchor in
                 SwipeFeedView(items: $items, startId: anchor.id)
                     .environmentObject(auth)
@@ -66,8 +82,12 @@ struct FavoritesView: View {
         do {
             let client = auth.client()
             items = try await client.call(
-                "review:favorites", .query, as: [MediaItem].self)
+                "review:favorites", .query, args: ["limit": limit],
+                as: [MediaItem].self)
             error = nil
+            ImageLoader.shared.prefetch(
+                items.prefix(30).compactMap(\.thumbURL),
+                maxPixel: 512 * displayScale)
         } catch {
             self.error = error.localizedDescription
         }

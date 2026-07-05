@@ -5,14 +5,21 @@ import SwiftUI
 /// full-screen TikTok swipe reel. Backed by the unified `review:feed`.
 struct GalleryView: View {
     @EnvironmentObject var auth: AuthStore
+    @Environment(\.displayScale) private var displayScale
     @State private var items: [MediaItem] = []
     @State private var error: String?
     @State private var loading = false
+    /// Bounded page size — grows via "Load more" instead of pulling the whole
+    /// org feed (which used to load and decode every image up front).
+    @State private var limit = 60
 
     @State private var kind: FeedKind = .all
     @State private var favOnly = false
     @State private var swipeStart: SwipeAnchor?
     @State private var headerHidden = false
+
+    /// There may be more to load when we filled the current page exactly.
+    private var canLoadMore: Bool { items.count >= limit }
 
     private var filtered: [MediaItem] {
         items.filter { item in
@@ -58,7 +65,8 @@ struct GalleryView: View {
                 }
             }
             .refreshable { await load() }
-            .task { await load() }
+            // Retain across tab switches — only fetch when we have nothing yet.
+            .task { if items.isEmpty { await load() } }
             .fullScreenCover(item: $swipeStart) { anchor in
                 SwipeFeedView(items: $items, startId: anchor.id)
                     .environmentObject(auth)
@@ -73,6 +81,19 @@ struct GalleryView: View {
                 filterBar
                 MasonryGrid(items: filtered) { item in
                     swipeStart = SwipeAnchor(id: item.id)
+                }
+                if canLoadMore && !favOnly && kind == .all {
+                    Button {
+                        Task { limit += 60; await load() }
+                    } label: {
+                        if loading {
+                            ProgressView()
+                        } else {
+                            Text("Load more")
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .padding(.vertical, 16)
                 }
             }
         }
@@ -105,8 +126,14 @@ struct GalleryView: View {
         do {
             let client = auth.client()
             items = try await client.call(
-                "review:feed", .query, as: [MediaItem].self)
+                "review:feed", .query, args: ["limit": limit],
+                as: [MediaItem].self)
             error = nil
+            // Warm the first screenful at the tile's exact pixel size so early
+            // scrolling is instant (must match MasonryTile's default maxWidth).
+            ImageLoader.shared.prefetch(
+                items.prefix(30).compactMap(\.thumbURL),
+                maxPixel: 512 * displayScale)
         } catch {
             self.error = error.localizedDescription
         }

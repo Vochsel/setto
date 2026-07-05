@@ -61,6 +61,17 @@ actor ImageLoader {
         return image
     }
 
+    /// Warm the cache for upcoming tiles. Fire-and-forget: each URL is loaded at
+    /// the SAME `maxPixel` the tile will request (the cache key includes it), so
+    /// the tile then hits memory instantly instead of decoding on appear.
+    nonisolated func prefetch(_ urls: [URL], maxPixel: CGFloat) {
+        Task {
+            for url in urls {
+                _ = try? await self.image(for: url, maxPixel: maxPixel)
+            }
+        }
+    }
+
     /// Fetch (disk, else network) and downsample — all off the actor.
     private nonisolated func loadImage(
         from url: URL, maxPixel: CGFloat
