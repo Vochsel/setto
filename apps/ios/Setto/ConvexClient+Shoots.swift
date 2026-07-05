@@ -42,15 +42,41 @@ extension ConvexClient {
     }
 
     /// Kick off a Street View capture for a location (best-effort; needs coords).
-    func captureStreetView(locationId: String) async throws {
+    /// Pass `radiusMeters > 0` to also sample random nearby points ("expand
+    /// search radius"). Returns how many frames were added.
+    @discardableResult
+    func captureStreetView(locationId: String, radiusMeters: Double? = nil)
+        async throws -> CaptureAck
+    {
+        var args: [String: Any] = ["locationId": locationId]
+        if let radiusMeters { args["radiusMeters"] = radiusMeters }
+        return try await call(
+            "streetview:capture", .action, args: args, as: CaptureAck.self)
+    }
+
+    /// Persist a location's Street View expansion setting (so shoots reuse it).
+    func updateLocationRadius(
+        locationId: String, enabled: Bool, meters: Double
+    ) async throws {
         try await run(
-            "streetview:capture", .action, args: ["locationId": locationId])
+            "locations:update", .mutation,
+            args: [
+                "id": locationId,
+                "streetViewRadiusEnabled": enabled,
+                "streetViewRadiusMeters": meters,
+            ])
     }
 
     /// All saved locations for the workspace.
     func locations() async throws -> [LocationDoc] {
         try await call("locations:list", .query, as: [LocationDoc].self)
     }
+}
+
+/// Result of `streetview:capture` (`{ added, fromCache }`).
+struct CaptureAck: Decodable {
+    let added: Int?
+    let fromCache: Bool?
 }
 
 /// A saved location (`locations:list`).
@@ -62,6 +88,8 @@ struct LocationDoc: Identifiable, Decodable {
     let lng: Double?
     let imageUrls: [ImageRef]?
     let streetViewUrls: [ImageRef]?
+    let streetViewRadiusEnabled: Bool?
+    let streetViewRadiusMeters: Double?
 
     var thumbURL: URL? {
         URL(string: imageUrls?.first?.url ?? streetViewUrls?.first?.url ?? "")
@@ -69,9 +97,12 @@ struct LocationDoc: Identifiable, Decodable {
     var hasImagery: Bool {
         !(imageUrls?.isEmpty ?? true) || !(streetViewUrls?.isEmpty ?? true)
     }
+    /// Street View capture needs coordinates to snap to.
+    var hasCoords: Bool { lat != nil && lng != nil }
 
     enum CodingKeys: String, CodingKey {
         case id = "_id"
         case name, address, lat, lng, imageUrls, streetViewUrls
+        case streetViewRadiusEnabled, streetViewRadiusMeters
     }
 }

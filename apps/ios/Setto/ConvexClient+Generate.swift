@@ -69,6 +69,36 @@ extension ConvexClient {
         return ack.generationIds
     }
 
+    // MARK: Quick capture (shoot-less)
+
+    /// Generate photo(s) tagged straight to a location / product / model with
+    /// no shoot. `mode` is "prompt" (text) or "capture" (a real scene photo,
+    /// passed as `captureStorageId`). Returns the new generation ids.
+    @discardableResult
+    func generateQuick(
+        mode: String, locationId: String? = nil, outfitId: String? = nil,
+        modelId: String? = nil, variationId: String? = nil,
+        modelKey: String? = nil, aspectRatio: String? = nil, count: Int? = nil,
+        posePrompt: String? = nil, extraPrompt: String? = nil,
+        captureStorageId: String? = nil
+    ) async throws -> [String] {
+        var args: [String: Any] = ["mode": mode]
+        if let locationId { args["locationId"] = locationId }
+        if let outfitId { args["outfitId"] = outfitId }
+        if let modelId { args["modelId"] = modelId }
+        if let variationId { args["variationId"] = variationId }
+        if let modelKey { args["modelKey"] = modelKey }
+        if let aspectRatio { args["aspectRatio"] = aspectRatio }
+        if let count { args["count"] = count }
+        if let posePrompt, !posePrompt.isEmpty { args["posePrompt"] = posePrompt }
+        if let extraPrompt, !extraPrompt.isEmpty { args["extraPrompt"] = extraPrompt }
+        if let captureStorageId { args["captureStorageId"] = captureStorageId }
+        let ack = try await call(
+            "generate:generateQuick", .action, args: args,
+            as: GenerationIdsAck.self)
+        return ack.generationIds
+    }
+
     // MARK: Image → video
 
     /// Kick off an image-to-video render from a source generation image.

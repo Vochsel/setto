@@ -103,6 +103,13 @@ struct MoreView: View {
     var body: some View {
         NavigationStack {
             List {
+                Section("Library") {
+                    NavigationLink {
+                        LocationsView().environmentObject(auth)
+                    } label: {
+                        Label("Locations", systemImage: "mappin.and.ellipse")
+                    }
+                }
                 Section("Commerce") {
                     NavigationLink {
                         StoreView().environmentObject(auth)
