@@ -263,7 +263,7 @@ export async function printifyPaginate<T>(
       data: T[];
       current_page?: number;
       last_page?: number;
-    }>(secret, `${path}${sep}limit=100&page=${page}`);
+    }>(secret, `${path}${sep}limit=50&page=${page}`);
     out.push(...(body.data ?? []));
     if (max && out.length >= max) return out.slice(0, max);
     if (!body.last_page || (body.current_page ?? page) >= body.last_page) break;

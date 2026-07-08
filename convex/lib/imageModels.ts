@@ -157,7 +157,7 @@ export const IMAGE_MODELS: ImageModel[] = [
   // Only multi-image *editors* live here: our pipeline conditions on several
   // reference photos (outfit + location + model), so text-to-image or
   // single-image endpoints (old FLUX ultra / Imagen / Ideogram / Recraft /
-  // FLUX dev) ignored our references and produced poor results. These four
+  // FLUX dev) ignored our references and produced poor results. These
   // follow an instruction prompt across many references like Nano Banana does.
   {
     id: "fal-ai/nano-banana-2/edit",
@@ -171,6 +171,21 @@ export const IMAGE_MODELS: ImageModel[] = [
     falImageParam: "image_urls",
     falDefaultParams: { num_images: 1 },
     falSize: "aspect_ratio", // accepts the full ratio set, no snapping needed
+  },
+  {
+    id: "fal-ai/bytedance/seedream/v5/pro/edit",
+    provider: "fal",
+    label: "Seedream 5.0 Pro — via fal",
+    description:
+      "ByteDance Seedream 5.0 Pro. Grounded, region-precise editing — changes one element while keeping the rest of the frame intact, with layer separation, sketch completion and up to 10 references.",
+    supportsImagePrompt: true,
+    // Tentative fal pricing: ~$0.135/output at our 2048-long size, plus
+    // ~$0.0045 per extra input image (first input free).
+    pricePerImage: 0.14,
+    falEndpoint: "fal-ai/bytedance/seedream/v5/pro/edit",
+    falImageParam: "image_urls",
+    falDefaultParams: { num_images: 1, max_images: 1 },
+    falSize: "image_size_dims", // enum portrait sizes fall below its min area
   },
   {
     id: "fal-ai/bytedance/seedream/v4/edit",
