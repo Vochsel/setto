@@ -2,7 +2,9 @@
 
 import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { X, Loader2, Crop as CropIcon } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { fetchMediaBlob } from "@/lib/media-fetch";
 import { cn } from "@/lib/utils";
 
 type Rect = { x: number; y: number; w: number; h: number };
@@ -114,14 +116,19 @@ export function ImageCropper({
     setEncoding(true);
     try {
       await encode();
+    } catch (e) {
+      // Without this the failure is only ever an unhandled rejection in the
+      // console, and the button just stops responding.
+      toast.error(e instanceof Error ? e.message : "Could not crop image");
     } finally {
       setEncoding(false);
     }
   }
 
   async function encode() {
-    const res = await fetch(src);
-    const blob = await res.blob();
+    // Via the proxy where needed — R2 serves the originals without CORS, and
+    // canvas can't read (or export) bytes it isn't allowed to see.
+    const blob = await fetchMediaBlob(src);
     const bmp = await createImageBitmap(blob);
     const sx = Math.round(rect.x * bmp.width);
     const sy = Math.round(rect.y * bmp.height);

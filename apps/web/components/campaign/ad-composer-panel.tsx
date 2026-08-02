@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TEXT_MODELS, DEFAULT_TEXT_MODEL_ID } from "@/convex/lib/textModels";
+import { mediaProxyUrl } from "@/lib/media-fetch";
 import type { Id } from "@/convex/_generated/dataModel";
 
 /* ─────────────────────────── helpers ─────────────────────────── */
@@ -55,8 +56,7 @@ interface AdDoc {
   aspectRatio?: string;
 }
 
-const mediaProxy = (url: string) =>
-  `/api/media-proxy?url=${encodeURIComponent(url)}`;
+const mediaProxy = mediaProxyUrl;
 
 const aspectToCss = (ratio?: string) =>
   ratio && /^\d+:\d+$/.test(ratio) ? ratio.replace(":", " / ") : "4 / 5";

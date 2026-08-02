@@ -31,6 +31,7 @@ import {
   ReviewControls,
   type ReviewStatus,
 } from "@/components/review-controls";
+import { fetchMediaBlob } from "@/lib/media-fetch";
 import { cn } from "@/lib/utils";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -54,12 +55,6 @@ export interface LightboxImage {
   rating?: number;
   reviewStatus?: ReviewStatus;
   favorite?: boolean;
-}
-
-async function fetchBlob(url: string): Promise<Blob> {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`fetch failed (${res.status})`);
-  return await res.blob();
 }
 
 /** Re-encode any image blob to PNG (the only type browsers reliably accept on
@@ -108,7 +103,7 @@ function canSaveToPhotos(files: File[]): boolean {
 async function saveMedia(url: string, kind: "image" | "video") {
   let blob: Blob;
   try {
-    blob = await fetchBlob(url);
+    blob = await fetchMediaBlob(url);
   } catch {
     window.open(url, "_blank");
     return;
@@ -139,7 +134,7 @@ async function saveMedia(url: string, kind: "image" | "video") {
 
 async function copyImage(url: string) {
   try {
-    const png = await toPng(await fetchBlob(url));
+    const png = await toPng(await fetchMediaBlob(url));
     await navigator.clipboard.write([
       new ClipboardItem({ "image/png": png }),
     ]);
