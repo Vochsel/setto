@@ -256,12 +256,31 @@ export const IMAGE_MODELS: ImageModel[] = [
     falMaxImages: 4, // extra references are dropped by the endpoint anyway
   },
   {
+    id: "fal-ai/qwen-image-2/pro/edit",
+    provider: "fal",
+    label: "Qwen Image 2 Pro edit — via fal",
+    description:
+      "Alibaba's current Qwen editor, two generations on from Image Edit Plus. Takes 1–3 references (order matters — the prompt can call them 'image 1', 'image 2') with strong prompt and text fidelity.",
+    supportsImagePrompt: true,
+    // fal publishes no per-image price for any Qwen edit endpoint, so this is an
+    // estimate from its siblings (qwen-image-layered $0.05/image, qwen-image
+    // image-to-image $0.02/megapixel). A verified run bills 1 unit — check the
+    // dashboard against a real request if the usage numbers look off.
+    pricePerImage: 0.05,
+    falEndpoint: "fal-ai/qwen-image-2/pro/edit",
+    falImageParam: "image_urls",
+    falDefaultParams: { num_images: 1 },
+    falSize: "image_size_enum",
+    falMaxImages: 3, // the endpoint requires 1–3
+  },
+  {
     id: "fal-ai/qwen-image-edit-plus",
     provider: "fal",
     label: "Qwen Image Edit Plus — via fal",
     description:
-      "Alibaba Qwen-Image-Edit. Multi-image editing with excellent prompt and text fidelity; cheapest of the editors.",
+      "Alibaba Qwen-Image-Edit (Sept 2025). Multi-image editing with excellent prompt and text fidelity; cheapest of the editors.",
     supportsImagePrompt: true,
+    // Also unpublished — a longstanding estimate, kept as-is.
     pricePerImage: 0.04,
     falEndpoint: "fal-ai/qwen-image-edit-plus",
     falImageParam: "image_urls",
