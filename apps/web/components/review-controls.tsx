@@ -20,6 +20,8 @@ export const REVIEW_STATUSES: {
   dot: string;
   active: string;
   icon: typeof Check;
+  /** Lightbox keyboard shortcut (see `ImageLightbox`). */
+  shortcut: string;
 }[] = [
   {
     value: "approved",
@@ -27,6 +29,7 @@ export const REVIEW_STATUSES: {
     dot: "bg-emerald-500",
     active: "bg-emerald-500/15 text-emerald-600 ring-emerald-500/30",
     icon: Check,
+    shortcut: "a",
   },
   {
     value: "needs_changes",
@@ -34,6 +37,7 @@ export const REVIEW_STATUSES: {
     dot: "bg-amber-500",
     active: "bg-amber-500/15 text-amber-600 ring-amber-500/30",
     icon: AlertTriangle,
+    shortcut: "n",
   },
   {
     value: "rejected",
@@ -41,6 +45,7 @@ export const REVIEW_STATUSES: {
     dot: "bg-red-500",
     active: "bg-red-500/15 text-red-600 ring-red-500/30",
     icon: X,
+    shortcut: "r",
   },
 ];
 
@@ -59,10 +64,12 @@ function Stars({
   value,
   onRate,
   theme,
+  keyHints,
 }: {
   value: number;
   onRate: (n: number) => void;
   theme: "light" | "dark";
+  keyHints?: boolean;
 }) {
   return (
     <div className="flex items-center">
@@ -72,7 +79,7 @@ function Stars({
           <button
             key={n}
             type="button"
-            title={`${n} star${n > 1 ? "s" : ""}`}
+            title={`${n} star${n > 1 ? "s" : ""}${keyHints ? ` (${n})` : ""}`}
             onClick={(e) => {
               e.stopPropagation();
               // Click the current rating again to clear it.
@@ -142,10 +149,12 @@ function StatusButtons({
   value,
   onSet,
   theme,
+  keyHints,
 }: {
   value?: ReviewStatus;
   onSet: (s: ReviewStatus | null) => void;
   theme: "light" | "dark";
+  keyHints?: boolean;
 }) {
   return (
     <div className="flex items-center gap-1">
@@ -156,7 +165,9 @@ function StatusButtons({
           <button
             key={s.value}
             type="button"
-            title={s.label}
+            title={
+              keyHints ? `${s.label} (${s.shortcut.toUpperCase()})` : s.label
+            }
             onClick={(e) => {
               e.stopPropagation();
               onSet(active ? null : s.value);
@@ -189,9 +200,12 @@ export function ReviewControls({
   favorite,
   theme = "light",
   className,
+  keyHints,
 }: {
   mediaId: string;
   className?: string;
+  /** Append keyboard-shortcut letters to the tooltips (lightbox binds them). */
+  keyHints?: boolean;
 } & MediaReview & { theme?: "light" | "dark" }) {
   const setReview = useMutation(api.review.setReview);
   const toggleFavorite = useMutation(api.review.toggleFavorite);
@@ -205,13 +219,14 @@ export function ReviewControls({
       <Stars
         value={rating ?? 0}
         theme={theme}
+        keyHints={keyHints}
         onRate={(n) =>
           setReview({ id, rating: n === 0 ? null : n }).catch(() => {})
         }
       />
       <button
         type="button"
-        title={favorite ? "Unfavorite" : "Favorite"}
+        title={`${favorite ? "Unfavorite" : "Favorite"}${keyHints ? " (F)" : ""}`}
         onClick={() => toggleFavorite({ id }).catch(() => {})}
         className={cn(
           "flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium ring-1 transition",
@@ -228,6 +243,7 @@ export function ReviewControls({
       <StatusButtons
         value={reviewStatus}
         theme={theme}
+        keyHints={keyHints}
         onSet={(s) => setReview({ id, reviewStatus: s }).catch(() => {})}
       />
     </div>

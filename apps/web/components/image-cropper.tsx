@@ -13,8 +13,10 @@ const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
 
 /**
  * A free-form crop overlay. Renders the image with a draggable / resizable crop
- * box (rule-of-thirds guides + corner handles). On Apply it fetches the source
- * bytes, crops to the selected region on a canvas, and hands back a Blob.
+ * box (rule-of-thirds guides + corner handles); holding Alt or ⌘ while dragging
+ * a corner resizes about the centre, moving all four sides at once. On Apply it
+ * fetches the source bytes, crops to the selected region on a canvas, and hands
+ * back a Blob.
  */
 export function ImageCropper({
   src,
@@ -23,12 +25,15 @@ export function ImageCropper({
   onApply,
 }: {
   src: string;
+  /** External work to block on (the local encode is tracked internally). */
   busy?: boolean;
   onCancel: () => void;
   onApply: (blob: Blob) => void | Promise<void>;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [rect, setRect] = useState<Rect>({ x: 0.08, y: 0.08, w: 0.84, h: 0.84 });
+  const [encoding, setEncoding] = useState(false);
+  const working = busy || encoding;
   const drag = useRef<{
     handle: Handle;
     start: Rect;
@@ -57,6 +62,26 @@ export function ImageCropper({
       setRect({ ...d.start, x, y });
       return;
     }
+    // Alt / ⌘ resizes about the box's centre — every side follows the corner
+    // being dragged, so the framing stays put while the crop grows or shrinks.
+    if (e.altKey || e.metaKey) {
+      const cx = d.start.x + d.start.w / 2;
+      const cy = d.start.y + d.start.h / 2;
+      // Half-extents can't reach past the image edge on either side of centre.
+      const hw = Math.min(Math.abs(p.x - cx), cx, 1 - cx);
+      const hh = Math.min(Math.abs(p.y - cy), cy, 1 - cy);
+      const w = Math.max(MIN, hw * 2);
+      const h = Math.max(MIN, hh * 2);
+      // MIN can outgrow the room on one side when the centre sits near an edge;
+      // nudge the box back inside rather than letting it hang off the image.
+      setRect({
+        x: Math.min(Math.max(0, cx - w / 2), 1 - w),
+        y: Math.min(Math.max(0, cy - h / 2), 1 - h),
+        w,
+        h,
+      });
+      return;
+    }
     let left = d.start.x;
     let top = d.start.y;
     let right = d.start.x + d.start.w;
@@ -82,7 +107,19 @@ export function ImageCropper({
     window.addEventListener("pointerup", endDrag);
   }
 
+  // Decoding + re-encoding the full-size image takes a beat; `encoding` covers
+  // just that. The parent applies the result optimistically, so the button only
+  // spins for the local work — not for any upload behind it.
   async function apply() {
+    setEncoding(true);
+    try {
+      await encode();
+    } finally {
+      setEncoding(false);
+    }
+  }
+
+  async function encode() {
     const res = await fetch(src);
     const blob = await res.blob();
     const bmp = await createImageBitmap(blob);
@@ -165,12 +202,17 @@ export function ImageCropper({
       {/* z-10 keeps the controls above the crop box's 9999px box-shadow scrim,
           which would otherwise paint over them (it belongs to the positioned
           crop box and so paints after this in-flow row). */}
+      <p className="relative z-10 hidden text-center text-[11px] text-white/40 sm:block">
+        Drag to move · drag a corner to resize · hold Alt or ⌘ to resize from the
+        centre
+      </p>
+
       <div className="relative z-10 flex items-center gap-2">
-        <Button variant="secondary" onClick={onCancel} disabled={busy}>
+        <Button variant="secondary" onClick={onCancel} disabled={working}>
           <X className="h-4 w-4" /> Cancel
         </Button>
-        <Button onClick={apply} disabled={busy}>
-          {busy ? (
+        <Button onClick={apply} disabled={working}>
+          {working ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <CropIcon className="h-4 w-4" />

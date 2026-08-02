@@ -27,6 +27,7 @@ import { VariationsPopover } from "@/components/variations-popover";
 import { ImageCropper } from "@/components/image-cropper";
 import { QuickSchedule } from "@/components/social/quick-schedule";
 import {
+  REVIEW_STATUSES,
   ReviewControls,
   type ReviewStatus,
 } from "@/components/review-controls";
@@ -153,8 +154,25 @@ async function copyImage(url: string) {
   }
 }
 
+/** Keystrokes typed into a field belong to that field, not to the lightbox. */
+function isTypingTarget(t: EventTarget | null): boolean {
+  const el = t as HTMLElement | null;
+  if (!el || typeof el.tagName !== "string") return false;
+  return (
+    el.isContentEditable ||
+    el.tagName === "INPUT" ||
+    el.tagName === "TEXTAREA" ||
+    el.tagName === "SELECT"
+  );
+}
+
 /**
- * Full-screen image viewer with prev/next + keyboard (←/→/Esc) navigation.
+ * Full-screen image viewer with prev/next + keyboard navigation.
+ *
+ * Keys: ←/→ navigate · Esc close · F favorite · 1–5 rate (0 clears) ·
+ * A/N/R approved / needs changes / rejected · C crop. Re-pressing the key of
+ * the current value clears it, mirroring the click behaviour of the controls.
+ *
  * Controlled by `index` (null = closed).
  */
 export function ImageLightbox({
@@ -179,8 +197,9 @@ export function ImageLightbox({
 
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
   const replaceImage = useMutation(api.generations.replaceImage);
+  const setReview = useMutation(api.review.setReview);
+  const toggleFavorite = useMutation(api.review.toggleFavorite);
   const [cropping, setCropping] = useState(false);
-  const [cropBusy, setCropBusy] = useState(false);
   // A local object-URL preview of a just-cropped image, shown instantly until
   // Convex reactivity flows the new URL back through `images`.
   const [localSrc, setLocalSrc] = useState<string | null>(null);
@@ -233,9 +252,18 @@ export function ImageLightbox({
     onClose();
   }
 
+  // Applying a crop is optimistic: swap in the cropped bytes and leave crop mode
+  // straight away, then upload behind it. Only a failure interrupts — and it
+  // rolls the preview back so what's on screen still matches what's stored.
   async function handleCrop(blob: Blob) {
-    if (!current?.generationId) return;
-    setCropBusy(true);
+    const generationId = current?.generationId;
+    if (!generationId) return;
+    const preview = URL.createObjectURL(blob);
+    setLocalSrc((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return preview;
+    });
+    setCropping(false);
     try {
       const uploadUrl = await generateUploadUrl();
       const res = await fetch(uploadUrl, {
@@ -243,18 +271,19 @@ export function ImageLightbox({
         headers: { "Content-Type": blob.type },
         body: blob,
       });
+      if (!res.ok) throw new Error(`Upload failed (${res.status})`);
       const { storageId } = await res.json();
       await replaceImage({
-        id: current.generationId as Id<"generations">,
+        id: generationId as Id<"generations">,
         storageId,
       });
-      setLocalSrc(URL.createObjectURL(blob));
-      setCropping(false);
-      toast.success("Image cropped");
     } catch (e) {
+      setLocalSrc((prev) => {
+        if (prev !== preview) return prev; // already moved on
+        URL.revokeObjectURL(prev);
+        return null;
+      });
       toast.error(e instanceof Error ? e.message : "Could not crop image");
-    } finally {
-      setCropBusy(false);
     }
   }
 
@@ -270,6 +299,9 @@ export function ImageLightbox({
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (cropping) return; // let the cropper own the keyboard while active
+      // Leave browser/OS chords and anything typed into a field (the schedule
+      // dialog, say) alone.
+      if (e.metaKey || e.ctrlKey || e.altKey || isTypingTarget(e.target)) return;
       const move = (to: number) => {
         setCropping(false);
         setLocalSrc((prev) => {
@@ -279,12 +311,54 @@ export function ImageLightbox({
         viewedKey.current = itemKey(images[to]);
         onIndexChange(to);
       };
-      if (e.key === "ArrowRight" && index < images.length - 1) move(index + 1);
-      else if (e.key === "ArrowLeft" && index > 0) move(index - 1);
+      if (e.key === "ArrowRight" && index < images.length - 1) {
+        move(index + 1);
+        return;
+      }
+      if (e.key === "ArrowLeft" && index > 0) {
+        move(index - 1);
+        return;
+      }
+
+      const item = images[index];
+      const key = e.key.toLowerCase();
+
+      if (key === "c" && item?.kind !== "video" && item?.generationId && item?.url) {
+        e.preventDefault();
+        setCropping(true);
+        return;
+      }
+
+      // Everything below edits review state, which needs a saved media doc.
+      const mediaId = item?.mediaId;
+      if (!mediaId) return;
+      const id = mediaId as Id<"generations">;
+
+      if (key === "f") {
+        e.preventDefault();
+        toggleFavorite({ id }).catch(() => toast.error("Could not save"));
+        return;
+      }
+      if (/^[0-5]$/.test(key)) {
+        e.preventDefault();
+        const n = Number(key);
+        // Pressing the current rating again clears it, as clicking it does.
+        const next = n === 0 || n === item.rating ? null : n;
+        setReview({ id, rating: next }).catch(() => toast.error("Could not save"));
+        return;
+      }
+      const status = REVIEW_STATUSES.find((s) => s.shortcut === key);
+      if (status) {
+        e.preventDefault();
+        setReview({
+          id,
+          reviewStatus: item.reviewStatus === status.value ? null : status.value,
+        }).catch(() => toast.error("Could not save"));
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, index, images, onIndexChange, cropping]);
+  }, [open, index, images, onIndexChange, cropping, setReview, toggleFavorite]);
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
@@ -371,7 +445,7 @@ export function ImageLightbox({
                     size="icon"
                     className={cn(CTRL, cropping && "bg-white/25")}
                     onClick={() => setCropping((c) => !c)}
-                    title="Crop (replaces the original)"
+                    title="Crop — replaces the original (C)"
                   >
                     <CropIcon className="h-4 w-4" />
                   </Button>
@@ -443,7 +517,6 @@ export function ImageLightbox({
           {cropping && displaySrc ? (
             <ImageCropper
               src={displaySrc}
-              busy={cropBusy}
               onCancel={() => setCropping(false)}
               onApply={handleCrop}
             />
@@ -486,15 +559,22 @@ export function ImageLightbox({
         </div>
 
         {current?.mediaId ? (
-          <ReviewControls
-            key={current.mediaId}
-            mediaId={current.mediaId}
-            rating={current.rating}
-            reviewStatus={current.reviewStatus}
-            favorite={current.favorite}
-            theme="dark"
-            className="mt-1"
-          />
+          <>
+            <ReviewControls
+              key={current.mediaId}
+              mediaId={current.mediaId}
+              rating={current.rating}
+              reviewStatus={current.reviewStatus}
+              favorite={current.favorite}
+              theme="dark"
+              keyHints
+              className="mt-1"
+            />
+            <p className="hidden text-center text-[11px] text-white/35 sm:block">
+              1–5 rate · 0 clear · F favorite · A/N/R status
+              {canCrop ? " · C crop" : ""} · ←/→ browse
+            </p>
+          </>
         ) : null}
 
         {current?.caption ? (

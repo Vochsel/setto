@@ -11,9 +11,7 @@ import {
   ChevronDown,
   Eye,
   AlertCircle,
-  Layers,
   Copy,
-  Check,
   Shirt,
   Film,
   Play,
@@ -46,7 +44,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { ConfirmDelete } from "@/components/confirm-delete";
 import { ImageLightbox } from "@/components/image-lightbox";
 import { cn } from "@/lib/utils";
-import { buildPrompt, BASE_VARIATION_ID } from "@/convex/lib/prompt";
+import { buildPrompt } from "@/convex/lib/prompt";
 import {
   IMAGE_MODELS,
   DEFAULT_MODEL_ID,
@@ -57,6 +55,7 @@ import {
 } from "@/convex/lib/imageModels";
 import { AnimatePopover } from "@/components/animate-popover";
 import { VariationsPopover } from "@/components/variations-popover";
+import { VariationMultiSelect } from "@/components/shoot/variation-multiselect";
 import {
   MoveShotMenu,
   type ShootLocationTarget,
@@ -177,13 +176,6 @@ export function ShotCard({
   };
   function save(patch: ShotPatch) {
     update({ id: shot._id, ...patch }).catch(() => toast.error("Save failed"));
-  }
-
-  function toggleVariation(id: string) {
-    const next = selectedVars.includes(id)
-      ? selectedVars.filter((x) => x !== id)
-      : [...selectedVars, id];
-    save({ selectedVariationIds: next });
   }
 
   async function runGenerate() {
@@ -357,69 +349,11 @@ export function ShotCard({
       </div>
 
       {variations.length > 0 && (
-        <div className="space-y-1.5">
-          <span className="text-muted-foreground flex items-center gap-1 text-xs">
-            <Layers className="h-3 w-3" /> Variations
-            <span className="text-muted-foreground/60">
-              · tap to include (one image each)
-            </span>
-          </span>
-          <div className="flex flex-wrap gap-1.5">
-            {/* Default = the base outfit with no variation applied. Offered once
-                there's more than one variation so a batch can include the
-                original look alongside the variations. */}
-            {variations.length > 1 && (
-              <button
-                type="button"
-                onClick={() => toggleVariation(BASE_VARIATION_ID)}
-                title="The original outfit, no variation applied"
-                className={cn(
-                  "flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs transition-colors",
-                  selectedVars.includes(BASE_VARIATION_ID)
-                    ? "border-primary bg-primary/10 text-foreground"
-                    : "border-border hover:bg-muted",
-                )}
-              >
-                <span className="max-w-28 truncate">Default</span>
-                {selectedVars.includes(BASE_VARIATION_ID) ? (
-                  <Check className="text-primary h-3 w-3 shrink-0" />
-                ) : null}
-              </button>
-            )}
-            {variations.map((v) => {
-              const active = selectedVars.includes(v.id);
-              const thumb = v.imageUrls?.[0]?.url;
-              return (
-                <button
-                  key={v.id}
-                  type="button"
-                  onClick={() => toggleVariation(v.id)}
-                  title={v.name}
-                  className={cn(
-                    "flex items-center gap-1.5 rounded-full border py-0.5 pr-2.5 text-xs transition-colors",
-                    thumb ? "pl-0.5" : "pl-2.5",
-                    active
-                      ? "border-primary bg-primary/10 text-foreground"
-                      : "border-border hover:bg-muted",
-                  )}
-                >
-                  {thumb ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={thumb}
-                      alt=""
-                      className="size-5 rounded-full object-cover"
-                    />
-                  ) : null}
-                  <span className="max-w-28 truncate">{v.name}</span>
-                  {active ? (
-                    <Check className="text-primary h-3 w-3 shrink-0" />
-                  ) : null}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        <VariationMultiSelect
+          variations={variations}
+          selected={selectedVars}
+          onChange={(ids) => save({ selectedVariationIds: ids })}
+        />
       )}
 
       <div className="space-y-1.5">
