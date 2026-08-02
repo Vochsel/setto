@@ -50,7 +50,7 @@ export function VariationsPopover({
   const [prompt, setPrompt] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const models = variationModels();
+  const models = variationModels(modelKey);
   const pricePer = getImageModel(modelKey)?.pricePerImage ?? 0;
 
   async function run() {

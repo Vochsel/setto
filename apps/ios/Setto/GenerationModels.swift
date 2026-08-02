@@ -39,17 +39,16 @@ let defaultImageGenModelId = "google/gemini-2.5-flash-image"
 let variationGenModels: [ImageGenModel] = [
     .init(id: "google/gemini-2.5-flash-image", label: "Nano Banana 2.5 Flash", price: 0.039),
     .init(id: "openai/gpt-image-2-low", label: "GPT Image 2 — Low", price: 0.016),
+    .init(id: "fal-ai/flux-2/flash/edit", label: "FLUX.2 Flash edit", price: 0.025),
     .init(id: "google/gemini-3.1-flash-lite-image", label: "Nano Banana 2 Lite", price: 0.034),
-    .init(id: "openai/gpt-image-1-mini", label: "GPT Image 1 mini", price: 0.04),
     .init(id: "fal-ai/bytedance/seedream/v4/edit", label: "Seedream 4", price: 0.04),
     .init(id: "fal-ai/qwen-image-edit-plus", label: "Qwen Image Edit Plus", price: 0.04),
-    .init(id: "fal-ai/flux-2-pro/edit", label: "FLUX.2 [pro] edit", price: 0.045),
     .init(id: "openai/gpt-image-2-medium", label: "GPT Image 2 — Medium", price: 0.063),
+    .init(id: "fal-ai/flux-2-pro/edit", label: "FLUX.2 [pro] edit", price: 0.08),
     .init(id: "fal-ai/nano-banana-2/edit", label: "Nano Banana 2 (fal)", price: 0.08),
     .init(id: "google/gemini-3-pro-image-preview", label: "Nano Banana Pro", price: 0.134),
-    .init(id: "openai/gpt-image-1", label: "GPT Image 1", price: 0.19),
+    .init(id: "bytedance/seedream/v5/pro/edit", label: "Seedream 5.0 Pro", price: 0.14),
     .init(id: "openai/gpt-image-2", label: "GPT Image 2 — High", price: 0.25),
-    .init(id: "openai/gpt-image-1.5", label: "GPT Image 1.5", price: 0.25),
 ]
 
 let defaultVariationGenModelId = "google/gemini-2.5-flash-image"

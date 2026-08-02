@@ -18,6 +18,12 @@ export interface ImageModel {
    * tracking and shown in the picker. Estimates at the configured size/quality.
    */
   pricePerImage: number;
+  /**
+   * Superseded models: kept so historical generations still resolve a label and
+   * a cost, but dropped from the pickers (see `selectableImageModels`). Set this
+   * rather than deleting an entry — `modelKey` is stored on every generation.
+   */
+  hidden?: boolean;
 
   // fal
   falEndpoint?: string;
@@ -119,12 +125,16 @@ export const IMAGE_MODELS: ImageModel[] = [
     openaiSize: "1024x1536",
     openaiQuality: "low",
   },
+  // The GPT Image 1 family is superseded by the GPT Image 2 tiers above, which
+  // are better and cheaper at every quality level. Between them they account for
+  // 4 of ~820 lifetime generations, none since early July — hidden, not deleted.
   {
     id: "openai/gpt-image-1.5",
     provider: "openai",
     label: "GPT Image 1.5",
     description: "Strong quality with reference-image support.",
     supportsImagePrompt: true,
+    hidden: true,
     pricePerImage: 0.25,
     openaiModel: "gpt-image-1.5",
     openaiSize: "1024x1536",
@@ -137,6 +147,7 @@ export const IMAGE_MODELS: ImageModel[] = [
     description:
       "Strong prompt adherence and text; uses reference images via the edits endpoint.",
     supportsImagePrompt: true,
+    hidden: true,
     pricePerImage: 0.19,
     openaiModel: "gpt-image-1",
     openaiSize: "1024x1536",
@@ -148,6 +159,7 @@ export const IMAGE_MODELS: ImageModel[] = [
     label: "GPT Image 1 mini",
     description: "Faster and cheaper; good for quick iterations.",
     supportsImagePrompt: true,
+    hidden: true,
     pricePerImage: 0.04,
     openaiModel: "gpt-image-1-mini",
     openaiSize: "1024x1536",
@@ -159,6 +171,12 @@ export const IMAGE_MODELS: ImageModel[] = [
   // single-image endpoints (old FLUX ultra / Imagen / Ideogram / Recraft /
   // FLUX dev) ignored our references and produced poor results. These
   // follow an instruction prompt across many references like Nano Banana does.
+  //
+  // fal publishes ~88 endpoints taking `prompt` + an image array; most are LoRA
+  // gallery variants of the same few base models. These are the distinct ones
+  // worth offering, each checked against its live OpenAPI schema — endpoint id,
+  // the size param it accepts, and how many references it will take.
+  // Anything added here must accept an array of reference images, not just one.
   {
     id: "fal-ai/nano-banana-2/edit",
     provider: "fal",
@@ -173,18 +191,23 @@ export const IMAGE_MODELS: ImageModel[] = [
     falSize: "aspect_ratio", // accepts the full ratio set, no snapping needed
   },
   {
-    id: "fal-ai/bytedance/seedream/v5/pro/edit",
+    // Not under the `fal-ai/` namespace — ByteDance publishes this one directly,
+    // so the endpoint is `bytedance/…`. The `fal-ai/bytedance/…` spelling we
+    // shipped first answers "Path /seedream/v5/pro/edit not found", which is why
+    // every attempt through it failed.
+    id: "bytedance/seedream/v5/pro/edit",
     provider: "fal",
     label: "Seedream 5.0 Pro — via fal",
     description:
       "ByteDance Seedream 5.0 Pro. Grounded, region-precise editing — changes one element while keeping the rest of the frame intact, with layer separation, sketch completion and up to 10 references.",
     supportsImagePrompt: true,
-    // Tentative fal pricing: ~$0.135/output at our 2048-long size, plus
-    // ~$0.0045 per extra input image (first input free).
+    // fal pricing: ~$0.135/output above 1536² (our 2048-long size lands here),
+    // plus ~$0.0045 per extra input image — the first input is free.
     pricePerImage: 0.14,
-    falEndpoint: "fal-ai/bytedance/seedream/v5/pro/edit",
+    falEndpoint: "bytedance/seedream/v5/pro/edit",
     falImageParam: "image_urls",
-    falDefaultParams: { num_images: 1, max_images: 1 },
+    // No `max_images` on this endpoint (v4/v5-lite have it, v5 pro doesn't).
+    falDefaultParams: { num_images: 1 },
     falSize: "image_size_dims", // enum portrait sizes fall below its min area
   },
   {
@@ -207,11 +230,30 @@ export const IMAGE_MODELS: ImageModel[] = [
     description:
       "Black Forest Labs FLUX.2 [pro]. Multi-reference editing (up to 9 images) with sharp photorealism and strong prompt adherence.",
     supportsImagePrompt: true,
-    pricePerImage: 0.045,
+    // $0.03 for the first megapixel, then $0.015 per extra megapixel of input
+    // *and* output. Our shots send several references, so a run costs closer to
+    // $0.08 than the $0.045 first estimated here.
+    pricePerImage: 0.08,
     falEndpoint: "fal-ai/flux-2-pro/edit",
     falImageParam: "image_urls",
     falDefaultParams: {},
     falSize: "image_size_enum",
+  },
+  {
+    id: "fal-ai/flux-2/flash/edit",
+    provider: "fal",
+    label: "FLUX.2 Flash edit — via fal",
+    description:
+      "The quick, cheap FLUX.2 editor. A few seconds per image and multi-reference aware — good for iterating on framing before committing to a pricier model.",
+    supportsImagePrompt: true,
+    // $0.005 per megapixel of input and output; inputs are resized to 1MP, so
+    // 4 references + a 1MP output ≈ $0.025.
+    pricePerImage: 0.025,
+    falEndpoint: "fal-ai/flux-2/flash/edit",
+    falImageParam: "image_urls",
+    falDefaultParams: { num_images: 1 },
+    falSize: "image_size_enum",
+    falMaxImages: 4, // extra references are dropped by the endpoint anyway
   },
   {
     id: "fal-ai/qwen-image-edit-plus",
@@ -249,18 +291,29 @@ export function getImageModel(id: string): ImageModel | undefined {
 }
 
 /**
+ * The models to offer in a picker: everything except the superseded ones. A
+ * `current` key is always included even if hidden, so a shot still shows the
+ * model it was last set to instead of silently reading as something else.
+ */
+export function selectableImageModels(current?: string): ImageModel[] {
+  return IMAGE_MODELS.filter((m) => !m.hidden || m.id === current);
+}
+
+/**
  * The image models offered for variations: every image-to-image / edit-capable
  * model in the registry. Variations run off an existing image, so any model
  * that can be conditioned on a reference photo (`supportsImagePrompt`) can
  * produce them. Ordered cheapest-first so the most economical option leads,
  * with the default variation model pinned to the front.
  */
-export function variationModels(): ImageModel[] {
-  return IMAGE_MODELS.filter((m) => m.supportsImagePrompt).sort((a, b) => {
-    if (a.id === DEFAULT_VARIATION_MODEL_ID) return -1;
-    if (b.id === DEFAULT_VARIATION_MODEL_ID) return 1;
-    return a.pricePerImage - b.pricePerImage;
-  });
+export function variationModels(current?: string): ImageModel[] {
+  return selectableImageModels(current)
+    .filter((m) => m.supportsImagePrompt)
+    .sort((a, b) => {
+      if (a.id === DEFAULT_VARIATION_MODEL_ID) return -1;
+      if (b.id === DEFAULT_VARIATION_MODEL_ID) return 1;
+      return a.pricePerImage - b.pricePerImage;
+    });
 }
 
 /** Estimated USD cost for one image from this model (0 if unknown). */

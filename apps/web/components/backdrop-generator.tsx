@@ -26,7 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  IMAGE_MODELS,
+  selectableImageModels,
   DEFAULT_MODEL_ID,
   PROVIDER_LABEL,
   formatPrice,
@@ -38,7 +38,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 /** Providers that generate from text alone (fal endpoints here are image editors
  * that need an input image, so they're excluded for from-scratch backdrops). */
 const BACKDROP_PROVIDERS: ImageProvider[] = ["google", "openai"];
-const BACKDROP_MODELS = IMAGE_MODELS.filter((m) =>
+const BACKDROP_MODELS = selectableImageModels().filter((m) =>
   BACKDROP_PROVIDERS.includes(m.provider),
 );
 const COUNTS = [1, 2, 4, 6];

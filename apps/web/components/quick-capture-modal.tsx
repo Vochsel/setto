@@ -24,7 +24,11 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { IMAGE_MODELS, DEFAULT_MODEL_ID, formatPrice } from "@/convex/lib/imageModels";
+import {
+  selectableImageModels,
+  DEFAULT_MODEL_ID,
+  formatPrice,
+} from "@/convex/lib/imageModels";
 import { processImageForUpload } from "@/lib/image";
 import type { Id } from "@/convex/_generated/dataModel";
 
@@ -189,7 +193,8 @@ export function QuickCaptureModal({
     }
   }
 
-  const activeModel = IMAGE_MODELS.find((m) => m.id === imageModelKey);
+  const imageModels = selectableImageModels(imageModelKey);
+  const activeModel = imageModels.find((m) => m.id === imageModelKey);
 
   // Shared entity + output pickers (rendered inside each tab).
   const pickers = (
@@ -248,7 +253,7 @@ export function QuickCaptureModal({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {IMAGE_MODELS.map((m) => (
+              {imageModels.map((m) => (
                 <SelectItem key={m.id} value={m.id}>
                   <span className="flex w-full items-center gap-2">
                     <span className="truncate">{m.label}</span>

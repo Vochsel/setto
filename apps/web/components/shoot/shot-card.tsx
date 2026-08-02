@@ -46,7 +46,7 @@ import { ImageLightbox } from "@/components/image-lightbox";
 import { cn } from "@/lib/utils";
 import { buildPrompt } from "@/convex/lib/prompt";
 import {
-  IMAGE_MODELS,
+  selectableImageModels,
   DEFAULT_MODEL_ID,
   PROVIDER_LABEL,
   getImageModel,
@@ -438,7 +438,9 @@ export function ShotCard({
             {(["google", "openai", "fal"] as ImageProvider[]).map((prov) => (
               <SelectGroup key={prov}>
                 <SelectLabel>{PROVIDER_LABEL[prov]}</SelectLabel>
-                {IMAGE_MODELS.filter((m) => m.provider === prov).map((m) => (
+                {selectableImageModels(modelKey)
+                  .filter((m) => m.provider === prov)
+                  .map((m) => (
                   <SelectItem key={m.id} value={m.id}>
                     <span className="flex w-full items-center justify-between gap-3">
                       <span className="truncate">{m.label}</span>
