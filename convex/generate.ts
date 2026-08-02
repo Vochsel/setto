@@ -4,6 +4,7 @@ import { internal, api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import { fal } from "@fal-ai/client";
+import sharp from "sharp";
 import {
   buildPrompt,
   buildCreativePrompt,
@@ -48,6 +49,37 @@ function openaiSizeForAspect(aspectRatio?: string): string | undefined {
   return w > h ? "1536x1024" : "1024x1536";
 }
 
+/**
+ * Fetch a reference image and re-encode it as a plain 8-bit sRGB PNG.
+ *
+ * OpenAI's /edits endpoint opens each reference itself and rejects anything in
+ * a mode it doesn't handle — "Invalid image file or mode for image 2". Our
+ * references come from everywhere (phone uploads, Google Street View and Places
+ * photos, our own WebP thumbnails, other models' output), so they arrive as
+ * CMYK or 16-bit JPEGs, greyscale, palette PNGs, WebP with alpha — and until
+ * now every one of them was posted under the name `refN.png` whatever the bytes
+ * actually were, which is its own way to confuse a format sniffer.
+ *
+ * Decoding and re-encoding through sharp collapses all of that into one shape
+ * OpenAI always accepts. Undecodable bytes return null so a single bad
+ * reference costs us that reference rather than the whole generation.
+ */
+async function toOpenAIReference(url: string): Promise<Buffer | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const bytes = Buffer.from(await res.arrayBuffer());
+    return await sharp(bytes)
+      .rotate() // bake in EXIF orientation before the tag is dropped
+      .flatten({ background: "#ffffff" }) // no alpha channel
+      .toColourspace("srgb")
+      .png()
+      .toBuffer();
+  } catch {
+    return null;
+  }
+}
+
 /** OpenAI gpt-image-1. Uses /edits when references are supplied, else /generations. Returns base64 PNG. */
 async function callOpenAI(
   model: ImageModel,
@@ -57,22 +89,32 @@ async function callOpenAI(
   const size =
     openaiSizeForAspect(args.aspectRatio) ?? model.openaiSize ?? "1024x1536";
   const quality = model.openaiQuality ?? "high";
-  const useRefs = model.supportsImagePrompt && args.referenceImageUrls.length > 0;
+
+  // Normalize up front: if nothing survives, fall through to /generations rather
+  // than posting an edit request with an empty image list.
+  const refs: Buffer[] = [];
+  if (model.supportsImagePrompt) {
+    for (const url of args.referenceImageUrls.slice(0, 6)) {
+      const png = await toOpenAIReference(url);
+      if (png) refs.push(png);
+    }
+  }
 
   let res: Response;
-  if (useRefs) {
+  if (refs.length) {
     const form = new FormData();
     form.append("model", model.openaiModel ?? "gpt-image-1");
     form.append("prompt", args.prompt);
     form.append("size", size);
     form.append("quality", quality);
     form.append("n", "1");
-    for (let i = 0; i < Math.min(args.referenceImageUrls.length, 6); i++) {
-      const r = await fetch(args.referenceImageUrls[i]);
-      if (!r.ok) continue;
-      const blob = await r.blob();
-      form.append("image[]", blob, `ref${i}.png`);
-    }
+    refs.forEach((png, i) => {
+      form.append(
+        "image[]",
+        new Blob([new Uint8Array(png)], { type: "image/png" }),
+        `ref${i}.png`,
+      );
+    });
     res = await fetch("https://api.openai.com/v1/images/edits", {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}` },

@@ -28,6 +28,27 @@ const SNAP_RADIUS_M = 400;
 const MAX_PLACE_PHOTOS = 4;
 
 /**
+ * Smallest believable Street View frame, in bytes.
+ *
+ * When a request lands where there's no panorama, the Static API doesn't fail —
+ * it answers 200 with the flat grey "Sorry, we have no imagery here" card. At
+ * our 640x640 that card is byte-identical wherever it comes from (~8.8KB, and
+ * near-uniform), while a real frame runs 60-200KB of street detail. Storing one
+ * poisons the reference pool: the model is handed a blank card as "the
+ * location", and OpenAI's editor can reject it outright.
+ *
+ * The metadata probe catches most of these, but it answers per *point* while
+ * frames are fetched per heading, so a placeholder can still slip through. 12KB
+ * sits far above the card and far below any real frame.
+ */
+const MIN_TILE_BYTES = 12_000;
+
+/** Bytes that are an actual image, not an error card or an error page. */
+function looksLikeImage(contentType: string | null, size: number): boolean {
+  return (contentType ?? "").startsWith("image/") && size >= MIN_TILE_BYTES;
+}
+
+/**
  * Best-effort: fetch a few Google Places photos for a pinned place and store
  * them in Convex. For businesses (cafés, shops, restaurants) these are often
  * *interior* shots — exactly what Street View's outdoor panoramas miss — so
@@ -60,6 +81,9 @@ async function fetchPlacePhotos(
       );
       if (!photoRes.ok) continue;
       const blob = await photoRes.blob();
+      // The photo endpoint 302s to a CDN; a stale or revoked reference can land
+      // on an error page instead of bytes. Only keep real images.
+      if (!looksLikeImage(blob.type, blob.size)) continue;
       const storageId = await ctx.storage.store(blob);
       out.push({ storageId, source: "places", caption: "Place photo" });
     }
@@ -243,6 +267,8 @@ export const capture = action({
       const res = await fetch(url);
       if (!res.ok) return;
       const blob = await res.blob();
+      // Don't store (or cache) the "no imagery here" card — see MIN_TILE_BYTES.
+      if (!looksLikeImage(blob.type, blob.size)) return;
       const storageId = await ctx.storage.store(blob);
       await ctx.runMutation(internal.streetview.putCachedTile, {
         key: k,
@@ -368,5 +394,57 @@ export const appendRefs = internalMutation({
     await ctx.db.patch(locationId, {
       streetViewRefs: [...(loc.streetViewRefs ?? []), ...refs],
     });
+  },
+});
+
+/**
+ * One-off cleanup: drop already-stored "no imagery here" cards from locations.
+ *
+ * Captures now refuse to store them (see MIN_TILE_BYTES), but anything captured
+ * before that keeps being handed to the generator as a reference photo. Sizes
+ * come from the `_storage` system table, so this is a cheap metadata pass — no
+ * bytes are read. Cached tiles pointing at the same files go too, otherwise the
+ * next capture serves the card straight back from cache.
+ *
+ * Run with: npx convex run streetview:pruneBlankRefs '{}' [--prod]
+ */
+export const pruneBlankRefs = internalMutation({
+  args: { dryRun: v.optional(v.boolean()) },
+  handler: async (ctx, { dryRun }) => {
+    const blank = async (storageId: Id<"_storage">) => {
+      const meta = await ctx.db.system.get(storageId);
+      return !meta || meta.size < MIN_TILE_BYTES;
+    };
+
+    let removedRefs = 0;
+    const dropped: Id<"_storage">[] = [];
+    for (const loc of await ctx.db.query("locations").collect()) {
+      const refs = loc.streetViewRefs ?? [];
+      if (!refs.length) continue;
+      const keep = [];
+      for (const r of refs) {
+        if (r.storageId && (await blank(r.storageId))) {
+          dropped.push(r.storageId);
+          removedRefs++;
+        } else {
+          keep.push(r);
+        }
+      }
+      if (keep.length !== refs.length && !dryRun) {
+        await ctx.db.patch(loc._id, { streetViewRefs: keep });
+      }
+    }
+
+    let removedCacheRows = 0;
+    if (dropped.length) {
+      const ids = new Set(dropped);
+      for (const row of await ctx.db.query("streetViewCache").collect()) {
+        if (!ids.has(row.storageId)) continue;
+        removedCacheRows++;
+        if (!dryRun) await ctx.db.delete(row._id);
+      }
+    }
+
+    return { removedRefs, removedCacheRows, dryRun: !!dryRun };
   },
 });
