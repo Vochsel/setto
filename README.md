@@ -203,6 +203,77 @@ The endpoint:
 > the **authorization server**. No new user store — connectors authenticate the
 > same WorkOS accounts/orgs your team already uses.
 
+## Messaging agent (Telegram or iMessage, via eve)
+
+One chat that manages the whole catalogue: message it like a person, and it
+syncs Shopify, finds what hasn't been photographed, shoots it once you say yes,
+and sends the photos back. It also opens the conversation itself once a day
+with what it would shoot.
+
+**Telegram is the default** — a bot from @BotFather is free, can start
+conversations, and handles photos both ways. The Sendblue channel is the same
+agent on iMessage, for blue bubbles; note that Sendblue's free sandbox is
+*inbound-first on a shared number*, so the daily suggestion needs a paid line
+there.
+
+It's an [eve](https://eve.dev) agent living in `apps/web/agent/`, mounted on
+this same deployment by `withEve` in `next.config.ts` — one dev server, one
+deploy, no separate service.
+
+```
+apps/web/agent/
+├── agent.ts                    Sonnet 5 via the AI Gateway; compaction at 70%
+├── instructions.md             how it writes and when it's allowed to spend
+├── channels/telegram.ts        the Telegram bot (free, the default)
+├── channels/sendblue.ts        the same agent on iMessage (paid line)
+├── tools/                      list_products, generate_product_shot, …
+├── skills/                     shoot-a-product, daily-suggestions, review-and-pick
+└── schedules/daily-suggestions.ts   the 08:30 nudge (a Vercel Cron Job)
+```
+
+**One conversation, forever.** The session's continuation token is the chat
+itself, so every message resumes the same durable session — it remembers what
+you liked last week. Compaction summarizes older turns at 70% of the
+context window, so the thread never has to be reset.
+
+**Skills** are loaded on demand rather than carried on every turn: the agent
+pulls in `shoot-a-product` when it's actually shooting something.
+
+### Setup
+
+1. **Telegram bot** (free) — message [@BotFather](https://t.me/BotFather),
+   `/newbot`, and copy the token. Message your new bot once, then read your chat
+   id from
+   `https://api.telegram.org/bot<TOKEN>/getUpdates` (`result[].message.chat.id`).
+2. **Env vars** — see `.env.example` under "messaging agent".
+   `TELEGRAM_ALLOWED_CHAT_IDS` is the allowlist and defaults to *nobody*; the bot
+   ignores anyone not on it. A bot username is discoverable, so this matters.
+3. **Shared secret** — the agent reaches Convex through `convex/agent.ts`, which
+   authenticates a shared secret instead of a user session:
+   ```bash
+   openssl rand -hex 32                       # use the same value in both places
+   npx convex env set AGENT_SHARED_SECRET "<value>" --prod
+   vercel env add AGENT_SHARED_SECRET production
+   ```
+4. **Bind your phone to a workspace** — an unbound number gets nothing:
+   ```bash
+   npx convex run agent:bindPhone \
+     '{"phone":"+61...","orgId":"<org>","userId":"<user>","label":"Ben"}' --prod
+   ```
+5. **Point Sendblue at the webhook** — in the Sendblue dashboard, set the
+   `receive` webhook to `https://<your-domain>/eve/v1/sendblue/webhook`, with the
+   secret you put in `SENDBLUE_WEBHOOK_SECRET`.
+
+### What it can do
+
+`list_products` (including "what's unshot?") · `list_cast` · `generate_product_shot`
+· `show_gallery` · `mark_image` · `sync_shopify` · `list_flows`.
+
+Generation costs money, so the agent is instructed to quote a batch and wait for
+agreement; the tool also caps a single call at 4 images and defaults to the
+cheap model tier. That's a guardrail, not a guarantee — treat the allowlist as
+the real boundary.
+
 ## Notes
 
 - The app gracefully degrades without keys: missing `NEXT_PUBLIC_CONVEX_URL`

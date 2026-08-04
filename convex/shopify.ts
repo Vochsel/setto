@@ -8,10 +8,10 @@
  * public actions, so they're also available as MCP tools (`shopify:sync`,
  * `shopify:products`) to the connected user.
  */
-import { action } from "./_generated/server";
+import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
-import { loadConnection, markUsed } from "./lib/connection";
+import { loadConnection, loadConnectionFor, markUsed } from "./lib/connection";
 import {
   shopifyListProducts,
   shopifyDomain,
@@ -86,6 +86,31 @@ export const sync = action({
     const mapped = raw.map((p) => mapProduct(p, domain));
     const result = await ctx.runMutation(internal.shopifyData.applyProducts, {
       products: mapped,
+    });
+    await markUsed(ctx, scope, "shopify");
+    return result;
+  },
+});
+
+/**
+ * The same sync, for a workspace named explicitly rather than derived from a
+ * signed-in user — the iMessage agent (convex/agent.ts), which authenticates a
+ * phone number. Internal, so it can only be reached through that surface.
+ */
+export const syncFor = internalAction({
+  args: {
+    orgId: v.string(),
+    userId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, { orgId, userId, limit }): Promise<SyncResult> => {
+    const scope = { orgId, userId };
+    const { meta } = await loadConnectionFor(ctx, "shopify", scope);
+    const domain = shopifyDomain(meta);
+    const raw = await shopifyListProducts(meta, limit);
+    const result = await ctx.runMutation(internal.shopifyData.applyProducts, {
+      products: raw.map((p) => mapProduct(p, domain)),
+      scope,
     });
     await markUsed(ctx, scope, "shopify");
     return result;

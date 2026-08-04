@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // eve's compiled agent + bundled service output — generated, not authored.
+    ".eve/**",
+    ".output/**",
   ]),
 ]);
 

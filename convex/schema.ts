@@ -458,6 +458,19 @@ export default defineSchema({
     .index("by_org", ["orgId"])
     .index("by_org_type", ["orgId", "type"]),
 
+  // --- Messaging agent: principal → workspace bindings ---------------------
+  // The agent authenticates a messaging identity, not a session, so this table
+  // is what decides whose catalogue a sender can reach. Unbound gets nothing.
+  //   Telegram:  "telegram:<chat id>"
+  //   Sendblue:  "+<E.164 digits>"
+  // Bind with `npx convex run agent:bind ... --prod`.
+  agentBindings: defineTable({
+    principal: v.string(),
+    orgId: v.string(),
+    userId: v.string(), // who generated work is attributed to
+    label: v.optional(v.string()),
+  }).index("by_principal", ["principal"]),
+
   // --- Flows: reusable product-shot templates ------------------------------
   // A flow is a graph (edited with xyflow on the web, run from anywhere) that
   // wires products, models and locations into one or more output nodes. Running

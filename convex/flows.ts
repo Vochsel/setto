@@ -73,6 +73,38 @@ export interface FlowGraph {
 /** Sentinel in `variantIds` meaning "every variant this product has". */
 export const ALL_VARIANTS = "*";
 
+/** A product's variant, as the expander sees it. */
+export interface VariantRef {
+  id: string;
+  name: string;
+}
+
+/**
+ * The colour a variant is, given a Shopify-style title.
+ *
+ * Store variants are the cross-product of every option — "Blue / M", "Blue / L",
+ * "Blue / XL" are three variants of one *photograph*. Size doesn't change what
+ * the camera sees, so shooting all of them is three identical images at triple
+ * the price. The first option is the colour by Shopify convention, so that's
+ * what we group on.
+ */
+export function colourOf(variantName: string): string {
+  return (variantName.split("/")[0] ?? variantName).trim().toLowerCase();
+}
+
+/** One variant per colour, keeping the first of each — see `colourOf`. */
+export function uniqueByColour(variants: VariantRef[]): VariantRef[] {
+  const seen = new Set<string>();
+  const out: VariantRef[] = [];
+  for (const variant of variants) {
+    const colour = colourOf(variant.name);
+    if (seen.has(colour)) continue;
+    seen.add(colour);
+    out.push(variant);
+  }
+  return out;
+}
+
 const asGraph = (raw: unknown): FlowGraph => {
   const g = (raw ?? {}) as FlowGraph;
   return { nodes: g.nodes ?? [], edges: g.edges ?? [] };
@@ -109,10 +141,12 @@ export interface Combination {
  */
 export function expandGraph(
   graph: FlowGraph,
-  variantsByProduct: Map<string, string[]>,
+  variantsByProduct: Map<string, VariantRef[]>,
   overrides: {
     productIds?: Id<"outfits">[];
     allVariants?: boolean;
+    /** Collapse variants to one per colour — see `colourOf`. */
+    coloursOnly?: boolean;
     modelKey?: string;
     aspectRatio?: string;
     count?: number;
@@ -142,11 +176,15 @@ export function expandGraph(
     // products entirely — that's "run this template on the new product".
     const productNodes = sources.filter((n) => n.type === "product");
     const productSel: { id?: Id<"outfits">; variationId?: string }[] = [];
-    const wanted: { id: Id<"outfits">; variantIds: string[] }[] =
-      overrides.productIds?.length
+    const wanted: {
+      id: Id<"outfits">;
+      variantIds: string[];
+      coloursOnly?: boolean;
+    }[] = overrides.productIds?.length
         ? overrides.productIds.map((id) => ({
             id,
             variantIds: overrides.allVariants ? [ALL_VARIANTS] : [],
+            coloursOnly: overrides.coloursOnly,
           }))
         : productNodes.flatMap((n) => {
             const id = str(n.data?.productId) as Id<"outfits"> | undefined;
@@ -154,22 +192,50 @@ export function expandGraph(
             const raw = Array.isArray(n.data?.variantIds)
               ? (n.data!.variantIds as unknown[]).map(String)
               : [];
-            return [{ id, variantIds: overrides.allVariants ? [ALL_VARIANTS] : raw }];
+            return [
+              {
+                id,
+                variantIds: overrides.allVariants ? [ALL_VARIANTS] : raw,
+                coloursOnly:
+                  overrides.coloursOnly ?? n.data?.coloursOnly === true,
+              },
+            ];
           });
 
     for (const p of wanted) {
-      const all = variantsByProduct.get(p.id) ?? [];
-      const ids = p.variantIds.includes(ALL_VARIANTS) ? all : p.variantIds;
+      const catalogue = variantsByProduct.get(p.id) ?? [];
+      const byId = new Map(catalogue.map((variant) => [variant.id, variant]));
+      const every = p.coloursOnly ? uniqueByColour(catalogue) : catalogue;
+      // "Every variant" includes the product as it comes, not just its
+      // colourways — the plain version is a shot you almost always want, and
+      // leaving it out was surprising.
+      let ids = p.variantIds.includes(ALL_VARIANTS)
+        ? [BASE_VARIATION_ID, ...every.map((variant) => variant.id)]
+        : p.variantIds;
+      // A hand-picked set gets the same collapse, so turning the toggle on
+      // never shoots the same colour twice.
+      if (p.coloursOnly && !p.variantIds.includes(ALL_VARIANTS)) {
+        const picked = ids
+          .filter((id) => id !== BASE_VARIATION_ID)
+          .map((id) => byId.get(id))
+          .filter(Boolean) as VariantRef[];
+        ids = [
+          ...ids.filter((id) => id === BASE_VARIATION_ID),
+          ...uniqueByColour(picked).map((variant) => variant.id),
+        ];
+      }
       if (!ids.length) {
         productSel.push({ id: p.id }); // base product, no variation
       } else {
+        const seen = new Set<string>();
         for (const variationId of ids) {
-          productSel.push({
-            id: p.id,
-            // The base sentinel means "the product as-is" — not a variation id.
-            variationId:
-              variationId === BASE_VARIATION_ID ? undefined : variationId,
-          });
+          // The base sentinel means "the product as-is" — not a variation id.
+          const resolved =
+            variationId === BASE_VARIATION_ID ? undefined : variationId;
+          const key = resolved ?? BASE_VARIATION_ID;
+          if (seen.has(key)) continue; // e.g. base picked *and* "every variant"
+          seen.add(key);
+          productSel.push({ id: p.id, variationId: resolved });
         }
       }
     }
@@ -381,12 +447,15 @@ export const runContext = internalQuery({
     }
 
     const names: Record<string, string> = {};
-    const variants: Record<string, string[]> = {};
+    const variants: Record<string, VariantRef[]> = {};
     for (const id of productIds) {
       const doc = await ctx.db.get(id as Id<"outfits">);
       if (!doc || doc.orgId !== orgId) continue;
       names[id] = doc.name;
-      variants[id] = (doc.variations ?? []).map((x) => x.id);
+      variants[id] = (doc.variations ?? []).map((x) => ({
+        id: x.id,
+        name: x.name,
+      }));
     }
     return { flow, names, variants };
   },
@@ -397,12 +466,15 @@ export const productVariants = internalQuery({
   args: { orgId: v.string(), productIds: v.array(v.id("outfits")) },
   handler: async (ctx, { orgId, productIds }) => {
     const names: Record<string, string> = {};
-    const variants: Record<string, string[]> = {};
+    const variants: Record<string, VariantRef[]> = {};
     for (const id of productIds) {
       const doc = await ctx.db.get(id);
       if (!doc || doc.orgId !== orgId) throw new Error(`Product not found: ${id}`);
       names[id] = doc.name;
-      variants[id] = (doc.variations ?? []).map((x) => x.id);
+      variants[id] = (doc.variations ?? []).map((x) => ({
+        id: x.id,
+        name: x.name,
+      }));
     }
     return { names, variants };
   },
@@ -411,6 +483,8 @@ export const productVariants = internalQuery({
 const runOverrides = {
   productIds: v.optional(v.array(v.id("outfits"))),
   allVariants: v.optional(v.boolean()),
+  /** Collapse variants to one per colour — sizes don't change the photo. */
+  coloursOnly: v.optional(v.boolean()),
   modelKey: v.optional(v.string()),
   aspectRatio: v.optional(v.string()),
   count: v.optional(v.number()),
@@ -430,6 +504,7 @@ async function plan(
     flowId: Id<"flows">;
     productIds?: Id<"outfits">[];
     allVariants?: boolean;
+    coloursOnly?: boolean;
     modelKey?: string;
     aspectRatio?: string;
     count?: number;
@@ -440,7 +515,7 @@ async function plan(
     { orgId, flowId: args.flowId },
   );
   let allNames = names;
-  const variantMap = new Map<string, string[]>(Object.entries(variants));
+  const variantMap = new Map<string, VariantRef[]>(Object.entries(variants));
   if (args.productIds?.length) {
     const extra = await ctx.runQuery(internal.flows.productVariants, {
       orgId,
@@ -453,6 +528,7 @@ async function plan(
   const combos = expandGraph(asGraph(flow.graph), variantMap, {
     productIds: args.productIds,
     allVariants: args.allVariants,
+    coloursOnly: args.coloursOnly,
     modelKey: args.modelKey,
     aspectRatio: args.aspectRatio,
     count: args.count,

@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withEve } from "eve/next";
 
 const nextConfig: NextConfig = {
   // @setto/core is a workspace package shipped as raw TypeScript (its `main` is
@@ -22,4 +23,7 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Mounts the iMessage agent in `agent/` at /eve/v1/* on this same deployment —
+// one dev server, one deploy, no CORS. Its schedules become Vercel Cron Jobs at
+// build time. See agent/instructions.md.
+export default withEve(nextConfig);

@@ -20,7 +20,19 @@ export async function loadConnection(
   ctx: ActionCtx,
   provider: string,
 ): Promise<LoadedConnection> {
-  const scope = await getScope(ctx);
+  return await loadConnectionFor(ctx, provider, await getScope(ctx));
+}
+
+/**
+ * The same, for callers that already know whose workspace they're acting in and
+ * have no user identity to derive it from — the iMessage agent, which
+ * authenticates a phone number rather than a session.
+ */
+export async function loadConnectionFor(
+  ctx: ActionCtx,
+  provider: string,
+  scope: { orgId: string; userId: string },
+): Promise<LoadedConnection> {
   const row = await ctx.runQuery(internal.integrations.getRow, {
     orgId: scope.orgId,
     userId: scope.userId,

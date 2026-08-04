@@ -9,6 +9,7 @@
  */
 
 import type * as ads from "../ads.js";
+import type * as agent from "../agent.js";
 import type * as audioTracks from "../audioTracks.js";
 import type * as backfillMedia from "../backfillMedia.js";
 import type * as backfillMediaData from "../backfillMediaData.js";
@@ -71,6 +72,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   ads: typeof ads;
+  agent: typeof agent;
   audioTracks: typeof audioTracks;
   backfillMedia: typeof backfillMedia;
   backfillMediaData: typeof backfillMediaData;

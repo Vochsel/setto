@@ -22,9 +22,14 @@ const mappedProduct = v.object({
 });
 
 export const applyProducts = internalMutation({
-  args: { products: v.array(mappedProduct) },
-  handler: async (ctx, { products }) => {
-    const scope = await getScope(ctx);
+  args: {
+    products: v.array(mappedProduct),
+    // The iMessage agent syncs on behalf of a bound workspace, with no user
+    // identity to read a scope from — see convex/agent.ts.
+    scope: v.optional(v.object({ orgId: v.string(), userId: v.string() })),
+  },
+  handler: async (ctx, { products, scope: explicitScope }) => {
+    const scope = explicitScope ?? (await getScope(ctx));
 
     // Resolve/create categories by name (cache within this transaction).
     const cats = await ctx.db

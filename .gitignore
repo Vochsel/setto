@@ -43,3 +43,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# eve (agent build artifacts — `eve build` / `withEve` output)
+.eve/
+.output/
