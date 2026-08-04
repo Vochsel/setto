@@ -293,6 +293,9 @@ export const create = internalMutation({
     // Omitted for standalone (shoot-less) quick captures — see `generateQuick`.
     shotId: v.optional(v.id("shots")),
     shootId: v.optional(v.id("shoots")),
+    // Set when the image came out of a flow run — see `flows:run`.
+    flowId: v.optional(v.id("flows")),
+    flowRunId: v.optional(v.string()),
     variationId: v.optional(v.string()),
     modelId: v.optional(v.id("models")),
     outfitId: v.optional(v.id("outfits")),

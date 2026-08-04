@@ -11,6 +11,8 @@ import {
   buildBackdropPrompt,
   BASE_VARIATION_ID,
 } from "./lib/prompt";
+import { getScope } from "./lib/auth";
+import { buildShotBrief } from "./lib/shotAssembly";
 import {
   storeImageFromUrl,
   storeImageWithThumbnail,
@@ -699,6 +701,89 @@ export const generateVariations = action({
 });
 
 /**
+ * Take delivery of an image someone else generated and file it as ours.
+ *
+ * The counterpart to a "brief": `flows:run { mode: "brief" }` and
+ * `products:shotBrief` hand out a prompt plus reference images without spending
+ * anything, on the assumption the caller can already make images — ChatGPT
+ * driving the MCP server is the case that matters. This is how the result comes
+ * home, so it lands in the gallery, tagged to the same product / model /
+ * location as anything we generated ourselves, and can be rated and favourited
+ * alongside them.
+ *
+ * The bytes are copied into our own storage rather than linked: provider URLs
+ * expire, and a library of dead links is worse than no library.
+ */
+export const importImage = action({
+  args: {
+    /** Where to fetch the image from — any URL we can reach. */
+    url: v.optional(v.string()),
+    /** Or the bytes inline, as a data: URL or bare base64. */
+    dataUrl: v.optional(v.string()),
+    outfitId: v.optional(v.id("outfits")),
+    variationId: v.optional(v.string()),
+    modelId: v.optional(v.id("models")),
+    locationId: v.optional(v.id("locations")),
+    flowId: v.optional(v.id("flows")),
+    prompt: v.optional(v.string()),
+    /** Who made it, e.g. "chatgpt" — recorded as the model key. */
+    source: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<{ generationId: string; url: string }> => {
+    const { userId, orgId } = await getScope(ctx);
+    if (!args.url && !args.dataUrl) {
+      throw new Error("Pass either url or dataUrl");
+    }
+    if (!args.outfitId && !args.modelId && !args.locationId) {
+      throw new Error(
+        "Tag the image with at least one of outfitId, modelId or locationId",
+      );
+    }
+
+    let stored;
+    if (args.dataUrl) {
+      // [\s\S] rather than the `s` flag — the web app's tsconfig targets < es2018.
+      const match = /^data:([^;,]+)?(?:;base64)?,([\s\S]*)$/.exec(args.dataUrl);
+      const contentType = match?.[1] ?? "image/png";
+      const base64 = match ? match[2] : args.dataUrl;
+      stored = await storeImageWithThumbnail(
+        ctx,
+        Buffer.from(base64, "base64"),
+        contentType,
+      );
+    } else {
+      stored = await storeImageFromUrl(ctx, args.url!);
+    }
+
+    // `external/<source>` isn't in the model registry on purpose: it costs us
+    // nothing, so it must not be priced like a generation we paid for.
+    const modelKey = `external/${(args.source ?? "import").replace(/\s+/g, "-").toLowerCase()}`;
+    const genId = await ctx.runMutation(internal.generations.create, {
+      orgId,
+      createdBy: userId,
+      modelId: args.modelId,
+      outfitId: args.outfitId,
+      locationId: args.locationId,
+      variationId: args.variationId,
+      flowId: args.flowId,
+      provider: "external",
+      modelKey,
+      modelLabel: args.source ?? "Imported",
+      prompt: args.prompt ?? "",
+    });
+    await ctx.runMutation(internal.generations.attachResult, {
+      id: genId,
+      status: "succeeded",
+      imageUrl: stored.url,
+      storageId: stored.storageId,
+      thumbnailUrl: stored.thumbnailUrl,
+      thumbStorageId: stored.thumbStorageId,
+    });
+    return { generationId: genId, url: stored.url };
+  },
+});
+
+/**
  * "Quick capture": generate a photo tagged straight to a location, product
  * (outfit) or model — with NO shoot. Two modes:
  *  - "prompt":  text-only, like `generateShot` but sourced from the library
@@ -831,23 +916,23 @@ export const generateQuick = action({
       const promptText = `${assembled.prompt}\n\n${referenceGuidance(model)}${sceneNote}${identityNote}`;
       await createAndRun(references, promptText);
     } else {
-      // Prompt mode: batch `count` images, reshuffling location grounding so a
-      // batch varies instead of repeating one framing.
+      // Prompt mode: batch `count` images, rotating the location grounding so a
+      // batch varies instead of repeating one framing. Shared with the flow
+      // runner (`buildShotBrief`) so a flow-produced image and a hand-made one
+      // of the same combination come out identical.
       const copies = Math.max(1, Math.min(6, Math.round(args.count ?? 1)));
       for (let copy = 0; copy < copies; copy++) {
-        const shuffledLoc = shuffle(locationShots);
-        const references = Array.from(
-          new Set([
-            ...outfitImgs.slice(0, 2),
-            ...shuffledLoc.slice(0, 1),
-            ...modelImgs.slice(0, 2),
-            ...shuffledLoc.slice(1, 3),
-          ]),
-        );
-        const promptText = references.length
-          ? `${assembled.prompt}\n\n${referenceGuidance(model)}${identityNote}`
-          : assembled.prompt;
-        await createAndRun(references, promptText);
+        const brief = buildShotBrief({
+          context: c,
+          model,
+          direction: {
+            posePrompt: args.posePrompt,
+            clothingPrompt: args.clothingPrompt,
+            extraPrompt: args.extraPrompt,
+          },
+          index: copy,
+        });
+        await createAndRun(brief.referenceImageUrls, brief.prompt);
       }
     }
 

@@ -204,6 +204,50 @@
     "returns": null
   },
   {
+    "path": "backfillMedia:runImages",
+    "type": "Action",
+    "args": {
+      "type": "object",
+      "value": {
+        "cursor": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "limit": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "backfillMedia:runVideos",
+    "type": "Action",
+    "args": {
+      "type": "object",
+      "value": {
+        "cursor": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "limit": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
     "path": "campaignCreatives:listByCampaign",
     "type": "Query",
     "args": {
@@ -941,6 +985,371 @@
     "returns": null
   },
   {
+    "path": "flows:create",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "defaultAspectRatio": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "defaultModelKey": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "description": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "graph": {
+          "fieldType": {
+            "type": "any"
+          },
+          "optional": true
+        },
+        "maxImages": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
+        "name": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "flows:duplicate",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "flows",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "name": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "flows:estimate",
+    "type": "Action",
+    "args": {
+      "type": "object",
+      "value": {
+        "allVariants": {
+          "fieldType": {
+            "type": "boolean"
+          },
+          "optional": true
+        },
+        "aspectRatio": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "count": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
+        "flowId": {
+          "fieldType": {
+            "tableName": "flows",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "modelKey": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "productIds": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "tableName": "outfits",
+              "type": "id"
+            }
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "flows:get",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "flows",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "flows:list",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {}
+    },
+    "returns": null
+  },
+  {
+    "path": "flows:remove",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "flows",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "flows:run",
+    "type": "Action",
+    "args": {
+      "type": "object",
+      "value": {
+        "allVariants": {
+          "fieldType": {
+            "type": "boolean"
+          },
+          "optional": true
+        },
+        "aspectRatio": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "count": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
+        "dryRun": {
+          "fieldType": {
+            "type": "boolean"
+          },
+          "optional": true
+        },
+        "flowId": {
+          "fieldType": {
+            "tableName": "flows",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "maxImages": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
+        "mode": {
+          "fieldType": {
+            "type": "union",
+            "value": [
+              {
+                "type": "literal",
+                "value": "render"
+              },
+              {
+                "type": "literal",
+                "value": "brief"
+              }
+            ]
+          },
+          "optional": true
+        },
+        "modelKey": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "productIds": {
+          "fieldType": {
+            "type": "array",
+            "value": {
+              "tableName": "outfits",
+              "type": "id"
+            }
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "flows:runs",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "flowId": {
+          "fieldType": {
+            "tableName": "flows",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "limit": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "flows:update",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "archived": {
+          "fieldType": {
+            "type": "boolean"
+          },
+          "optional": true
+        },
+        "defaultAspectRatio": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "defaultModelKey": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "description": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "graph": {
+          "fieldType": {
+            "type": "any"
+          },
+          "optional": true
+        },
+        "id": {
+          "fieldType": {
+            "tableName": "flows",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "maxImages": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
+        "name": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "generate:generateBackdrops",
+    "type": "Action",
+    "args": {
+      "type": "object",
+      "value": {
+        "count": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
+        "description": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "interior": {
+          "fieldType": {
+            "type": "boolean"
+          },
+          "optional": true
+        },
+        "locationId": {
+          "fieldType": {
+            "tableName": "locations",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "modelKey": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
     "path": "generate:generateCreative",
     "type": "Action",
     "args": {
@@ -1083,6 +1492,102 @@
     "returns": null
   },
   {
+    "path": "generate:generateQuick",
+    "type": "Action",
+    "args": {
+      "type": "object",
+      "value": {
+        "aspectRatio": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "captureStorageId": {
+          "fieldType": {
+            "tableName": "_storage",
+            "type": "id"
+          },
+          "optional": true
+        },
+        "clothingPrompt": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "count": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
+        "extraPrompt": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "locationId": {
+          "fieldType": {
+            "tableName": "locations",
+            "type": "id"
+          },
+          "optional": true
+        },
+        "mode": {
+          "fieldType": {
+            "type": "union",
+            "value": [
+              {
+                "type": "literal",
+                "value": "prompt"
+              },
+              {
+                "type": "literal",
+                "value": "capture"
+              }
+            ]
+          },
+          "optional": false
+        },
+        "modelId": {
+          "fieldType": {
+            "tableName": "models",
+            "type": "id"
+          },
+          "optional": true
+        },
+        "modelKey": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "outfitId": {
+          "fieldType": {
+            "tableName": "outfits",
+            "type": "id"
+          },
+          "optional": true
+        },
+        "posePrompt": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "variationId": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
     "path": "generate:generateShot",
     "type": "Action",
     "args": {
@@ -1146,6 +1651,74 @@
           "optional": true
         },
         "prompt": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "generate:importImage",
+    "type": "Action",
+    "args": {
+      "type": "object",
+      "value": {
+        "dataUrl": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "flowId": {
+          "fieldType": {
+            "tableName": "flows",
+            "type": "id"
+          },
+          "optional": true
+        },
+        "locationId": {
+          "fieldType": {
+            "tableName": "locations",
+            "type": "id"
+          },
+          "optional": true
+        },
+        "modelId": {
+          "fieldType": {
+            "tableName": "models",
+            "type": "id"
+          },
+          "optional": true
+        },
+        "outfitId": {
+          "fieldType": {
+            "tableName": "outfits",
+            "type": "id"
+          },
+          "optional": true
+        },
+        "prompt": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "source": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "url": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "variationId": {
           "fieldType": {
             "type": "string"
           },
@@ -1605,11 +2178,45 @@
     "returns": null
   },
   {
+    "path": "locations:keepBackdrop",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "locationBackdrops",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
     "path": "locations:list",
     "type": "Query",
     "args": {
       "type": "object",
       "value": {}
+    },
+    "returns": null
+  },
+  {
+    "path": "locations:listBackdrops",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "locationId": {
+          "fieldType": {
+            "tableName": "locations",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
     },
     "returns": null
   },
@@ -1622,6 +2229,40 @@
         "id": {
           "fieldType": {
             "tableName": "locations",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "locations:removeBackdrop",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "locationBackdrops",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "locations:unkeepBackdrop",
+    "type": "Mutation",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "locationBackdrops",
             "type": "id"
           },
           "optional": false
@@ -1766,6 +2407,50 @@
                 }
               }
             }
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "migrateR2:runImages",
+    "type": "Action",
+    "args": {
+      "type": "object",
+      "value": {
+        "cursor": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "limit": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "migrateR2:runVideos",
+    "type": "Action",
+    "args": {
+      "type": "object",
+      "value": {
+        "cursor": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "limit": {
+          "fieldType": {
+            "type": "number"
           },
           "optional": true
         }
@@ -2711,6 +3396,135 @@
     "returns": null
   },
   {
+    "path": "products:externalIds",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {}
+    },
+    "returns": null
+  },
+  {
+    "path": "products:get",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "id": {
+          "fieldType": {
+            "tableName": "outfits",
+            "type": "id"
+          },
+          "optional": false
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "products:list",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "limit": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
+        "query": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "shotStatus": {
+          "fieldType": {
+            "type": "union",
+            "value": [
+              {
+                "type": "literal",
+                "value": "any"
+              },
+              {
+                "type": "literal",
+                "value": "shot"
+              },
+              {
+                "type": "literal",
+                "value": "unshot"
+              }
+            ]
+          },
+          "optional": true
+        },
+        "source": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
+    "path": "products:shotBrief",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {
+        "extraPrompt": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "locationId": {
+          "fieldType": {
+            "tableName": "locations",
+            "type": "id"
+          },
+          "optional": true
+        },
+        "modelId": {
+          "fieldType": {
+            "tableName": "models",
+            "type": "id"
+          },
+          "optional": true
+        },
+        "modelKey": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "outfitId": {
+          "fieldType": {
+            "tableName": "outfits",
+            "type": "id"
+          },
+          "optional": false
+        },
+        "posePrompt": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        },
+        "variationId": {
+          "fieldType": {
+            "type": "string"
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": null
+  },
+  {
     "path": "review:favorites",
     "type": "Query",
     "args": {
@@ -2738,6 +3552,13 @@
           },
           "optional": true
         },
+        "flowId": {
+          "fieldType": {
+            "tableName": "flows",
+            "type": "id"
+          },
+          "optional": true
+        },
         "kind": {
           "fieldType": {
             "type": "union",
@@ -2760,9 +3581,29 @@
           },
           "optional": true
         },
+        "locationId": {
+          "fieldType": {
+            "tableName": "locations",
+            "type": "id"
+          },
+          "optional": true
+        },
+        "minRating": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
         "modelId": {
           "fieldType": {
             "tableName": "models",
+            "type": "id"
+          },
+          "optional": true
+        },
+        "outfitId": {
+          "fieldType": {
+            "tableName": "outfits",
             "type": "id"
           },
           "optional": true
@@ -2896,6 +3737,15 @@
   },
   {
     "path": "settings:get",
+    "type": "Query",
+    "args": {
+      "type": "object",
+      "value": {}
+    },
+    "returns": null
+  },
+  {
+    "path": "settings:imageModels",
     "type": "Query",
     "args": {
       "type": "object",
@@ -4916,6 +5766,12 @@
           },
           "optional": true
         },
+        "stackLoops": {
+          "fieldType": {
+            "type": "number"
+          },
+          "optional": true
+        },
         "stackScale": {
           "fieldType": {
             "type": "number"
@@ -5043,6 +5899,12 @@
         "durationSeconds": {
           "fieldType": {
             "type": "number"
+          },
+          "optional": true
+        },
+        "generateAudio": {
+          "fieldType": {
+            "type": "boolean"
           },
           "optional": true
         },

@@ -159,6 +159,10 @@ type FeedItem = {
   prompt?: string;
   modelId?: string;
   shootId?: string;
+  outfitId?: string;
+  locationId?: string;
+  variationId?: string;
+  flowId?: string;
 };
 
 /**
@@ -172,11 +176,31 @@ export const feed = query({
   args: {
     shootId: v.optional(v.id("shoots")),
     modelId: v.optional(v.id("models")),
+    /** Narrow to one product (outfit) — the gallery for a store item. */
+    outfitId: v.optional(v.id("outfits")),
+    locationId: v.optional(v.id("locations")),
+    /** Narrow to what one template produced. */
+    flowId: v.optional(v.id("flows")),
     favoritesOnly: v.optional(v.boolean()),
+    /** Only items rated at least this many stars. */
+    minRating: v.optional(v.number()),
     kind: v.optional(v.union(v.literal("image"), v.literal("video"))),
     limit: v.optional(v.number()),
   },
-  handler: async (ctx, { shootId, modelId, favoritesOnly, kind, limit }) => {
+  handler: async (
+    ctx,
+    {
+      shootId,
+      modelId,
+      outfitId,
+      locationId,
+      flowId,
+      favoritesOnly,
+      minRating,
+      kind,
+      limit,
+    },
+  ) => {
     const scope = await getScope(ctx);
     // When scoped to a shoot, the by_shoot index isn't org-bounded — assert the
     // shoot belongs to the caller before reading its media.
@@ -225,6 +249,10 @@ export const feed = query({
           prompt: g.prompt,
           modelId: g.modelId,
           shootId: g.shootId,
+          outfitId: g.outfitId,
+          locationId: g.locationId,
+          variationId: g.variationId,
+          flowId: g.flowId,
         });
       }
     }
@@ -246,13 +274,22 @@ export const feed = query({
           prompt: vd.prompt,
           modelId: vd.modelId,
           shootId: vd.shootId,
+          locationId: vd.locationId,
         });
       }
     }
 
-    const filtered = modelId
-      ? items.filter((it) => it.modelId === modelId)
-      : items;
+    // Videos carry neither an outfitId nor a flowId — they're animated *from* an
+    // image, and only the image records which product or template it came from.
+    // Filtering on either therefore yields images only, by construction.
+    const filtered = items.filter(
+      (it) =>
+        (!modelId || it.modelId === modelId) &&
+        (!outfitId || it.outfitId === outfitId) &&
+        (!locationId || it.locationId === locationId) &&
+        (!flowId || it.flowId === flowId) &&
+        (!minRating || (it.rating ?? 0) >= minRating),
+    );
     filtered.sort((a, b) => b._creationTime - a._creationTime);
     return limit ? filtered.slice(0, limit) : filtered;
   },

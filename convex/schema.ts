@@ -458,6 +458,31 @@ export default defineSchema({
     .index("by_org", ["orgId"])
     .index("by_org_type", ["orgId", "type"]),
 
+  // --- Flows: reusable product-shot templates ------------------------------
+  // A flow is a graph (edited with xyflow on the web, run from anywhere) that
+  // wires products, models and locations into one or more output nodes. Running
+  // it expands every connected combination into generations, so "re-shoot this
+  // product" or "every variant of it" is one call instead of a rebuilt shoot.
+  //
+  // The graph is stored as the editor's own {nodes, edges} shape — v.any() by
+  // design. Node positions and styling are the editor's business; the runner
+  // only reads `node.type` and the handful of ids in `node.data`, and ignores
+  // anything it doesn't recognise, so the editor can evolve without migrations.
+  flows: defineTable({
+    orgId: v.string(),
+    createdBy: v.string(),
+    name: v.string(),
+    description: v.optional(v.string()),
+    graph: v.any(), // { nodes: FlowNode[], edges: FlowEdge[] }
+    // Run defaults, overridable per run.
+    defaultModelKey: v.optional(v.string()),
+    defaultAspectRatio: v.optional(v.string()),
+    /** Refuse a run that would expand past this many images. */
+    maxImages: v.optional(v.number()),
+    lastRunAt: v.optional(v.number()),
+    archived: v.optional(v.boolean()),
+  }).index("by_org", ["orgId"]),
+
   // --- Shoots -------------------------------------------------------------
   shoots: defineTable({
     orgId: v.string(),
@@ -663,6 +688,10 @@ export default defineSchema({
     // no shoot. Normal shot generations always set both.
     shotId: v.optional(v.id("shots")),
     shootId: v.optional(v.id("shoots")),
+    // Set when the image came out of a flow run, so a re-render can be compared
+    // against the batch it replaces. `flowRunId` groups one run's images.
+    flowId: v.optional(v.id("flows")),
+    flowRunId: v.optional(v.string()),
     variationId: v.optional(v.string()), // which outfit variation (null => base)
     // Snapshot of the shot's recipe at generation time. A shot can later be
     // re-cast (different model/outfit/location/presets), so these frozen ids —

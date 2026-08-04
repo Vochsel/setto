@@ -1,6 +1,36 @@
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { getScope } from "./lib/auth";
+import {
+  selectableImageModels,
+  DEFAULT_MODEL_ID,
+} from "./lib/imageModels";
+
+/**
+ * The image models on offer, with prices. The registry is compiled into the
+ * backend, so remote callers (MCP, CLI) have no other way to learn what they're
+ * allowed to pass as `modelKey` — or what it costs before they spend it.
+ */
+export const imageModels = query({
+  args: {},
+  handler: async (ctx) => {
+    const scope = await getScope(ctx);
+    const row = await ctx.db
+      .query("settings")
+      .withIndex("by_org", (q) => q.eq("orgId", scope.orgId))
+      .unique();
+    const workspaceDefault = row?.defaultImageModelKey ?? DEFAULT_MODEL_ID;
+    return selectableImageModels(workspaceDefault).map((m) => ({
+      id: m.id,
+      label: m.label,
+      provider: m.provider,
+      description: m.description,
+      pricePerImage: m.pricePerImage,
+      supportsImagePrompt: m.supportsImagePrompt,
+      isWorkspaceDefault: m.id === workspaceDefault,
+    }));
+  },
+});
 
 export const get = query({
   args: {},

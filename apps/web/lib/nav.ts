@@ -14,6 +14,7 @@ import {
   Activity,
   ShoppingBag,
   Send,
+  Workflow,
   type LucideIcon,
 } from "lucide-react";
 
@@ -25,6 +26,7 @@ export interface NavItem {
 
 export const mainNav: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { title: "Flows", href: "/flows", icon: Workflow },
   { title: "Shoots", href: "/shoots", icon: Clapperboard },
   { title: "Campaigns", href: "/campaigns", icon: Megaphone },
   { title: "Videos", href: "/videos", icon: Film },

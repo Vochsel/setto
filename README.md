@@ -30,6 +30,12 @@ and generate grounded imagery through **fal** — shared across your team.
 - **Optional 3D staging**: block out the scene (model, cameras, lights) in a
   top-down view, preview through a virtual camera, and apply the camera framing
   to the shots' prompts.
+- **Flows** (`/flows`) are the store-facing path: a graph wiring products (and
+  their variants) to people and places, saved as a template and re-run whenever
+  the catalogue changes — on a new arrival, or across every variant of one
+  product. Runs are counted and costed before they spend, and refuse to start
+  past the flow's image cap. Products come from Shopify sync, so "new product →
+  photographed" is one call, from the web app or from an agent over MCP.
 - Everything is scoped to your WorkOS **organization**, so teammates share all
   shoots, models, outfits, locations and presets.
 
@@ -106,6 +112,41 @@ in sync with the backend:
   **Claude.ai and ChatGPT online** connectors. This is the one to use if you want
   to connect from the browser apps rather than a desktop client.
 
+### The MCP tool surface
+
+Both MCP servers expose the same hand-written, product-shaped surface — not one
+tool per backend function. The job is "a store catalogue that needs imagery", so
+the tools are:
+
+| Tool | What it's for |
+| --- | --- |
+| `list_products` / `get_product` | the catalogue, with variants, images, and how many photos each has. `{ shotStatus: "unshot" }` finds what still needs shooting |
+| `list_models` / `list_locations` | the people and places a shot can use |
+| `gallery` | finished images/videos, filterable by product, model, location, flow, favourites or rating |
+| `generate_product_shot` | make photos of a product, optionally on a person and in a place. `{ estimateOnly: true }` prices it first |
+| `shot_brief` | the prompt + reference images for a shot, **without generating** — free |
+| `import_image` | file an image generated elsewhere into a product's gallery |
+| `sync_shopify` | pull the store catalogue in; reports which products are newly imported |
+| `list_flows` / `run_flow` | run a saved template, optionally against a different product or every variant |
+| `list_image_models` | the models and their per-image prices |
+| `describe` / `call` | escape hatch to the full ~175-function surface |
+| `search` / `fetch` | required by ChatGPT Deep Research |
+
+Generation defaults to the cheapest tier (`openai/gpt-image-2-low`) because an
+agent asked to "shoot the new arrivals" will fan out further than you expect;
+pass `modelKey` to choose deliberately.
+
+**Skills** are exposed as MCP prompts — playbooks that encode the order of
+operations, which is the part a model gets wrong when handed tools alone:
+`shoot-new-products`, `variant-sweep`, `generate-with-your-own-images` (use the
+client's own image generation and import the results), and `pick-the-keepers`.
+
+**Using ChatGPT's own image generation**: `shot_brief` (or
+`run_flow { mode: "brief" }`) returns the assembled prompt and reference image
+URLs without spending anything. Generate from those yourself, then hand the
+result back with `import_image` — it lands in the product's gallery tagged like
+any other shot.
+
 ### Local (stdio) MCP
 
 ```bash
@@ -131,8 +172,8 @@ HTTPS endpoint, so this requires the web app to be **deployed** (not localhost).
 The endpoint:
 
 - speaks MCP's **Streamable HTTP** transport at `POST /api/mcp` (stateless);
-- exposes the full setto tool surface **plus `search` + `fetch`** (the two tools
-  ChatGPT Deep Research expects);
+- exposes the tool surface above **plus `search` + `fetch`** (the two tools
+  ChatGPT Deep Research expects), and the skills as MCP prompts;
 - authenticates each request with a **WorkOS access token** — the same JWT Convex
   validates — so org-scoping and permissions match the web app exactly;
 - advertises its OAuth authorization server (your **WorkOS AuthKit** domain) via
@@ -156,7 +197,7 @@ The endpoint:
   you in through WorkOS, and the setto tools appear.
 - **ChatGPT** → Settings → Connectors (Developer Mode) or the Deep Research
   connector picker → add the same URL. `search`/`fetch` power Deep Research; the
-  typed per-function tools power Developer-Mode tool calls.
+  product tools power Developer-Mode tool calls.
 
 > Auth model: the MCP endpoint is an OAuth **resource server**; WorkOS AuthKit is
 > the **authorization server**. No new user store — connectors authenticate the

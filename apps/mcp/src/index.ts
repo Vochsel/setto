@@ -15,6 +15,8 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  ListPromptsRequestSchema,
+  GetPromptRequestSchema,
   type CallToolResult,
 } from "@modelcontextprotocol/sdk/types.js";
 import {
@@ -22,18 +24,29 @@ import {
   getConfig,
   listTools,
   callTool,
+  listPrompts,
+  getPrompt,
   SERVER_NAME,
   SERVER_VERSION,
 } from "@setto/core";
 
 const server = new Server(
   { name: SERVER_NAME, version: SERVER_VERSION },
-  { capabilities: { tools: {} } },
+  // `prompts` are the skills — see @setto/core PROMPTS.
+  { capabilities: { tools: {}, prompts: {} } },
 );
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: listTools(),
 }));
+
+server.setRequestHandler(ListPromptsRequestSchema, async () => ({
+  prompts: listPrompts(),
+}));
+
+server.setRequestHandler(GetPromptRequestSchema, async (req) =>
+  getPrompt(req.params.name, (req.params.arguments ?? {}) as Record<string, string>),
+);
 
 server.setRequestHandler(CallToolRequestSchema, async (req) => {
   const { name } = req.params;

@@ -25,6 +25,8 @@ import {
   callWith,
   listTools,
   callTool,
+  listPrompts,
+  getPrompt,
   SERVER_NAME,
   SERVER_VERSION,
   getConfig,
@@ -95,7 +97,13 @@ async function handleMessage(
           typeof params?.protocolVersion === "string"
             ? params.protocolVersion
             : SUPPORTED_PROTOCOL,
-        capabilities: { tools: { listChanged: false } },
+        capabilities: {
+          tools: { listChanged: false },
+          // Skills — named playbooks the client can offer by name. They encode
+          // the order of operations (sync → find unshot → estimate → generate)
+          // that a model handed only tools tends to get wrong.
+          prompts: { listChanged: false },
+        },
         serverInfo: { name: SERVER_NAME, version: SERVER_VERSION },
       });
 
@@ -104,6 +112,22 @@ async function handleMessage(
 
     case "tools/list":
       return ok(id, { tools: listTools() });
+
+    case "prompts/list":
+      return ok(id, { prompts: listPrompts() });
+
+    case "prompts/get":
+      try {
+        return ok(
+          id,
+          getPrompt(
+            String(params?.name ?? ""),
+            (params?.arguments ?? {}) as Record<string, string>,
+          ),
+        );
+      } catch (e) {
+        return rpcError(id, -32602, e instanceof Error ? e.message : String(e));
+      }
 
     case "tools/call": {
       const name = String(params?.name ?? "");
